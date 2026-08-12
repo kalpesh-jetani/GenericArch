@@ -3,7 +3,7 @@
 The `.xcodeproj`, every target in it, and how each one is configured.
 
 - **Maintained by:** targeted edit whenever a target, capability, entitlement, `Info.plist` key, or linked package changes.
-  A full rescan is the `/sync-app-notes` skill, which runs **only with your approval**.
+  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
 - **Read this when:** adding a target or extension, adding a capability, wiring a package into a
   target, or debugging a signing/entitlement failure.
 - **Lives in:** the repo root's `.xcodeproj` only. Packages have no project file — they are SPM

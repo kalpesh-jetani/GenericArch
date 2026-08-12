@@ -234,9 +234,7 @@ Where each layer, reference, and inventory lives. Deciding where **new** materia
 **Edit the affected rows in the same change as every insertion or deletion** — screen, route, image,
 color, font, scheme, target. That is a targeted edit and needs no approval.
 
-**Never run `sync-app-notes` on your own initiative.** The full rescan overwrites correct rows with
-incomplete ones when the tree is half-finished. Propose it, say what would change, and wait for an
-explicit yes.
+A full rescan is the user's **`/sync-app-notes`** command — never start one yourself.
 
 ---
 
@@ -342,8 +340,8 @@ Build and test: `/build [DEV|TEST|BETA|PROD] [ios|macos] [build|test|archive]`.
 - **Never edit this file without explicit approval** — including when certain. Show the exact text
   and wait ([STRUCTURE.md](docs/STRUCTURE.md)). New guidance almost always belongs elsewhere: a
   module doc, a skill, or a command — none of which require touching this file.
-- **Edit the affected `.claude/notes/` rows in the same change** as any insertion or deletion. Never
-  run `sync-app-notes` without an explicit yes.
+- **Edit the affected `.claude/notes/` rows in the same change** as any insertion or deletion. The
+  full rescan is the user's `/sync-app-notes` command, never yours to start.
 - **Run `./Scripts/check.sh`** before saying a change is done; it enforces §2 mechanically.
 - Read the relevant `Package.swift` before adding a dependency edge. If it violates §3's direction,
   stop and say so rather than adding it.

@@ -64,7 +64,6 @@ Skills and commands from the GenericArch Apple-platform architecture. **Generate
 | `dark-light-mode` | A colour or asset changes, or something looks wrong in dark |
 | `rtl-support` | Adding a locale, or verifying mirroring |
 | `release-bump` | Releasing an extracted package |
-| `sync-app-notes` | Rebuilding the inventories — **approval-only** |
 
 | Command | Does |
 |---|---|
@@ -72,6 +71,8 @@ Skills and commands from the GenericArch Apple-platform architecture. **Generate
 | `/verify` | Walk the Definition of Done against the working diff |
 | `/gaps` | Triage the gap list — derived from code on an existing repo |
 | `/decide` | Record a settled decision |
+| `/upgrade-stack` | Reconcile project settings with the machine — asks twice |
+| `/sync-app-notes` | Rebuild the seven inventories from a filesystem scan |
 | `/build` | Build, test, or archive a stage |
 
 ## What it does NOT add

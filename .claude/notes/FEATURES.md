@@ -3,7 +3,7 @@
 Inventory of every feature package and the screens it owns.
 
 - **Maintained by:** targeted edit on every insertion or deletion.
-  A full rescan is the `/sync-app-notes` skill, which runs **only with your approval**.
+  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
 - **Read this when:** deciding where a screen belongs, checking whether a feature already exists,
   or tracing which package owns a route.
 - **Source of truth:** the code. If this file and the code disagree, the code wins and this file

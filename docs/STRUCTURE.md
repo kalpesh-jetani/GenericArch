@@ -89,9 +89,13 @@ Two ways a note changes, and they are not interchangeable:
 
 | | Targeted edit | Full rescan |
 |---|---|---|
-| **What** | The rows your change touches | `sync-app-notes` rewrites all seven from a filesystem scan |
+| **What** | The rows your change touches | `/sync-app-notes` rewrites all seven from a filesystem scan |
 | **When** | Every insertion or deletion, same change | First setup, or drift too large to fix by hand |
-| **Approval** | None | **Explicit yes, every time** |
+| **Who starts it** | Claude, as part of the change | **The user, by typing the command** |
+
+`sync-app-notes` is a **command precisely because of the rule above** — it must never fire by
+inference, so it is not a skill. That is the worked example: when a procedure's own description has
+to say "never invoke automatically", the description is doing a job the file type should be doing.
 
 A rescan against a half-finished tree overwrites correct rows with incomplete ones — which is worse
 than a stale note, because it looks current.

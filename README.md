@@ -89,7 +89,8 @@ docs/                hand-written reasoning: module design + cross-cutting refer
 docs/modules/        one doc per package
 .claude/notes/       inventories generated from the code (features, routes, assets, fonts, schemes)
 .claude/skills/      procedures Claude applies on its own
-.claude/commands/    things you trigger: /build /verify /decide /gaps /project-init /upgrade-stack
+.claude/commands/    things you trigger: /project-init /verify /gaps /decide
+                     /upgrade-stack /sync-app-notes /build
 Scripts/check.sh     enforces the rules a linter can't express
 ```
 
@@ -125,7 +126,13 @@ Four commands:
 | `/gaps` | Triage [docs/GAPS.md](docs/GAPS.md) — derives status from code on an existing repo, asks on a fresh one |
 | `/decide` | Record a settled decision in the log |
 | `/upgrade-stack` | Reconcile project settings with the machine — asks twice before changing anything |
+| `/sync-app-notes` | Rebuild the seven inventories from a filesystem scan |
 | `/build` | Build, test, or archive a stage |
+
+Skills fire on their own when the situation matches — `new-feature`, `dark-light-mode`,
+`rtl-support`, `release-bump`. Commands only run when you type them. Anything that must **never**
+trigger by inference is a command, which is why the full inventory rescan is `/sync-app-notes` and
+not a skill.
 
 Two standing rules the agent follows: **CLAUDE.md is never edited without explicit approval**, and
 the note inventories are updated by targeted edit — never by an unrequested full rescan.

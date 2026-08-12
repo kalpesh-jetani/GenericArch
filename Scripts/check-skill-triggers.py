@@ -26,7 +26,8 @@ CASES = [
     ("audit this screen for right to left", "rtl-support"),
     ("ship NetworkKit 2.1", "release-bump"),
     ("bump ImageCache after the cache fix", "release-bump"),
-    ("refresh the inventory notes", "sync-app-notes"),
+    # sync-app-notes is a COMMAND, not a skill — nothing should fire on this phrasing.
+    ("refresh the inventory notes", None),
 ]
 
 # Stopwords carry no trigger signal. Counting them produced false collisions — the metric was
@@ -49,6 +50,11 @@ for prompt, expected in CASES:
     s = {k: score(prompt, d) for k, d in descs.items()}
     top = max(s.values()) if s else 0
     winners = [k for k, v in s.items() if v == top and v > 0]
+    if expected is None:
+        # Must match no skill — it is a user-typed command.
+        if winners:
+            problems.append(f"LEAKED {prompt!r} → {winners} (should match no skill)")
+        continue
     if len(winners) > 1 and expected != "AMBIGUOUS":
         problems.append(f"TIE  {prompt!r} → {winners} (want {expected})")
     elif winners and winners[0] != expected and expected != "AMBIGUOUS":
@@ -58,4 +64,4 @@ if problems:
     print("\n".join(problems))
     print(f"\n{len(problems)} trigger collision(s)")
     sys.exit(1)
-print(f"{len(CASES)} prompts route unambiguously across {len(descs)} skills")
+print(f"{len(CASES)} prompts route correctly across {len(descs)} skills")

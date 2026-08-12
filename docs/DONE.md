@@ -64,7 +64,7 @@ Not every line is machine-checkable, and pretending otherwise is how a checklist
 
 - [ ] 🤖 The module's `.md` updated if behavior changed
 - [ ] 👁 `.claude/notes/` **rows** updated for every insertion or deletion — screen, route, image,
-      color, font, scheme, target. Targeted edits; **not** a `sync-app-notes` run
+      color, font, scheme, target. Targeted edits; **not** a `/sync-app-notes` run
 - [ ] 👁 Any §0 decision made in this change recorded in [DECISIONS.md](DECISIONS.md) — `/decide`
 
 ---

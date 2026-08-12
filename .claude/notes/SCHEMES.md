@@ -3,7 +3,7 @@
 Four schemes, four configurations, one rule for picking between them.
 
 - **Maintained by:** targeted edit whenever a scheme, configuration, bundle ID, or environment value changes.
-  A full rescan is the `/sync-app-notes` skill, which runs **only with your approval**.
+  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
 - **Read this when:** choosing which scheme to build, adding a configuration-dependent value,
   wiring an environment, or preparing a release.
 - **Lives in:** the app repo's `.xcodeproj` only. Packages have no schemes — they build with

@@ -113,4 +113,4 @@ index gets one row, nothing more.
 
 Run DONE. The ones missed most often here: every `ContentState` implemented, no raw
 string literal in a view, mocks provided, the feature's `.md` written, and the new rows added to
-`.claude/notes/FEATURES.md` and `NAVIGATION.md` — targeted edits, not a `sync-app-notes` run.
+`.claude/notes/FEATURES.md` and `NAVIGATION.md` — targeted edits, not a `/sync-app-notes` run.

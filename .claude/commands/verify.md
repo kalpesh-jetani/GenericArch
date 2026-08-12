@@ -47,7 +47,7 @@ Three groups, in this order:
 ## Constraints
 
 - **Do not fix anything.** This command reports. The user decides what to act on.
-- **Do not run `sync-app-notes`.** If notes are stale, say which rows are missing and let the user
-  decide — the full rescan needs explicit approval (CLAUDE.md §5).
+- **Do not run `/sync-app-notes`.** If notes are stale, say which rows are missing and let the user
+  decide — the full rescan is theirs to start (CLAUDE.md §5).
 - Never report a line as passing because it "looks fine". If it wasn't checked, it goes in
   *Not checkable here*.

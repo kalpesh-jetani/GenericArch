@@ -3,7 +3,7 @@
 Every image asset, by catalog group, with the package that owns it.
 
 - **Maintained by:** targeted edit on every asset insertion or deletion.
-  A full rescan is the `/sync-app-notes` skill, which runs **only with your approval**.
+  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
 - **Read this when:** looking for an existing asset before adding a near-duplicate, or checking
   which package an image lives in.
 - **Rule:** images are referenced through typed accessors, never a raw string

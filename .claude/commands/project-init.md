@@ -115,9 +115,9 @@ never renumber their sections, never add meta notes about the docs.
 
 A skill or command whose name already exists would shadow or duplicate theirs.
 
-For each of ours — skills `new-feature`, `release-bump`, `sync-app-notes`, `dark-light-mode`,
-`rtl-support`; commands `build`, `verify`, `decide`, `project-init` — check for an existing file or
-directory of that name.
+For each of ours — skills `new-feature`, `release-bump`, `dark-light-mode`, `rtl-support`; commands
+`build`, `verify`, `decide`, `gaps`, `project-init`, `upgrade-stack`, `sync-app-notes` — check for an
+existing file or directory of that name.
 
 On a collision, ask: **keep theirs** · **install ours under a prefixed name** (`ga-build`) ·
 **merge the two** · **skip ours**. Do not overwrite. Also flag *description* overlap without a name
@@ -159,10 +159,9 @@ Present this before asking for anything — the answers change once they know wh
 | `dark-light-mode` | Adding a color/asset, or "this looks wrong in dark" |
 | `rtl-support` | Adding a language, or auditing layout mirroring |
 | `release-bump` | Releasing one of the two extracted packages |
-| `sync-app-notes` | Full inventory rescan — **approval-only, never automatic** |
 
-**Commands** — only run when the user types them: `/build` · `/verify` · `/decide` ·
-`/project-init`.
+**Commands** — only run when the user types them: `/build` · `/verify` · `/decide` · `/gaps` ·
+`/project-init` · `/upgrade-stack` · `/sync-app-notes`.
 
 Then ask which they want kept. A skill they'll never use is always-on description cost for nothing.
 
@@ -290,9 +289,9 @@ is the record of what ships ([REPO.md](../../docs/REPO.md)).
 
 ## S3. Populate the notes
 
-Once there's code to scan, run `sync-app-notes`. The approval it requires is satisfied by the user
-having asked for this command — but **state what you're about to scan first**, and populate rather
-than rewrite: the prose in each note is hand-written and must survive.
+Once there's code to scan, offer `/sync-app-notes`. **Do not run it from here** — it is the user's
+command, and initialisation is not blanket consent to rewrite seven files. Tell them it is the next
+step and what it will scan.
 
 Then fill by hand what no scan can know: the marketing version in `Base.xcconfig`, signing rows in
 [SCHEMES.md](../notes/SCHEMES.md), Team ID in [PROJECT.md](../notes/PROJECT.md).
