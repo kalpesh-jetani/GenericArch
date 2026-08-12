@@ -72,9 +72,10 @@ Not every line is machine-checkable, and pretending otherwise is how a checklist
 
 ## After it passes
 
-`feature-complete` closes it out and asks what to keep: capture the pattern as a skill, close with a
-note, keep working, or decide later. Most work should close with a note — a skill is only worth its
-always-on cost when the next similar feature would follow the same sequence.
+`feature-complete` closes it out and asks what to keep, in the user's terms: *this can be used in
+future — so save it* · *just close* · *continue* · *skip*. Most work should just close with a note —
+saving it as a skill is only worth the cost when the next similar feature would follow the same
+sequence.
 
 ## When something can't be checked
 

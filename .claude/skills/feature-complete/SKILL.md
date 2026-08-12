@@ -22,9 +22,13 @@ which were **not** checked rather than counting them as passed.
 
 Use `AskUserQuestion`. Lead with what was built, in one line, so the choice is informed.
 
+**Use these labels verbatim.** They say what the option *does*, not what it is called internally —
+"this can be used in future, so save it" is answerable without knowing that a skill is what gets
+saved. Do not shorten them back into jargon.
+
 | Option | What happens |
 |---|---|
-| **Mark Feature as Completed** | Capture the reusable pattern as a new skill, then close |
+| **This can be used in future — so save it** | Capture the reusable pattern as a new skill, then close |
 | **Just Close** | Record the outcome as a note. No skill |
 | **Continue** | Not finished — keep working. Nothing is closed or recorded |
 | **Skip** | Decide later. The feature stays open, and stop asking for now |
@@ -43,7 +47,7 @@ feature can reuse — they are one screen, one endpoint, one shape of data. Say 
 > a future feature would follow. **Just Close** — recommended. A skill for it would be always-on
 > description cost for something that fires once, wrongly.
 
-## 3. "Mark Feature as Completed" → create the skill
+## 3. "This can be used in future — so save it" → create the skill
 
 ### 3a. First, judge whether a pattern actually exists
 
