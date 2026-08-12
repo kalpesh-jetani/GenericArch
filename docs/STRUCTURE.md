@@ -100,6 +100,25 @@ to say "never invoke automatically", the description is doing a job the file typ
 A rescan against a half-finished tree overwrites correct rows with incomplete ones — which is worse
 than a stale note, because it looks current.
 
+## Writing a path
+
+**Never write a bare file path.** Anywhere a path is meant to be searched or followed — a note row,
+an index, a grep recipe, a mermaid `click` target, a cross-reference — pair it with a short note
+saying what is there.
+
+```markdown
+✅ `Packages/Navigation/Sources/Navigation/Route.swift:12` — the case declaration
+✅ click homeFeed "…/FeedView.swift" "Paged feed — ContentState<Paged<Item>>"
+❌ `Packages/Navigation/Sources/Navigation/Route.swift`
+```
+
+A path answers *where*, not *what*. Without the note the reader opens every hit to find the one they
+want, which is precisely the work an index exists to remove. One clause is enough; if there is
+nothing useful to say, the row probably isn't worth listing.
+
+Paths are repo-relative and must resolve to exactly one file — no `.../` abbreviations, because grep
+cannot follow them.
+
 ## Keeping it honest
 
 - **A doc that drifts from its code is worse than no doc.** Update it in the same change that changes

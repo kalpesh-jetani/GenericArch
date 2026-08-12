@@ -30,8 +30,8 @@ case this warning exists for. If it's dirty, say so and let the user decide.
 
 | Note | Scan | Key output |
 |---|---|---|
-| `FEATURES.md` | `Packages/Features/*/Sources/**/Views/`, view models | features → screens → routes, states implemented |
-| `NAVIGATION.md` | `Route` enum, shell `navigationDestination`, deep-link parser | route inventory, entry points, flow, deep links |
+| `FEATURES.md` | `Packages/Features/*/Sources/**/Views/`, view models | features → screens → routes, states, **file paths** |
+| `NAVIGATION.md` | `Route` enum, shell `navigationDestination`, deep-link parser | route inventory, entry points, flow, deep links, **file paths** |
 | `ASSETS-IMAGES.md` | `**/*.xcassets/**/*.imageset` | group, name, rendering mode, dark variant, owner |
 | `ASSETS-COLORS.md` | `**/*.xcassets/**/*.colorset/Contents.json` | token, **light + dark hex** |
 | `FONTS.md` | `*.otf`/`*.ttf`, `Info.plist`, `Font.custom` call sites | family, PostScript names, **registration path**, tokens |
@@ -49,6 +49,35 @@ grep -rn "case " --include="Route.swift"
 
 Colorsets store components as float strings or hex — normalise to `#RRGGBB` uppercase, and record
 **Any/Light** and **Dark** separately. A colorset with one appearance is a finding, not a blank cell.
+
+## Paths are the point — emit them, verified
+
+`FEATURES.md` and `NAVIGATION.md` are indexes: someone should `grep` a screen or a route there and
+get the file. So every row carries a **repo-relative path**, and every graph node carries a
+`click` target.
+
+```bash
+# a route case and the line that defines it
+grep -rn "case .*:" --include="Route.swift" Packages | sed 's/:.*case /  /'
+# the view that renders it — from the shell's switch
+grep -rn "navigationDestination" -A40 App | grep -E "case \.|Assembly"
+```
+
+Four rules, because a wrong or unexplained path is worse than a missing one:
+
+1. **Never emit a bare path.** Every path gets a clause saying what is there —
+   `Route.swift:12 — the case declaration`, `LoginView.swift — email/password form, owns field
+   state`. A path answers *where*, not *what*; without the note the reader opens every hit. In
+   mermaid, that clause is the third `click` argument (the tooltip). In shell recipes, a `#` comment
+   on the same line.
+2. **Verify every path resolves** before writing it. If the file isn't there, the row goes in `Gaps`
+   — never emit a guess.
+3. **A `:line` suffix is optional and only for a definition site.** Omit it rather than let it rot;
+   a stale line number sends the reader to the wrong place with full confidence.
+4. **Keep every `click` line in the mermaid block.** They are what make the diagram findable by
+   `grep`, not decoration — a diagram without them is a picture, not an index.
+
+If there is nothing useful to say about a path, that is a signal the row may not be worth listing.
 
 ## Rules for every note
 

@@ -115,6 +115,28 @@ if [ -x Scripts/detect-toolchain.sh ]; then
   fi
 fi
 
+echo "── Note paths resolve ─────────────────────────────────────"
+# FEATURES.md and NAVIGATION.md are indexes — someone greps a screen there and expects the file.
+# A path that no longer exists sends them somewhere confidently wrong, so it is an error, not a nit.
+# Commented-out example rows are skipped: they document the format before any real code exists.
+for note in .claude/notes/FEATURES.md .claude/notes/NAVIGATION.md; do
+  [ -f "$note" ] || continue
+  missing=$(python3 - "$note" <<'PY'
+import re, sys, pathlib
+text = pathlib.Path(sys.argv[1]).read_text()
+text = re.sub(r'<!--.*?-->', '', text, flags=re.S)          # drop illustrative examples
+paths = set(re.findall(r'\b((?:Packages|App|docs|Scripts)/[\w./-]*\.\w+)', text))
+print('\n'.join(sorted(p for p in paths if not pathlib.Path(p.split(':')[0]).exists())))
+PY
+)
+  if [ -n "$missing" ]; then
+    printf '%s✗ %s references files that do not exist%s\n' "$RED" "$note" "$OFF"
+    printf '  %sFix the row or move it to Gaps — a wrong path is worse than a missing one.%s\n' "$DIM" "$OFF"
+    printf '%s\n' "$missing" | sed 's/^/    /'; fails=$((fails + 1))
+  fi
+done
+printf '  %sindex paths verified%s\n' "$DIM" "$OFF"
+
 echo "── Docs & keys ────────────────────────────────────────────"
 for pkg in Packages/*/ Packages/Features/*/; do
   [ -f "${pkg}Package.swift" ] || continue
