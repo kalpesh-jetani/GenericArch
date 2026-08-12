@@ -4,8 +4,8 @@ Three ways to hand this to someone else. They are not alternatives to pick once 
 using two of them, for different layers.
 
 - **When to read this:** you are the one **publishing** this base.
-- **Consumers read [../README.md](../README.md)** instead — it has the copy-paste install for each
-  case. Keep the two in step: the version pinned in README's `curl` URL must be a tag that exists.
+- **Consumers read the repo's `README.md`** instead — it has the copy-paste install for each
+  case (github.com/kalpesh-jetani/GenericArch). Keep the two in step: the version pinned in README's `curl` URL must be a tag that exists.
 
 ---
 

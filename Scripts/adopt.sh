@@ -54,20 +54,47 @@ docs/PERFORMANCE.md
 Scripts/check.sh
 Scripts/check-skill-triggers.py
 Scripts/detect-toolchain.sh
+docs/ADOPTION.md
+docs/SHARING.md
+Scripts/adopt.sh
+Scripts/build-plugin.sh
+install.sh
 "
 
 # ── What must NOT travel, and why ──────────────────────────────────────────
 # Each is this product's state. Carrying it into another repo makes the target's docs lie.
 EXCLUDED="
 CLAUDE.md|the target's rules are its own — /project-init reconciles instead of overwriting
-.claude/notes|inventories of THIS app's screens/routes/assets — /project-init creates the target's own
-docs/DECISIONS.md|THIS product's answers; the target records its own
-docs/GAPS.md|gap statuses are per-product
+docs/DECISIONS.md|THIS product's answers — an empty one is created instead (see Scaffolded)
+docs/GAPS.md|gap statuses are per-product — an empty one is created instead (see Scaffolded)
 Packages|this product's code
 App|this product's app shells
 README.md|the target has its own
 .gitignore|the target has its own; merge by hand if needed
 "
+
+# ── Nothing may fall through the lists ─────────────────────────────────────
+# ADOPTION.md, SHARING.md and install.sh were silently not installed for weeks: they were added
+# after these lists were written and nobody updated them. A missing file is invisible at adopt
+# time and only surfaces when a command references it in someone else's repo. So: fail loudly.
+SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes"
+# BASE is newline-separated and EXCLUDED is "path|reason" — flatten both to a space-delimited
+# list of bare paths before matching, or every entry looks unaccounted for.
+KNOWN=" $(echo $BASE) $(printf '%s\n' "$EXCLUDED" | sed 's/|.*//' | tr '\n' ' ') $SCAFFOLDED "
+unaccounted=""
+for f in $(ls -d docs/*.md docs/modules Scripts/* .swiftlint.yml .swiftformat .gitignore \
+                 install.sh README.md CLAUDE.md .claude/skills .claude/commands .claude/notes \
+                 Packages App 2>/dev/null); do
+  case "$KNOWN" in *" $f "*) continue ;; esac
+  unaccounted="$unaccounted $f"
+done
+if [ -n "$unaccounted" ]; then
+  echo
+  echo "${RED}✗ these are in neither BASE, EXCLUDED nor SCAFFOLDED — they would be silently skipped${OFF}"
+  for f in $unaccounted; do echo "    $f"; done
+  echo "  ${DIM}Add each to one of the three lists in this script, then re-run.${OFF}"
+  exit 1
+fi
 
 echo
 echo "${BLD}GenericArch → adopt${OFF}"
@@ -130,9 +157,137 @@ for line in $EXCLUDED; do
 done
 IFS="$OLDIFS"
 
+# ── Scaffolded: created empty in the target, never copied from here ────────
+# /decide, /gaps and /project-init all write to these. Without them the commands have nowhere to
+# go; with our copies the target inherits this product's decisions. So: create, don't copy.
+echo
+echo "${BLD}── Created empty (never copied) ────────────────────────${OFF}"
+scaffolded=0
+for pair in "docs/DECISIONS.md|the target records its own decisions here — /decide" \
+            "docs/GAPS.md|the target triages its own gaps here — /gaps" \
+            ".claude/notes|the eight inventories, prose kept and data rows blanked"; do
+  f="${pair%%|*}"; why="${pair#*|}"
+  if [ -e "$TARGET/$f" ]; then
+    printf '  %scollision%s  %s %s(exists — kept)%s\n' "$YEL" "$OFF" "$f" "$DIM" "$OFF"
+  else
+    printf '  %s+%s %s %s— %s%s\n' "$GRN" "$OFF" "$f" "$DIM" "$why" "$OFF"
+    scaffolded=$((scaffolded + 1))
+  fi
+done
+
+if [ "$APPLY" -eq 1 ] && [ ! -e "$TARGET/.claude/notes" ]; then
+  mkdir -p "$TARGET/.claude"
+  cp -R "$SRC/.claude/notes" "$TARGET/.claude/notes"
+  # Keep every heading, rule and commented example; blank only filled data rows. A row is data if
+  # it has 3+ cells and is not the header or its separator.
+  for n in "$TARGET"/.claude/notes/*.md; do
+    python3 - "$n" <<'PY'
+import re, sys, pathlib
+p = pathlib.Path(sys.argv[1]); out = []; prev_header = False
+for line in p.read_text().splitlines():
+    st = line.strip()
+    is_row = st.startswith("|") and st.endswith("|") and st.count("|") >= 3
+    is_sep = bool(re.fullmatch(r"\|[\s\-:|]+\|", st))
+    is_dash = is_row and all(c.strip() in ("", "—", "-") for c in st.strip("|").split("|"))
+    if is_row and not is_sep and not is_dash and not prev_header:
+        continue                      # a filled data row — this product's state
+    out.append(line)
+    prev_header = is_row and not is_sep
+p.write_text("\n".join(out) + "\n")
+PY
+  done
+fi
+
+if [ "$APPLY" -eq 1 ]; then
+  mkdir -p "$TARGET/docs"
+  [ -e "$TARGET/docs/DECISIONS.md" ] || cat > "$TARGET/docs/DECISIONS.md" <<'DEC'
+# Decisions
+
+Settled choices. **Read this before asking a CLAUDE.md §0 question** — it may already be answered.
+Add a row when a §0 decision is made; never remove one.
+
+## Settled — follow these, don't re-derive
+
+| Scope | Decision | Why | Detail |
+|---|---|---|---|
+| — | — | — | — |
+
+## Ask every time — never assume
+
+Presentation pattern (per feature/screen) · persistence engine (only if data is stored) · caching
+and offline policy (any remote fetch) · any new external dependency · extracting a package.
+Options and phrasing: CLAUDE.md §0. Record the answer here with `/decide`.
+
+## Do not re-propose
+
+Rejected with reasons recorded — reopen only with new information, not a fresh preference.
+
+| Rejected | Where the reasoning lives |
+|---|---|
+| — | — |
+
+## Open
+
+| Question | Blocks | Note |
+|---|---|---|
+| — | — | — |
+
+---
+
+## Per feature
+
+| Date | Feature | Presentation | Persistence | Caching / offline |
+|---|---|---|---|---|
+| — | — | — | — | — |
+DEC
+  [ -e "$TARGET/docs/GAPS.md" ] || cat > "$TARGET/docs/GAPS.md" <<'GAP'
+# Gaps
+
+What this architecture does not cover **for this product**, as decisions to make rather than a
+backlog to burn down. Run `/gaps` to triage.
+
+`/gaps` behaves differently by repo state: on an existing repo it derives each status from the code
+without asking; on a fresh one it asks per item. Absence of evidence is not always a decision — no
+StoreKit means the product doesn't monetise, but no crash reporting is a **missing safeguard**,
+reported as a risk rather than silently skipped.
+
+## Status legend
+
+| Status | Meaning | Gets re-raised? |
+|---|---|---|
+| ✅ **Applied** | Landed. The row records where | No |
+| ▶ **Open** | Needs a decision | Yes, by `/gaps` |
+| ⏸ **Deferred** | Tracked, with a named revisit trigger | Only when the trigger fires |
+| ⛔ **Skipped** | Decided against. Also recorded in DECISIONS.md *Do not re-propose* | **No** |
+
+**Skip is a real answer.** Most capabilities should end up Skipped for any given product.
+
+## ▶ Open
+
+| Item | Cost of skipping | Status |
+|---|---|---|
+| Feature flags / remote config | No kill switch — a bad release is only fixable by another release | ▶ |
+| Crash reporting + dSYM upload | Crash reports unreadable, unrecoverable after the fact | ▶ |
+| SwiftLint / SwiftFormat config | Rules stay review-only and decay | ▶ |
+| Analytics event taxonomy | Events accrete ad-hoc and become unqueryable | ▶ |
+| Auth flows · IAP · CloudKit · widgets · search · haptics · biometrics | — | ▶ |
+
+Run `/gaps` to work through these; it fills in what your code already answers.
+
+## Recording an answer
+
+- **Adopt** → do the work, move the row to Applied with where it landed.
+- **Defer** → ⏸ and **name the trigger**. A deferral with no trigger is an Open item pretending.
+- **Skip** → ⛔ **and** a DECISIONS.md *Do not re-propose* row. Both, or it comes back.
+
+Never delete a row. The value is knowing what was considered and declined.
+GAP
+fi
+
 echo
 echo "${BLD}────────────────────────────────────────────────────────${OFF}"
-printf '%d to copy · %d collision(s) kept as-is · %d excluded by design\n' "$copied" "$collided" "$skipped"
+printf '%d to copy · %d created empty · %d collision(s) kept · %d excluded by design\n' \
+  "$copied" "$scaffolded" "$collided" "$skipped"
 
 if [ "$APPLY" -eq 0 ]; then
   echo
