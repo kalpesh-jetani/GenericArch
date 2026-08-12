@@ -1,10 +1,15 @@
 # GenericArch
 
-Reference architecture for building **iPhone / iPad / Mac** apps from one shared codebase — SwiftUI,
-Swift 6 strict concurrency, SPM only.
+Reference architecture for building **iPhone / iPad / Mac** apps from one shared codebase.
 
 This repo is the blueprint. Every package in it is meant to be reusable, replaceable, and droppable
 into a new product with minimal change.
+
+**The stack is acquired, not imposed.** `./Scripts/detect-toolchain.sh` reads it from your project's
+settings where they exist, falls back to your machine, and `/project-init` asks about the rest with
+options derived from your installed Xcode — recommending the latest, never assuming it. This repo's
+own resolved answers are SwiftUI, Swift 6 language mode and SPM; yours can differ, and
+`/project-init` will tell you which rules that changes.
 
 ---
 
@@ -67,7 +72,7 @@ Skills and commands only — no rules, no docs, no code. Central updates reach e
 
 | You want to… | Read |
 |---|---|
-| Know the rules before writing code | [CLAUDE.md](CLAUDE.md) — the non-negotiables |
+| Know the rules before writing code | [CLAUDE.md](CLAUDE.md) — rules, and the resolved stack |
 | Understand a specific layer | [docs/modules/](docs/modules/) — one doc per package |
 | Know why something is the way it is | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | Know what's deliberately missing | [docs/GAPS.md](docs/GAPS.md) |

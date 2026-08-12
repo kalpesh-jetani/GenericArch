@@ -27,23 +27,36 @@ without re-asking.
 
 ---
 
-## 1. Toolchain (non-negotiable)
+## 1. Stack
 
-Toolchain rows are **detected, not aspirational** — `./Scripts/detect-toolchain.sh`. Deployment
-targets come from the project file when one exists (that is the shipped contract); versions come from
-the machine, because that is what compiles it. On a fresh repo the machine sets both.
+**The stack is acquired, never assumed** — `./Scripts/detect-toolchain.sh`:
 
-| Item | Value |
-|---|---|
-| Minimum iOS / iPadOS | **17.0** |
-| Minimum macOS | **26.6** ⚠ above the installed macOS SDK (26.5) — see below |
-| Xcode / Swift | **26.6** / **6.3.3**, Swift 6 language mode, **strict concurrency = complete** |
-| UI | **SwiftUI only** (UIKit/AppKit only behind a `Representable`, only when SwiftUI genuinely cannot) |
-| macOS | **Native SwiftUI target. No Mac Catalyst.** |
-| Dependencies | **SPM only.** No CocoaPods, no Carthage, no checked-in `.framework`/`.xcframework` |
-| Project files | **SPM.** No Tuist, no XcodeGen — [REPO.md](docs/REPO.md) |
-| Concurrency | **async/await + structured concurrency only.** No completion handlers, no Combine in new code, no `DispatchQueue` hopping |
-| Testing | Swift Testing (`import Testing`); XCTest only for UI tests |
+1. **The project wins.** An existing repo's settings are the shipped contract; a machine upgrade
+   must not silently change what the app supports or what it is written in.
+2. **The machine fills the gaps** — versions, available SDKs, and the set of valid choices.
+3. **Anything neither answers is asked** at init, with the machine's options and the latest
+   recommended (`--options`). Record the answer with `/decide`.
+
+Values below are **this repo's resolved answers**, not the tool's defaults. Refresh with
+`--markdown`; `./Scripts/check.sh` fails when they drift from the machine.
+
+| Item | Value | Source |
+|---|---|---|
+| Minimum iOS / iPadOS | **17.0** | project |
+| Minimum macOS | **26.6** ⚠ above the installed macOS SDK (26.5) — see below | project |
+| Xcode / Swift | **26.6** / **6.3.3** | machine |
+| Swift language mode | **6**, strict concurrency = complete *(available: 5, 6)* | machine |
+| UI | **SwiftUI** (UIKit/AppKit only behind a `Representable`, only when SwiftUI genuinely cannot) | chosen |
+| macOS | **Native SwiftUI target. No Mac Catalyst.** | chosen |
+| Dependencies | **SPM.** No CocoaPods, no Carthage, no checked-in `.framework`/`.xcframework` | project |
+| Project files | **SPM.** No Tuist, no XcodeGen — [REPO.md](docs/REPO.md) | project |
+| Concurrency | **async/await + structured concurrency.** No completion handlers, no Combine in new code, no `DispatchQueue` hopping | project |
+| Testing | Swift Testing (`import Testing`); XCTest only for UI tests | project |
+
+**A different stack is a valid answer, and it changes what applies.** The rules in §2 and the module
+docs are written for the resolved stack above. Choose UIKit and the DesignSystem docs stop fitting;
+choose Combine and §6 does. `/project-init` says which rules a divergent choice invalidates rather
+than pretending the architecture is framework-agnostic.
 
 ### 1.1 The asymmetric baseline — read before writing shared code
 

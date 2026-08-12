@@ -28,13 +28,13 @@ find . -name "Package.swift" -o -name "*.xcodeproj" -o -name "Podfile" \
 ./Scripts/detect-toolchain.sh 2>/dev/null || true
 ```
 
-**The toolchain is detected, never assumed or copied.** Precedence: a **project file wins** for
-deployment targets (it is the shipped contract, and a machine upgrade must not silently change what
-the app supports); the **machine** supplies Xcode and Swift versions, because that is what compiles
-it. A fresh repo has no project file, so the machine sets both.
+**The stack is acquired, never assumed or copied.** Precedence: the **project wins** (its settings
+are the shipped contract), the **machine** fills the gaps, and whatever neither answers gets
+**asked** — see S1a.
 
-Never carry GenericArch's numbers into another repo. If the detector reports a deployment target
-above the installed SDK, say so before anything else — that build cannot succeed for an app target.
+Never carry GenericArch's numbers or framework choices into another repo. If the detector reports a
+deployment target above the installed SDK, say so before anything else — that build cannot succeed
+for an app target.
 
 | Signal | Mode |
 |---|---|
@@ -204,7 +204,38 @@ Skills and commands can be directory-scoped the same way. Ask whether any should
 
 # Shared — both paths continue here
 
-## S1. Ask what cannot be inferred
+## S1a. Resolve the stack — detect first, ask only the remainder
+
+```bash
+./Scripts/detect-toolchain.sh              # what the project and machine already answer
+./Scripts/detect-toolchain.sh --options    # the valid choices, derived from this machine
+```
+
+**Ask only the rows the detector reports `unresolved`.** Re-asking something the project already
+answers is how an adoption starts overwriting decisions it was told to respect.
+
+| Ask | Options come from | Recommend |
+|---|---|---|
+| UI framework | SwiftUI · UIKit/AppKit · mixed | SwiftUI — the module docs assume it |
+| Dependencies | SPM · CocoaPods · Carthage | SPM |
+| Project files | SPM only · Tuist · XcodeGen · checked-in `.xcodeproj` | SPM only |
+| Concurrency | async/await strict · async/await minimal · Combine · completion handlers | async/await strict |
+| Swift language mode | **whatever the compiler accepts** — the script probes, never guesses | the latest available |
+| Testing | Swift Testing · XCTest · both | Swift Testing; XCTest for UI |
+| Platforms | **the SDKs actually installed** | the ones the product ships |
+
+Two rules for this round:
+
+- **Recommend the latest the machine supports, don't impose it.** A team on Swift 5 mode with a
+  large codebase has a reason; ask for it rather than assuming a migration.
+- **Say what a divergent choice invalidates.** UIKit means [DesignSystem.md](../../docs/modules/DesignSystem.md)
+  and the `dark-light-mode`/`rtl-support` skills no longer fit as written. Combine means §6 does not
+  apply. Naming that up front is the difference between an informed choice and a broken adoption.
+
+Record every answer with `/decide`, then propose the §1 table from `--markdown` — **and wait for
+approval before writing it to CLAUDE.md** ([STRUCTURE.md](../../docs/STRUCTURE.md)).
+
+## S1b. Ask what cannot be inferred at all
 
 Batch in one round, with a recommendation each. Skip anything Path A already established.
 
