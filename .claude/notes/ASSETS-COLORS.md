@@ -4,6 +4,8 @@ Every color token, with its light and dark hex values.
 
 - **Maintained by:** targeted edit on every color insertion or deletion.
   A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
+- **Companion:** [STYLE-GUIDE.md](STYLE-GUIDE.md) — spacing, radius, elevation, motion,
+  component variants. This file owns only its own slice.
 - **Read this when:** adding a token, checking an existing one before defining a near-duplicate,
   or auditing contrast.
 - **Rule:** zero literal colors in features (CLAUDE.md §2 / DesignSystem). A feature that needs a

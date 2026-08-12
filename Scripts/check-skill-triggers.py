@@ -28,6 +28,9 @@ CASES = [
     ("bump ImageCache after the cache fix", "release-bump"),
     # sync-app-notes is a COMMAND, not a skill — nothing should fire on this phrasing.
     ("refresh the inventory notes", None),
+    ("round the corners on this button", "style-guide"),
+    ("tighten the spacing between rows", "style-guide"),
+    ("add a destructive variant", "style-guide"),
 ]
 
 # Stopwords carry no trigger signal. Counting them produced false collisions — the metric was

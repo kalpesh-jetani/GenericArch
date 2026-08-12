@@ -11,6 +11,11 @@ for visual divergence.
 
 ---
 
+**The registry of what exists is [STYLE-GUIDE.md](../../.claude/notes/STYLE-GUIDE.md)** — every
+spacing, radius, elevation, motion and type token, plus the component inventory. Check it before
+writing a value; the `style-guide` skill does that lookup and proposes an existing token when one
+fits, rather than letting a near-duplicate in.
+
 ## Zero raw values in features
 
 No literal colors, fonts, spacing, corner radii, or durations outside this package. A feature

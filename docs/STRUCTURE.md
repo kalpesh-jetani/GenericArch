@@ -89,7 +89,7 @@ Two ways a note changes, and they are not interchangeable:
 
 | | Targeted edit | Full rescan |
 |---|---|---|
-| **What** | The rows your change touches | `/sync-app-notes` rewrites all seven from a filesystem scan |
+| **What** | The rows your change touches | `/sync-app-notes` rewrites all eight from a filesystem scan |
 | **When** | Every insertion or deletion, same change | First setup, or drift too large to fix by hand |
 | **Who starts it** | Claude, as part of the change | **The user, by typing the command** |
 

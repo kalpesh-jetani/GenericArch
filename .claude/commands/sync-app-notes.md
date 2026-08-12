@@ -6,9 +6,9 @@ allowed-tools: Bash, Read, Edit, Grep, Glob
 
 Rebuild the living inventories in `.claude/notes/` from what is actually on disk.
 
-Scope: `$ARGUMENTS` if a note is named, otherwise all seven.
+Scope: `$ARGUMENTS` if a note is named, otherwise all eight.
 
-> **This is a command, not a skill, and that is the safety mechanism.** A full rescan rewrites seven
+> **This is a command, not a skill, and that is the safety mechanism.** A full rescan rewrites eight
 > files wholesale; run against a half-finished tree it replaces correct rows with incomplete ones —
 > worse than a stale note, because it looks current. As a command it can only run when you type it,
 > so there is no path by which it fires as a side effect of another task.
@@ -37,6 +37,7 @@ case this warning exists for. If it's dirty, say so and let the user decide.
 | `FONTS.md` | `*.otf`/`*.ttf`, `Info.plist`, `Font.custom` call sites | family, PostScript names, **registration path**, tokens |
 | `SCHEMES.md` | `*.xcconfig`, scheme list, `Info.plist` substitutions | DEV/TEST/BETA/PROD → config, bundle ID, base URL |
 | `PROJECT.md` | `project.pbxproj`, `*.entitlements`, `Info.plist`, package links | targets, deployment targets, capabilities, links |
+| `STYLE-GUIDE.md` | token declarations in `DesignSystem/Tokens/`, components + their `#Preview` blocks | spacing, radius, elevation, motion, type scale, component variants |
 
 ```bash
 find . -name "Contents.json" -path "*.colorset/*"        # colours
@@ -108,6 +109,9 @@ If there is nothing useful to say about a path, that is a signal the row may not
   fonts relying on `Info.plist`, which silently does nothing**; `Font.custom` without `relativeTo:`.
 - **SCHEMES** — a config with no scheme or a scheme with no `.xcconfig`; duplicate bundle IDs;
   `#if DEBUG` in a feature (CLAUDE.md §2.10); a live analytics key outside PROD.
+- **STYLE-GUIDE** — a literal spacing/radius/duration in a feature; two tokens within ~20% of each
+  other (a near-duplicate nobody will reconcile); a component with no preview matrix; a token
+  declared but never used; motion that ignores Reduce Motion.
 - **PROJECT** — build settings in the project file instead of an `.xcconfig`; deployment target
   mismatched against `Package.swift`; a linked package nothing imports; a permission with **no
   `NS*UsageDescription`** (crashes on call, not at build); an extension importing the app.

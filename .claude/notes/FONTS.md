@@ -4,6 +4,8 @@ Every font family shipped, how it is registered, and the typed accessor that exp
 
 - **Maintained by:** targeted edit on every font insertion or deletion.
   A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
+- **Companion:** [STYLE-GUIDE.md](STYLE-GUIDE.md) — spacing, radius, elevation, motion,
+  component variants. This file owns only its own slice.
 - **Read this when:** adding a font file, adding a type token, or debugging a font that renders as
   system-default.
 - **Rule:** no `Font.custom("Inter-Bold", size: 17)` at a call site. Features use type tokens
