@@ -18,11 +18,11 @@ the target's own docs lie.
 | `docs/modules/*.md` — design per package | `CLAUDE.md` — the target's rules are its own |
 | `docs/{STRUCTURE,CONVENTIONS,DONE,REPO,DELIVERY,PERFORMANCE}.md` | `.claude/notes/*` — **this app's** screens, routes, assets, fonts |
 | `.claude/skills/*`, `.claude/commands/*` | `docs/DECISIONS.md` — **this product's** answers |
-| `.swiftlint.yml`, `.swiftformat`, `Scripts/*` | `docs/GAPS.md` — statuses are per-product |
+| `.swiftlint.yml`, `.swiftformat`, `Scripts/*` (incl. `detect-toolchain.sh`) | `docs/GAPS.md` — statuses are per-product |
 | `Packages/{Core,DIKit}` as starting code | `Packages/Features/*`, `App/*` |
 
-`Scripts/adopt.sh` enforces this split so nobody has to remember it. Empty note *scaffolds* are
-useful and do travel; populated inventories never do.
+`Scripts/adopt.sh` enforces this split so nobody has to remember it — including the notes, which
+never travel in any form. `/project-init` creates the target's own.
 
 **`CLAUDE.md` is on the "stays" side deliberately.** A target repo's rules were set with context you
 don't have, and `/project-init` reconciles rather than overwrites.
@@ -50,9 +50,10 @@ permissions per group.
 **Then reset the inherited state**, which a template copies wholesale:
 
 ```bash
-# keep the toolchain rows in DECISIONS.md; drop this product's answers
+./Scripts/detect-toolchain.sh     # §1 must describe THIS machine, not GenericArch's
+# drop this product's answers from DECISIONS.md
 # reset GAPS.md statuses to ▶ Open
-# leave .claude/notes/ as empty scaffolds
+# clear .claude/notes/ table bodies
 ```
 
 | Good | Bad |
@@ -133,7 +134,8 @@ and someone edits it for everyone. Divergence here is correct behaviour, not deb
 - [ ] `git init` and a first commit exist, with `.build/` excluded — it is ~49 MB of artifacts
 - [ ] The two seed repos exist: `GenericArch-NetworkKit`, `GenericArch-ImageCache` (consumed by URL)
 - [ ] `./Scripts/check.sh` and `Scripts/check-skill-triggers.py` pass
-- [ ] **The toolchain baseline matches reality** — §1 declares Swift 6.4 / Xcode 27; verify against
-      what your team actually has, because every consumer hits the same mismatch
+- [ ] **`./Scripts/detect-toolchain.sh` is clean** — §1 is detected from the machine and the project
+      file, not hand-written, and `check.sh` fails when it drifts. Each consumer detects its own;
+      never inherit GenericArch's numbers
 - [ ] Decide on the name. Keeping `GenericArch` means it appears in every consumer's dependency list
       and scheme names — fine if each product forks the blueprint, odd if several share these repos

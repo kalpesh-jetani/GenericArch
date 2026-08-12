@@ -48,6 +48,7 @@ docs/PERFORMANCE.md
 .swiftformat
 Scripts/check.sh
 Scripts/check-skill-triggers.py
+Scripts/detect-toolchain.sh
 "
 
 # ── What must NOT travel, and why ──────────────────────────────────────────
@@ -146,7 +147,12 @@ ${BLD}Next, in the target repo${OFF}
   2. ${BLD}/gaps${OFF}           Derives each gap's status from the target's own code instead of asking,
                     and reports missing safeguards as risks.
 
-  3. ${BLD}./Scripts/check.sh${OFF}
+  3. ${BLD}./Scripts/detect-toolchain.sh${OFF}
+                    Reads the target's own deployment targets from its project file and its
+                    installed Xcode/Swift. Whatever CLAUDE.md ends up saying should come from
+                    this, not from GenericArch's numbers.
+
+  4. ${BLD}./Scripts/check.sh${OFF}
                     Expect failures on an existing codebase — that is the point. Triage them in
                     /project-init as "keep theirs", "new code only", or "migrate".
 

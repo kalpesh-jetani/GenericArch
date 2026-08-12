@@ -9,6 +9,7 @@ Add a row when a §0 decision is made; never remove one.
 
 | Scope | Decision | Why | Detail |
 |---|---|---|---|
+| Toolchain baseline | **Detected, not declared** — `Scripts/detect-toolchain.sh`. Project file wins for deployment targets; machine supplies Xcode/Swift | A baseline nobody can build with is worse than none; a machine upgrade must not silently change what the app supports | §1 |
 | Deployment targets | iOS/iPadOS **17.0**, macOS **26.6** | Asymmetric by intent; shared code compiles to the iOS 17 floor | §1.1 |
 | macOS strategy | Native SwiftUI target, **no Mac Catalyst** | Catalyst compromises menu bar, windowing, toolbars | §1 |
 | Project files | **SPM only** | No second build-system-of-record | REPO |

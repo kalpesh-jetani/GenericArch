@@ -25,7 +25,16 @@ ls .claude/skills .claude/commands 2>/dev/null
 cat .claude/settings.json 2>/dev/null
 find . -name "Package.swift" -o -name "*.xcodeproj" -o -name "Podfile" \
        -o -name "Project.swift" -o -name "project.yml" | head -20
+./Scripts/detect-toolchain.sh 2>/dev/null || true
 ```
+
+**The toolchain is detected, never assumed or copied.** Precedence: a **project file wins** for
+deployment targets (it is the shipped contract, and a machine upgrade must not silently change what
+the app supports); the **machine** supplies Xcode and Swift versions, because that is what compiles
+it. A fresh repo has no project file, so the machine sets both.
+
+Never carry GenericArch's numbers into another repo. If the detector reports a deployment target
+above the installed SDK, say so before anything else — that build cannot succeed for an app target.
 
 | Signal | Mode |
 |---|---|

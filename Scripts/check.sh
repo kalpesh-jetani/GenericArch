@@ -96,6 +96,24 @@ else
   printf '  %s%d package(s) typechecked at iOS 17%s\n' "$DIM" "$checked" "$OFF"
 fi
 
+echo "── Toolchain (§1) ─────────────────────────────────────────"
+# §1 must describe this machine. A baseline nobody can build with is worse than none, and a
+# deployment target above the SDK only fails at archive time otherwise.
+if [ -x Scripts/detect-toolchain.sh ]; then
+  tc=$(./Scripts/detect-toolchain.sh 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | grep -E '^(✗|⚠)')
+  if [ -n "$tc" ]; then
+    printf '%s\n' "$tc" | while IFS= read -r l; do
+      case "$l" in
+        ✗*) printf '  %s%s%s\n' "$RED" "$l" "$OFF" ;;
+        *)  printf '  %s%s%s\n' "$YEL" "$l" "$OFF" ;;
+      esac
+    done
+    printf '%s\n' "$tc" | grep -q '^✗' && fails=$((fails + 1)) || warns=$((warns + 1))
+  else
+    printf '  %stoolchain matches §1%s\n' "$DIM" "$OFF"
+  fi
+fi
+
 echo "── Docs & keys ────────────────────────────────────────────"
 for pkg in Packages/*/ Packages/Features/*/; do
   [ -f "${pkg}Package.swift" ] || continue

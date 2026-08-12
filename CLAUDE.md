@@ -29,11 +29,15 @@ without re-asking.
 
 ## 1. Toolchain (non-negotiable)
 
+Toolchain rows are **detected, not aspirational** — `./Scripts/detect-toolchain.sh`. Deployment
+targets come from the project file when one exists (that is the shipped contract); versions come from
+the machine, because that is what compiles it. On a fresh repo the machine sets both.
+
 | Item | Value |
 |---|---|
 | Minimum iOS / iPadOS | **17.0** |
-| Minimum macOS | **26.6** |
-| Xcode / Swift | **27** / **6.4**, Swift 6 language mode, **strict concurrency = complete** |
+| Minimum macOS | **26.6** ⚠ above the installed macOS SDK (26.5) — see below |
+| Xcode / Swift | **26.6** / **6.3.3**, Swift 6 language mode, **strict concurrency = complete** |
 | UI | **SwiftUI only** (UIKit/AppKit only behind a `Representable`, only when SwiftUI genuinely cannot) |
 | macOS | **Native SwiftUI target. No Mac Catalyst.** |
 | Dependencies | **SPM only.** No CocoaPods, no Carthage, no checked-in `.framework`/`.xcframework` |
@@ -58,6 +62,11 @@ platforms: [.iOS(.v17), .macOS("26.6")]
 
 The iOS-17-vs-macOS-26 look-and-feel question is **open** ([DECISIONS.md](docs/DECISIONS.md));
 until it's answered, DesignSystem tokens stay platform-neutral.
+
+> ⚠ **min macOS 26.6 exceeds the installed macOS SDK 26.5.** SPM accepts it for a library, but an
+> app target will not — you cannot deploy above the SDK you build against. Either install an Xcode
+> whose SDK is ≥ 26.6, or lower the target to 26.5. `./Scripts/check.sh` fails on this so it can't
+> be discovered at archive time.
 
 ---
 

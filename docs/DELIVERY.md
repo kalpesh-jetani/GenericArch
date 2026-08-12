@@ -125,6 +125,7 @@ Warnings-as-errors is **off for DEV** deliberately; a warning mid-edit shouldn't
 - [ ] `Package.resolved` pinned to released tags of NetworkKit + ImageCache — no `edit` overrides
 - [ ] All packages green standalone
 - [ ] Zero warnings under strict concurrency
+- [ ] `./Scripts/detect-toolchain.sh` clean — deployment targets at or below the installed SDK
 - [ ] Localization complete for every shipping language ([LocalizationKit.md](modules/LocalizationKit.md))
 - [ ] Screenshots regenerated **per language and per device class** — the most-missed release task
 - [ ] What's New text localized
