@@ -89,6 +89,10 @@ until it's answered, DesignSystem tokens stay platform-neutral.
 9. **No silent architectural choice.** If it's in §0, ask.
 10. **No `#if DEBUG` or build-flag branching in a feature.** Configuration is read once at the
     composition root and injected as `AppEnvironment` → [SCHEMES.md](.claude/notes/SCHEMES.md)
+11. **Never `commit` or `push`.** Not at the end of a change, not to "save progress", not because
+    the work looks finished. Leave everything in the working tree and say what changed; the user
+    commits when *they* decide the work is done. Only act on an explicit "commit" or "push" — and
+    a `/release-bump` or `/project-init` run is not that instruction either.
 
 ---
 

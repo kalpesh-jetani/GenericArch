@@ -72,6 +72,9 @@ Not every line is machine-checkable, and pretending otherwise is how a checklist
 
 ## After it passes
 
+**Done does not mean committed.** Leave the work in the tree and say what changed — committing
+is the user's call (CLAUDE.md §2.11).
+
 `feature-complete` closes it out and asks what to keep, in the user's terms: *this can be used in
 future — so save it* · *just close* · *continue* · *skip*. Most work should just close with a note —
 saving it as a skill is only worth the cost when the next similar feature would follow the same

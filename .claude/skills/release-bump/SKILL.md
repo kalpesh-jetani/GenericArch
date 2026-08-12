@@ -11,7 +11,8 @@ Only **two** packages are versioned independently (CLAUDE.md §4.2):
 - `GenericArch-ImageCache`
 
 Everything under `Packages/` is local, unversioned, and ships in the same commit as its consumers.
-**If the change is local, there is nothing to bump — stop here and just commit.**
+**If the change is local, there is nothing to bump — say so and stop.** The commit is the user's
+(CLAUDE.md §2.11).
 
 ## 1. Classify the change
 
@@ -39,6 +40,9 @@ Two that get misjudged:
 Per step: `swift build && swift test` standalone → update the module `.md` if behavior changed
 (STRUCTURE) → commit → tag → push tag. Then in the app repo: drop any `swift package edit`
 override, resolve, build both platforms, commit `Package.resolved`.
+
+**Produce that plan and the exact commands — do not run the git steps.** Invoking this skill asks
+for the release plan; it is not permission to commit, tag or push (CLAUDE.md §2.11).
 
 **Never bump the app before the tag exists** — the range won't resolve.
 
