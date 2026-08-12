@@ -29,21 +29,16 @@ without re-asking.
 
 ## 1. Stack
 
-**The stack is acquired, never assumed** — `./Scripts/detect-toolchain.sh`:
+**The stack is acquired, never assumed** — `./Scripts/detect-toolchain.sh`. The project wins, the
+machine fills the gaps, the rest is asked at init and recorded with `/decide`.
 
-1. **The project wins.** An existing repo's settings are the shipped contract; a machine upgrade
-   must not silently change what the app supports or what it is written in.
-2. **The machine fills the gaps** — versions, available SDKs, and the set of valid choices.
-3. **Anything neither answers is asked** at init, with the machine's options and the latest
-   recommended (`--options`). Record the answer with `/decide`.
-
-Values below are **this repo's resolved answers**, not the tool's defaults. Refresh with
-`--markdown`; `./Scripts/check.sh` fails when they drift from the machine.
+Values below are **this repo's resolved answers**, not defaults. Refresh with `--markdown`;
+`./Scripts/check.sh` fails when they drift.
 
 | Item | Value | Source |
 |---|---|---|
 | Minimum iOS / iPadOS | **17.0** | project |
-| Minimum macOS | **26.6** ⚠ above the installed macOS SDK (26.5) — see below | project |
+| Minimum macOS | **26.6** | project |
 | Xcode / Swift | **26.6** / **6.3.3** | machine |
 | Swift language mode | **6**, strict concurrency = complete *(available: 5, 6)* | machine |
 | UI | **SwiftUI** (UIKit/AppKit only behind a `Representable`, only when SwiftUI genuinely cannot) | chosen |
@@ -53,10 +48,8 @@ Values below are **this repo's resolved answers**, not the tool's defaults. Refr
 | Concurrency | **async/await + structured concurrency.** No completion handlers, no Combine in new code, no `DispatchQueue` hopping | project |
 | Testing | Swift Testing (`import Testing`); XCTest only for UI tests | project |
 
-**A different stack is a valid answer, and it changes what applies.** The rules in §2 and the module
-docs are written for the resolved stack above. Choose UIKit and the DesignSystem docs stop fitting;
-choose Combine and §6 does. `/project-init` says which rules a divergent choice invalidates rather
-than pretending the architecture is framework-agnostic.
+A different stack is a valid answer and changes what applies — §2 and the module docs are written
+for the one above. `/project-init` names what a divergent choice invalidates.
 
 ### 1.1 The asymmetric baseline — read before writing shared code
 
@@ -75,11 +68,6 @@ platforms: [.iOS(.v17), .macOS("26.6")]
 
 The iOS-17-vs-macOS-26 look-and-feel question is **open** ([DECISIONS.md](docs/DECISIONS.md));
 until it's answered, DesignSystem tokens stay platform-neutral.
-
-> ⚠ **min macOS 26.6 exceeds the installed macOS SDK 26.5.** SPM accepts it for a library, but an
-> app target will not — you cannot deploy above the SDK you build against. Either install an Xcode
-> whose SDK is ≥ 26.6, or lower the target to 26.5. `./Scripts/check.sh` fails on this so it can't
-> be discovered at archive time.
 
 ---
 
@@ -190,51 +178,51 @@ three by definition and are never candidates.
 
 ## 5. Index
 
-Where each layer, reference, and inventory lives. Deciding where **new** material belongs:
+Where each layer, reference, and inventory lives. Where **new** material belongs:
 [STRUCTURE.md](docs/STRUCTURE.md).
 
 ### Modules — `docs/modules/`
 
 | Doc | Read it when |
 |---|---|
-| [Core.md](docs/modules/Core.md) | Shared protocol or domain model; `AppError` mapping; `ContentState`, `Paged` |
-| [NetworkKit.md](docs/modules/NetworkKit.md) | Endpoint, middleware, token refresh, download/upload, background transfer *(extracted)* |
+| [Core.md](docs/modules/Core.md) | Shared protocol or model · `AppError` · `ContentState`, `Paged` |
+| [NetworkKit.md](docs/modules/NetworkKit.md) | Endpoint, middleware, token refresh, transfer *(extracted)* |
 | [ImageCache.md](docs/modules/ImageCache.md) | Remote image, cache sizing, prefetch *(extracted)* |
-| [StorageKit.md](docs/modules/StorageKit.md) | Persistence, secrets, caches, migrations, the §0 engine question |
+| [StorageKit.md](docs/modules/StorageKit.md) | Persistence, secrets, caches, migrations |
 | [DIKit.md](docs/modules/DIKit.md) | Dependency key, `Assembly`, preview/test overrides |
 | [DesignSystem.md](docs/modules/DesignSystem.md) | Any view, token, component, content state, platform gate |
-| [LocalizationKit.md](docs/modules/LocalizationKit.md) | Any user-visible string, plurals, formats, a new language |
+| [LocalizationKit.md](docs/modules/LocalizationKit.md) | Any user-visible string, plurals, a new language |
 | [Messaging.md](docs/modules/Messaging.md) | Any message, error, confirmation, permission rationale |
-| [Navigation.md](docs/modules/Navigation.md) | A screen, deep link, split view, state restoration |
-| [NotificationKit.md](docs/modules/NotificationKit.md) | Push registration, payload → `Route`, local notifications |
-| [LoggingKit.md](docs/modules/LoggingKit.md) | Any log call; anything derived from a response or user input |
-| [AppShell.md](docs/modules/AppShell.md) | Composition root, scene phase, restoration, launch gates |
+| [Navigation.md](docs/modules/Navigation.md) | A screen, deep link, split view, restoration |
+| [NotificationKit.md](docs/modules/NotificationKit.md) | Push registration, payload → `Route` |
+| [LoggingKit.md](docs/modules/LoggingKit.md) | Any log call; anything from a response or user input |
+| [AppShell.md](docs/modules/AppShell.md) | Composition root, scene phase, launch gates |
 
 ### Cross-cutting — `docs/`
 
 | Doc | Read it when |
 |---|---|
-| [DECISIONS.md](docs/DECISIONS.md) | **Before any §0 question** — and before re-proposing anything |
+| [DECISIONS.md](docs/DECISIONS.md) | **Before any §0 question**, and before re-proposing anything |
 | [DONE.md](docs/DONE.md) | **Before calling a change finished** |
 | [CONVENTIONS.md](docs/CONVENTIONS.md) | Naming, file layout, access control, doc comments |
 | [STRUCTURE.md](docs/STRUCTURE.md) | Where new guidance belongs; the CLAUDE.md approval gate |
-| [REPO.md](docs/REPO.md) | Versioning, local overrides, adding a package, why not Tuist |
-| [SHARING.md](docs/SHARING.md) | Handing this base to someone else; adopting it into another repo |
-| [DELIVERY.md](docs/DELIVERY.md) | CI, signing, app version and build numbers, release, rollback |
-| [PERFORMANCE.md](docs/PERFORMANCE.md) | Launch budget, SwiftUI rendering, list scrolling, diagnosing a hitch |
-| [GAPS.md](docs/GAPS.md) | What this architecture deliberately does not cover yet |
+| [REPO.md](docs/REPO.md) | Versioning, local overrides, adding a package |
+| [SHARING.md](docs/SHARING.md) | Publishing this base for someone else |
+| [ADOPTION.md](docs/ADOPTION.md) | Adopting it into a repo that has its own rules |
+| [DELIVERY.md](docs/DELIVERY.md) | CI, signing, versions, release, rollback |
+| [PERFORMANCE.md](docs/PERFORMANCE.md) | Launch budget, SwiftUI rendering, diagnosing a hitch |
+| [GAPS.md](docs/GAPS.md) | What this deliberately does not cover yet |
 
 ### Generated inventories — `.claude/notes/`
 
 [FEATURES](.claude/notes/FEATURES.md) · [NAVIGATION](.claude/notes/NAVIGATION.md) ·
 [ASSETS-IMAGES](.claude/notes/ASSETS-IMAGES.md) · [ASSETS-COLORS](.claude/notes/ASSETS-COLORS.md) ·
-[FONTS](.claude/notes/FONTS.md) · [SCHEMES](.claude/notes/SCHEMES.md) ·
-[PROJECT](.claude/notes/PROJECT.md)
+[FONTS](.claude/notes/FONTS.md) · [STYLE-GUIDE](.claude/notes/STYLE-GUIDE.md) ·
+[SCHEMES](.claude/notes/SCHEMES.md) · [PROJECT](.claude/notes/PROJECT.md)
 
 **Edit the affected rows in the same change as every insertion or deletion** — screen, route, image,
-color, font, scheme, target. That is a targeted edit and needs no approval.
-
-A full rescan is the user's **`/sync-app-notes`** command — never start one yourself.
+colour, font, token, scheme, target. A full rescan is the user's **`/sync-app-notes`** command;
+never start one yourself.
 
 ---
 
@@ -344,14 +332,9 @@ Build and test: `/build [DEV|TEST|BETA|PROD] [ios|macos] [build|test|archive]`.
   shapes.
 - **Never edit this file without explicit approval** — including when certain. Show the exact text
   and wait. Where new guidance belongs instead: [STRUCTURE.md](docs/STRUCTURE.md).
-- **Edit the affected `.claude/notes/` rows in the same change** as any insertion or deletion. The
-  full rescan is the user's `/sync-app-notes` command, never yours to start.
 - **Run `./Scripts/check.sh`** before saying a change is done; it enforces §2 mechanically.
 - Read the relevant `Package.swift` before adding a dependency edge. If it violates §3's direction,
   stop and say so rather than adding it.
-- **Don't propose extracting a package** unless all three §4.2 tests pass.
 - When asked for a feature, produce **protocol + mock + implementation + localized keys + every
   content state** — not just the happy path.
-- Prefer extending an existing DesignSystem component over a near-duplicate.
 - If a requirement conflicts with a §2 rule, **raise it** — don't silently work around it.
-- Never introduce a non-SPM dependency, a completion-handler API, or a raw string literal in UI.

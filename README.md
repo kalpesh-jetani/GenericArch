@@ -13,29 +13,52 @@ own resolved answers are SwiftUI, Swift 6 language mode and SPM; yours can diffe
 
 ---
 
-## Install it into your project
+## Install
 
-Pick the row that matches what you have. All three are non-destructive — **nothing overwrites your
-`CLAUDE.md`, your skills, or your commands.**
+Three ways in. Pick the row that matches what you have — all of them are non-destructive:
+**nothing overwrites your `CLAUDE.md`, your skills, or your commands.**
 
-### New project
+| You have | Use | You get |
+|---|---|---|
+| Nothing yet | **Template repo** | Everything: rules, docs, tooling, starter packages |
+| An existing app | **`install.sh`** | Rules, docs and tooling — your code and your rules untouched |
+| Several repos | **Plugin** | Only the skills and commands, updated centrally |
+
+---
+
+### A. New project — from the template
 
 ```bash
-gh repo create kalpesh-jetani/MyApp --template kalpesh-jetani/GenericArch --private --clone && cd MyApp
+gh repo create <you>/MyApp --template kalpesh-jetani/GenericArch --private --clone
+cd MyApp
 ```
 
-Then `/project-init MyApp` in Claude Code. Reset the inherited state it warns you about
-(`docs/DECISIONS.md`, `docs/GAPS.md`, `.claude/notes/`), and run
-`./Scripts/detect-toolchain.sh` — a fresh repo takes its baseline from **your** machine, not from
-this one.
+Then, in Claude Code:
 
-### Existing project
+```
+/project-init MyApp
+```
 
-From inside your repo:
+It asks for what it cannot infer — bundle ID, Team ID, the languages you ship at v1, which rules you
+want as *hard* vs *base*, and which permissions to allow. Nothing is written before you answer.
+
+**Then reset the state you inherited.** A template copies this product's answers along with the
+structure, and they are not yours:
+
+```bash
+./Scripts/detect-toolchain.sh   # your machine sets the baseline, not this repo's
+```
+
+- `docs/DECISIONS.md` — delete the per-product rows, keep the toolchain ones
+- `docs/GAPS.md` — reset statuses to ▶ Open, then run `/gaps`
+- `.claude/notes/*` — clear the table bodies; they describe *this* app's screens and assets
+
+### B. Existing project — from inside your repo
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh
-less install.sh && bash install.sh          # dry run — shows exactly what it would add
+less install.sh          # short, and it tells you what it will do
+bash install.sh          # dry run — lists every file it would add
 bash install.sh --apply
 ```
 
@@ -45,26 +68,84 @@ bash install.sh --apply
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh | bash -s -- --apply
 ```
-Read it first. It is short, and it tells you what it will do before it does it.
 </details>
 
-It pins to a tag (not `main`), records what it installed in `.genericarch-version`, reports every
-collision instead of resolving it, and **never writes `CLAUDE.md`** — `/project-init` reconciles your
-rules with these instead.
+It pins to a tag, records what it installed in `.genericarch-version`, reports every collision
+instead of resolving it, and **never writes `CLAUDE.md`**. Then:
+
+```
+/project-init          # reads YOUR CLAUDE.md, lists rule conflicts, asks one by one
+/gaps                  # works out what you already have from your code, without asking
+./Scripts/check.sh     # expect failures on an existing codebase — that is the point
+```
+
+Your rules win by default. For a hard conflict — CocoaPods vs SPM, UIKit vs SwiftUI — the usual
+answer is *adopt for new code only*, because a codebase that already violates a rule cannot adopt it
+by editing a doc ([docs/ADOPTION.md](docs/ADOPTION.md)).
 
 | Override | Effect |
 |---|---|
-| `GA_REF=v0.2.0` | Install a different version |
-| `GA_REPO=/path/to/checkout` | Install from a local clone or a fork |
+| `GA_REF=v0.2.0` | A different version |
+| `GA_REPO=/path/to/checkout` | A local clone or your fork |
 
-### Just the Claude Code tooling, in many repos
+> If the repo is private, `curl` cannot reach it. Clone it once over SSH and run
+> `./Scripts/adopt.sh /path/to/YourApp --apply` instead.
 
-Skills and commands only — no rules, no docs, no code. Central updates reach every repo:
+### C. Several repos — just the tooling
 
 ```
 /plugin marketplace add kalpesh-jetani/genericarch-plugin
 /plugin install genericarch
 ```
+
+Skills and commands only. No rules, no docs, no code — so each product keeps its own `CLAUDE.md`,
+and tooling fixes reach every repo by updating one plugin.
+
+---
+
+## What you just installed
+
+### Skills — these fire on their own when the situation matches
+
+You never type these. They activate from their description when what you are doing matches.
+
+| Skill | Fires when | What it stops you doing |
+|---|---|---|
+| `new-feature` | Adding a feature or package | Shipping a happy path — it requires every content state, a mock, and localized keys |
+| `style-guide` | Any spacing, radius, shadow or duration is about to be written | Adding a near-duplicate token; it proposes the existing one first |
+| `dark-light-mode` | A colour or asset changes, or something looks wrong in dark | Shipping a colorset with no dark appearance, or elevation that vanishes on black |
+| `rtl-support` | Adding a locale, or checking mirroring | `.left`/`.right` and `chevron.right`, which do not flip |
+| `release-bump` | Releasing NetworkKit or ImageCache | Tagging in the wrong order, or misjudging the semver level |
+| `feature-complete` | Work is called done | Closing without deciding whether the pattern is worth keeping |
+
+### Commands — you type these
+
+| Command | Use it to |
+|---|---|
+| `/project-init` | Set up a fresh repo, or adopt this into an existing one |
+| `/verify` | Walk the Definition of Done against your working diff — reports, never fixes |
+| `/gaps` | Decide what this architecture should and should not cover for your product |
+| `/decide` | Record a settled decision so it is not re-argued |
+| `/upgrade-stack` | Reconcile project settings with your machine — asks twice before changing anything |
+| `/sync-app-notes` | Rebuild the inventories from a filesystem scan |
+| `/build` | Build, test or archive a stage: `DEV`, `TEST`, `BETA`, `PROD` |
+
+### Scripts — run these yourself or in CI
+
+| Script | Does |
+|---|---|
+| `./Scripts/check.sh` | Enforces the rules a linter cannot express, **and** typechecks every package at the iOS floor — `swift build` on a Mac does not |
+| `./Scripts/detect-toolchain.sh` | Reports the stack; `--markdown` emits the §1 table, `--options` the valid choices |
+| `./Scripts/adopt.sh` | Copies the base into another repo, refusing to copy this product's state |
+| `./Scripts/build-plugin.sh` | Generates the plugin from `.claude/` — never hand-edit the output |
+| `./Scripts/check-skill-triggers.py` | Catches two skills competing for the same phrasing |
+
+### Two rules the agent follows without being asked
+
+- **`CLAUDE.md` is never edited without your explicit approval** — it loads into every session, so a
+  change there alters every future response.
+- **The note inventories are updated row by row** as part of a change; a full rescan only happens
+  when you type `/sync-app-notes`.
 
 ---
 
