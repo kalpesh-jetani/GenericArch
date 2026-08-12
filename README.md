@@ -129,8 +129,10 @@ Four commands:
 | `/sync-app-notes` | Rebuild the seven inventories from a filesystem scan |
 | `/build` | Build, test, or archive a stage |
 
-Skills fire on their own when the situation matches — `new-feature`, `dark-light-mode`,
-`rtl-support`, `release-bump`. Commands only run when you type them. Anything that must **never**
+Skills fire on their own when the situation matches — `new-feature`, `style-guide`,
+`dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`. That last one closes finished
+work and can distil what it taught into a new skill, which then surfaces the next time similar work
+starts. Commands only run when you type them. Anything that must **never**
 trigger by inference is a command, which is why the full inventory rescan is `/sync-app-notes` and
 not a skill.
 

@@ -31,6 +31,8 @@ CASES = [
     ("round the corners on this button", "style-guide"),
     ("tighten the spacing between rows", "style-guide"),
     ("add a destructive variant", "style-guide"),
+    ("mark this complete", "feature-complete"),
+    ("wrap up the auth work", "feature-complete"),
 ]
 
 # Stopwords carry no trigger signal. Counting them produced false collisions — the metric was

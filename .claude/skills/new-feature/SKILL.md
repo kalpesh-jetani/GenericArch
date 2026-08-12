@@ -8,6 +8,28 @@ description: Scaffold a new feature package in the GenericArch single-repo archi
 Creates a feature package that satisfies CLAUDE.md §3 *Scalable*: adding it edits **zero** other
 features, one line in the composition root, and one case in `Route`.
 
+## 0. Is there already a pattern for this?
+
+A finished feature may have left a **derived skill** — a recorded sequence for building this kind of
+thing (`feature-complete`). Check before scaffolding from scratch:
+
+```bash
+grep -l "Derived from" .claude/skills/*/SKILL.md
+grep -H "^description:" $(grep -l "Derived from" .claude/skills/*/SKILL.md 2>/dev/null) 2>/dev/null
+```
+
+If one matches the work at hand, **offer it rather than assuming it applies**:
+
+> `auth-screen-flow` was derived from FeatureAuth — pre-prompt → keychain write → route swap. This
+> looks like the same shape. Follow it, or scaffold fresh?
+
+Two cautions:
+
+- **A derived skill records what was done once, not what is correct forever.** If it contradicts a
+  rule in CLAUDE.md §2 or a module doc, the rule wins and the skill is stale — say so.
+- If it half-fits, take the sequence and say which steps you are dropping. Silently deviating from a
+  pattern you announced is worse than not offering it.
+
 ## 1. Ask before writing — do not skip
 
 CLAUDE.md §0. Check `docs/DECISIONS.md` first; if the feature already has a row, follow it and
@@ -114,3 +136,6 @@ index gets one row, nothing more.
 Run DONE. The ones missed most often here: every `ContentState` implemented, no raw
 string literal in a view, mocks provided, the feature's `.md` written, and the new rows added to
 `.claude/notes/FEATURES.md` and `NAVIGATION.md` — targeted edits, not a `/sync-app-notes` run.
+
+Then `feature-complete` closes it out — and decides whether this build left a pattern worth keeping
+as a skill, or just a note.

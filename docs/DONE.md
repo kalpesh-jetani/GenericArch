@@ -70,6 +70,12 @@ Not every line is machine-checkable, and pretending otherwise is how a checklist
 
 ---
 
+## After it passes
+
+`feature-complete` closes it out and asks what to keep: capture the pattern as a skill, close with a
+note, keep working, or decide later. Most work should close with a note — a skill is only worth its
+always-on cost when the next similar feature would follow the same sequence.
+
 ## When something can't be checked
 
 Say so explicitly and name what was skipped. "Verified on iPhone; iPad and Mac not checked" is a
