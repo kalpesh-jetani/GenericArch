@@ -3,8 +3,9 @@
 Three ways to hand this to someone else. They are not alternatives to pick once — most teams end up
 using two of them, for different layers.
 
-- **When to read this:** giving this base to a teammate, starting a new product, or adding it to an
-  existing codebase.
+- **When to read this:** you are the one **publishing** this base.
+- **Consumers read [../README.md](../README.md)** instead — it has the copy-paste install for each
+  case. Keep the two in step: the version pinned in README's `curl` URL must be a tag that exists.
 
 ---
 
@@ -89,7 +90,18 @@ which drifts from its source is worse than none.
 | One install; central updates reach every repo | Tooling only — no rules, docs, or code |
 | Each product keeps its own CLAUDE.md | `/verify`, `/decide`, `/gaps` need the docs adopted too |
 
-## Option 3 — Adopt script · for an **existing** codebase
+## Option 3 — Installer · for an **existing** codebase
+
+Consumers run `install.sh` from inside their own repo — it fetches a pinned tag and delegates to
+`adopt.sh`, so the "what travels" list lives in exactly one place:
+
+```bash
+# what a consumer runs, from their repo
+curl -fsSLO https://raw.githubusercontent.com/<org>/GenericArch/v0.1.0/install.sh
+bash install.sh --apply
+```
+
+`adopt.sh` is still the direct path when you already have a checkout:
 
 ```bash
 cd /path/to/GenericArch
@@ -132,6 +144,10 @@ and someone edits it for everyone. Divergence here is correct behaviour, not deb
 ## Before you share
 
 - [ ] `git init` and a first commit exist, with `.build/` excluded — it is ~49 MB of artifacts
+- [ ] **A tag exists and README's install URL points at it.** `install.sh` defaults to a pinned ref;
+      if that tag isn't pushed, every consumer silently falls back to the default branch
+- [ ] `install.sh` tested against both a fresh and an existing repo — the existing case is the one
+      that can damage someone's work
 - [ ] The two seed repos exist: `GenericArch-NetworkKit`, `GenericArch-ImageCache` (consumed by URL)
 - [ ] `./Scripts/check.sh` and `Scripts/check-skill-triggers.py` pass
 - [ ] **`./Scripts/detect-toolchain.sh` is clean** — §1 is detected from the machine and the project

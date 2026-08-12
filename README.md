@@ -8,6 +8,61 @@ into a new product with minimal change.
 
 ---
 
+## Install it into your project
+
+Pick the row that matches what you have. All three are non-destructive — **nothing overwrites your
+`CLAUDE.md`, your skills, or your commands.**
+
+### New project
+
+```bash
+gh repo create <org>/MyApp --template <org>/GenericArch --private --clone && cd MyApp
+```
+
+Then `/project-init MyApp` in Claude Code. Reset the inherited state it warns you about
+(`docs/DECISIONS.md`, `docs/GAPS.md`, `.claude/notes/`), and run
+`./Scripts/detect-toolchain.sh` — a fresh repo takes its baseline from **your** machine, not from
+this one.
+
+### Existing project
+
+From inside your repo:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/<org>/GenericArch/v0.1.0/install.sh
+less install.sh && bash install.sh          # dry run — shows exactly what it would add
+bash install.sh --apply
+```
+
+<details>
+<summary>One-liner, if you already trust the source</summary>
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/<org>/GenericArch/v0.1.0/install.sh | bash -s -- --apply
+```
+Read it first. It is short, and it tells you what it will do before it does it.
+</details>
+
+It pins to a tag (not `main`), records what it installed in `.genericarch-version`, reports every
+collision instead of resolving it, and **never writes `CLAUDE.md`** — `/project-init` reconciles your
+rules with these instead.
+
+| Override | Effect |
+|---|---|
+| `GA_REF=v0.2.0` | Install a different version |
+| `GA_REPO=/path/to/checkout` | Install from a local clone or a fork |
+
+### Just the Claude Code tooling, in many repos
+
+Skills and commands only — no rules, no docs, no code. Central updates reach every repo:
+
+```
+/plugin marketplace add <org>/genericarch-plugin
+/plugin install genericarch
+```
+
+---
+
 ## Start here
 
 | You want to… | Read |
