@@ -1,0 +1,14 @@
+# SwiftFormat — formatting is settled here so it is never argued in review (docs/CONVENTIONS.md).
+--swiftversion 6.0
+--maxwidth 120
+--indent 4
+--trimwhitespace always
+--commas always
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--closingparen balanced
+--stripunusedargs closure-only
+--self remove
+--importgrouping testable-bottom
+--exclude .build,Packages/**/.build

@@ -1,0 +1,12 @@
+.build/
+.swiftpm/
+DerivedData/
+*.xcuserdatad
+xcuserdata/
+.DS_Store
+
+# Generated plugin output — rebuild with Scripts/build-plugin.sh
+dist/
+
+# Package.resolved IS committed at the repo root — it records which versions of the
+# extracted packages ship (docs/REPO.md). Do not add it here.

@@ -1,0 +1,162 @@
+# SwiftLint — mechanizes the CLAUDE.md §2 rules that were previously review-only.
+# Anything in `analyzer_rules`/`custom_rules` set to `error` fails CI (docs/DELIVERY.md).
+
+included:
+  - Packages
+  - App
+
+excluded:
+  - "**/.build"
+  - "**/Tests"          # force-unwrap and try! are acceptable in tests (§2.7)
+  - "**/*.generated.swift"
+
+# ---------------------------------------------------------------------------
+# §2.7 — no force-unwrap, no swallowed error, no fatalError in shipping paths
+# ---------------------------------------------------------------------------
+opt_in_rules:
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - discouraged_optional_boolean
+  - empty_count
+  - first_where
+  - last_where
+  - contains_over_filter_count
+  - redundant_nil_coalescing
+  - unowned_variable_capture
+  - prefer_self_in_static_references
+  - explicit_init
+  - toggle_bool
+  - sorted_first_last
+  - closure_spacing
+  - vertical_parameter_alignment_on_call
+
+disabled_rules:
+  - todo                 # tracked in docs/GAPS.md, not by the linter
+  - trailing_comma       # .swiftformat owns comma style
+
+force_unwrapping:
+  severity: error
+force_cast:
+  severity: error
+force_try:
+  severity: error
+implicitly_unwrapped_optional:
+  severity: error
+
+line_length:
+  warning: 120
+  error: 160
+  ignores_urls: true
+  ignores_comments: true
+
+type_body_length:
+  warning: 250
+  error: 400
+file_length:
+  warning: 400
+  error: 700
+function_body_length:
+  warning: 50
+  error: 100
+
+identifier_name:
+  min_length:
+    warning: 2
+  excluded: [id, x, y, dx, dy, to, up]
+
+# ---------------------------------------------------------------------------
+# Custom rules — the CLAUDE.md §2 rules a stock linter can't express.
+# Each names its rule number so a failure is traceable to the reason.
+# ---------------------------------------------------------------------------
+custom_rules:
+
+  no_system_alert:
+    name: "§2.4 — no system alert surface"
+    regex: '\.(alert|confirmationDialog|actionSheet)\s*\('
+    message: "Route through MessagePresenting instead (docs/modules/Messaging.md)."
+    severity: error
+
+  no_raw_user_string:
+    name: "§2.3 — no raw user-facing string"
+    included: ".*/Views/.*\\.swift"
+    regex: '\b(Text|Label|Button)\s*\(\s*"[^"]{2,}"'
+    message: "Use a localized key via L10n (docs/modules/LocalizationKit.md)."
+    severity: error
+
+  no_fatal_error:
+    name: "§2.7 — no fatalError in a shipping path"
+    regex: '\bfatalError\s*\('
+    message: "Return a mapped AppError instead. Assertions are compiled out in release."
+    severity: error
+
+  no_swallowed_try:
+    name: "§2.7 — no try? that swallows an error"
+    regex: 'try\?\s'
+    message: "Handle or map the error. If discarding is correct, comment why."
+    severity: warning
+
+  no_debug_flag_in_feature:
+    name: "§2.11 — no build-flag branching in a feature"
+    included: ".*/Features/.*\\.swift"
+    regex: '#if\s+(DEBUG|TEST|BETA)'
+    message: "Use the injected AppEnvironment (.claude/notes/SCHEMES.md)."
+    severity: error
+
+  no_platform_check_in_feature:
+    name: "§1.1 — platform gating belongs in DesignSystem"
+    included: ".*/Features/.*\\.swift"
+    regex: '#if\s+os\('
+    message: "Move the gate into a DesignSystem component. A feature must not know its OS."
+    severity: error
+
+  no_resolve_in_feature:
+    name: "§2.6 — resolve is a root privilege"
+    included: ".*/Features/.*\\.swift"
+    excluded: ".*/DI/.*Assembly\\.swift"
+    regex: '\bDIContainer\b|\bresolve\s*\('
+    message: "Take the protocol through init. Only the Assembly sees the container (docs/modules/DIKit.md)."
+    severity: error
+
+  no_shared_singleton:
+    name: "§2.6 — no ambient singleton"
+    included: ".*/Features/.*\\.swift"
+    regex: '\.shared\b'
+    message: "Inject the dependency by protocol instead."
+    severity: error
+
+  no_literal_color:
+    name: "§14 — no literal design value in a feature"
+    included: ".*/Features/.*\\.swift"
+    regex: 'Color\s*\(\s*(red|white|hex)\s*:|\.foregroundStyle\(\s*\.(white|black)\s*\)'
+    message: "Use a DesignSystem token (docs/modules/DesignSystem.md)."
+    severity: error
+
+  no_geometric_direction:
+    name: "RTL — leading/trailing, never left/right"
+    regex: '\.(left|right)\b(?!ToLeft|ToRight)|chevron\.(left|right)'
+    message: "Use leading/trailing and chevron.forward/backward (skills/rtl-support)."
+    severity: warning
+
+  no_fixed_font_size:
+    name: "§9 — Font.custom needs relativeTo:"
+    regex: 'Font\.custom\([^)]*size:\s*[0-9]+\s*\)'
+    message: "Add relativeTo: or Dynamic Type stops working (.claude/notes/FONTS.md)."
+    severity: error
+
+  no_combine_import:
+    name: "§1 — no Combine in new code"
+    regex: '^import Combine'
+    message: "Use async/await and AsyncSequence."
+    severity: error
+
+  no_dispatch_queue:
+    name: "§1 — no DispatchQueue hopping"
+    regex: 'DispatchQueue\.(main|global)'
+    message: "Use @MainActor or structured concurrency."
+    severity: error
+
+  unchecked_sendable_needs_comment:
+    name: "§2.8 — @unchecked Sendable needs justification"
+    regex: '@unchecked Sendable(?![\s\S]{0,200}//)'
+    message: "Add a comment justifying the manual synchronization."
+    severity: error
