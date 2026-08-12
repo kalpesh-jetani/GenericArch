@@ -75,7 +75,7 @@ gh repo create kalpesh-jetani/GenericArch --private --source=. --push
 gh repo edit kalpesh-jetani/GenericArch --template
 
 # per new product
-gh repo create kalpesh-jetani/MyApp --template <org>/GenericArch --private --clone
+gh repo create kalpesh-jetani/MyApp --template kalpesh-jetani/GenericArch --private --clone
 cd MyApp
 ```
 
@@ -112,7 +112,7 @@ gh repo create kalpesh-jetani/genericarch-plugin --public --source=. --push
 In any repo:
 
 ```
-/plugin marketplace add <org>/genericarch-plugin
+/plugin marketplace add kalpesh-jetani/genericarch-plugin
 /plugin install genericarch
 ```
 
@@ -132,7 +132,7 @@ Consumers run `install.sh` from inside their own repo — it fetches a pinned ta
 
 ```bash
 # what a consumer runs, from their repo
-curl -fsSLO https://raw.githubusercontent.com/<org>/GenericArch/v0.1.0/install.sh
+curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh
 bash install.sh --apply
 ```
 

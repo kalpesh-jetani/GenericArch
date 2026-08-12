@@ -2,16 +2,16 @@
 # Install GenericArch into the repo you are standing in.
 #
 #   Recommended — read it before you run it:
-#     curl -fsSLO https://raw.githubusercontent.com/<org>/GenericArch/v0.1.0/install.sh
+#     curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh
 #     less install.sh && bash install.sh --apply
 #
 #   One-liner, if you already trust the source:
-#     curl -fsSL https://raw.githubusercontent.com/<org>/GenericArch/v0.1.0/install.sh | bash -s -- --apply
+#     curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh | bash -s -- --apply
 #
 # Dry run unless --apply is given. Nothing is ever overwritten.
 #
 # Overrides:
-#   GA_REPO=<git url|path>   where to fetch from   (default: the <org>/GenericArch remote)
+#   GA_REPO=<git url|path>   where to fetch from   (default: the kalpesh-jetani/GenericArch remote)
 #   GA_REF=<tag|branch>      which version to pin  (default: v0.1.0 — pin, don't track main)
 #
 # This script only FETCHES and DELEGATES. The list of what travels and what must not lives in

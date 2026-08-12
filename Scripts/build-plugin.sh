@@ -91,10 +91,10 @@ echo
 cat <<NEXT
 ${BLD}To publish${OFF}
   cd $OUT && git init && git add -A && git commit -m "genericarch plugin $VERSION"
-  gh repo create <org>/genericarch-plugin --public --source=. --push
+  gh repo create kalpesh-jetani/genericarch-plugin --public --source=. --push
 
 ${BLD}To install in any repo${OFF}
-  /plugin marketplace add <org>/genericarch-plugin
+  /plugin marketplace add kalpesh-jetani/genericarch-plugin
   /plugin install genericarch
 
 ${DIM}Verify the manifest field names against the Claude Code plugin docs for your version before

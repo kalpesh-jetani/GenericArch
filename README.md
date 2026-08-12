@@ -16,7 +16,7 @@ Pick the row that matches what you have. All three are non-destructive — **not
 ### New project
 
 ```bash
-gh repo create kalpesh-jetani/MyApp --template <org>/GenericArch --private --clone && cd MyApp
+gh repo create kalpesh-jetani/MyApp --template kalpesh-jetani/GenericArch --private --clone && cd MyApp
 ```
 
 Then `/project-init MyApp` in Claude Code. Reset the inherited state it warns you about
@@ -29,7 +29,7 @@ this one.
 From inside your repo:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/<org>/GenericArch/v0.1.0/install.sh
+curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh
 less install.sh && bash install.sh          # dry run — shows exactly what it would add
 bash install.sh --apply
 ```
@@ -38,7 +38,7 @@ bash install.sh --apply
 <summary>One-liner, if you already trust the source</summary>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<org>/GenericArch/v0.1.0/install.sh | bash -s -- --apply
+curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh | bash -s -- --apply
 ```
 Read it first. It is short, and it tells you what it will do before it does it.
 </details>
@@ -57,7 +57,7 @@ rules with these instead.
 Skills and commands only — no rules, no docs, no code. Central updates reach every repo:
 
 ```
-/plugin marketplace add <org>/genericarch-plugin
+/plugin marketplace add kalpesh-jetani/genericarch-plugin
 /plugin install genericarch
 ```
 
