@@ -308,9 +308,8 @@ small and large · Dynamic Type XXXL · Dark Mode (`/dark-light-mode`) · RTL (`
 
 ## 10. Conventions
 
-Naming, file layout, access control, and doc comments: [CONVENTIONS.md](docs/CONVENTIONS.md).
-Most are enforced by [`.swiftlint.yml`](.swiftlint.yml) and `./Scripts/check.sh`, so they don't need
-to be held in context.
+Naming, file layout, access control, and doc comments: [CONVENTIONS.md](docs/CONVENTIONS.md),
+enforced by [`.swiftlint.yml`](.swiftlint.yml) and `./Scripts/check.sh`.
 
 Three that are rules, not conventions:
 
@@ -341,11 +340,10 @@ Build and test: `/build [DEV|TEST|BETA|PROD] [ios|macos] [build|test|archive]`.
 
 - **Check §0 first.** If the task touches a listed decision and [DECISIONS.md](docs/DECISIONS.md)
   has no answer, ask before writing code.
-- **Read the module doc before touching a module** (§5). It holds the rules and code shapes this file
-  deliberately doesn't.
+- **Read the module doc before touching a module** (§5) — it holds that module's rules and code
+  shapes.
 - **Never edit this file without explicit approval** — including when certain. Show the exact text
-  and wait ([STRUCTURE.md](docs/STRUCTURE.md)). New guidance almost always belongs elsewhere: a
-  module doc, a skill, or a command — none of which require touching this file.
+  and wait. Where new guidance belongs instead: [STRUCTURE.md](docs/STRUCTURE.md).
 - **Edit the affected `.claude/notes/` rows in the same change** as any insertion or deletion. The
   full rescan is the user's `/sync-app-notes` command, never yours to start.
 - **Run `./Scripts/check.sh`** before saying a change is done; it enforces §2 mechanically.
