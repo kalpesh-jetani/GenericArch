@@ -14,6 +14,7 @@ excluded:
 # §2.7 — no force-unwrap, no swallowed error, no fatalError in shipping paths
 # ---------------------------------------------------------------------------
 opt_in_rules:
+  - missing_docs            # public/open declarations must be documented
   - force_unwrapping
   - implicitly_unwrapped_optional
   - discouraged_optional_boolean
@@ -30,8 +31,13 @@ opt_in_rules:
   - closure_spacing
   - vertical_parameter_alignment_on_call
 
+missing_docs:
+  warning: [public, open]
+
+# `todo` is deliberately NOT disabled — a TODO is a meta comment (docs/CONVENTIONS.md).
+# Work goes in docs/GAPS.md, where it gets a status, not into a comment that outlives the change.
+
 disabled_rules:
-  - todo                 # tracked in docs/GAPS.md, not by the linter
   - trailing_comma       # .swiftformat owns comma style
 
 force_unwrapping:
@@ -96,7 +102,7 @@ custom_rules:
     severity: warning
 
   no_debug_flag_in_feature:
-    name: "§2.11 — no build-flag branching in a feature"
+    name: "§2.10 — no build-flag branching in a feature"
     included: ".*/Features/.*\\.swift"
     regex: '#if\s+(DEBUG|TEST|BETA)'
     message: "Use the injected AppEnvironment (.claude/notes/SCHEMES.md)."
@@ -125,7 +131,7 @@ custom_rules:
     severity: error
 
   no_literal_color:
-    name: "§14 — no literal design value in a feature"
+    name: "DesignSystem — no literal design value in a feature"
     included: ".*/Features/.*\\.swift"
     regex: 'Color\s*\(\s*(red|white|hex)\s*:|\.foregroundStyle\(\s*\.(white|black)\s*\)'
     message: "Use a DesignSystem token (docs/modules/DesignSystem.md)."
@@ -138,7 +144,7 @@ custom_rules:
     severity: warning
 
   no_fixed_font_size:
-    name: "§9 — Font.custom needs relativeTo:"
+    name: "§8 — Font.custom needs relativeTo:"
     regex: 'Font\.custom\([^)]*size:\s*[0-9]+\s*\)'
     message: "Add relativeTo: or Dynamic Type stops working (.claude/notes/FONTS.md)."
     severity: error
@@ -154,6 +160,12 @@ custom_rules:
     regex: 'DispatchQueue\.(main|global)'
     message: "Use @MainActor or structured concurrency."
     severity: error
+
+  no_meta_comment:
+    name: "meta comment — say it in a /// or a commit message"
+    regex: '^\s*//\s*(TODO|FIXME|HACK|XXX|NOTE:|added |removed |changed |fixed |helper |this (function|method|class|struct) )'
+    message: "Doc comments state the contract; inline comments explain why. Notes about the change go in the commit message."
+    severity: warning
 
   unchecked_sendable_needs_comment:
     name: "§2.8 — @unchecked Sendable needs justification"

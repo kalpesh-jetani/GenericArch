@@ -52,7 +52,11 @@ depend on and what a change can break.
 
 ## Documentation comments
 
-`///` on every `public` symbol, covering what a signature can't say:
+**Every function and initialiser you write or change gets a `///` doc comment.** Not just `public`
+ones — the reader of a private helper has the same question, and "I'll document it later" is how a
+file ends up with none.
+
+Cover what the signature cannot say:
 
 ```swift
 /// Sends a request and decodes its response.
@@ -64,7 +68,35 @@ public func send<R: Request>(_ request: R) async throws -> R.Response
 
 Thrown errors and cancellation behaviour are the two things callers cannot infer and always need.
 
-**Comments explain *why*, never *what*.** A comment restating the code goes stale and lies:
+### Doc comments, not meta comments
+
+A `///` doc comment states the contract. A **meta comment** narrates the code or the act of writing
+it, and has no place in the source:
+
+```swift
+// ❌ meta — restates the signature, narrates the edit, or talks about the process
+// this function logs the user in
+// helper for the above
+// added to fix the crash in QA
+// TODO: clean this up later
+
+/// ✅ doc — the contract, and what the signature cannot express
+/// Exchanges credentials for a session.
+///
+/// - Throws: `AppError.unauthorized` on bad credentials; `.offline` with no network path.
+///   Cancellation propagates as `CancellationError` and leaves no partial session.
+```
+
+If a note is about the *change* rather than the *code*, it belongs in the commit message or
+[DECISIONS.md](DECISIONS.md) — not in a comment that outlives the change.
+
+**Two exceptions, both because the description already exists elsewhere:**
+
+- A `@Test("…")` case whose string already describes it. A `///` above it would only duplicate.
+- A conformance whose contract is fully stated on the protocol. Document the *deviation*, not the
+  restatement.
+
+**Inline `//` comments explain *why*, never *what*.** A comment restating the code goes stale and lies:
 
 ```swift
 // ❌ says nothing the code doesn't

@@ -11,6 +11,12 @@ public struct Paged<Item: Sendable>: Sendable {
     public var items: [Item]
     public var page: PageState
 
+    /// Creates a page of loaded items.
+    ///
+    /// - Parameters:
+    ///   - items: Everything loaded so far, not just the latest page.
+    ///   - page: State of the *tail*. A failed page keeps `items` intact — that separation is
+    ///     the reason this type exists.
     public init(items: [Item], page: PageState = .idle) {
         self.items = items
         self.page = page

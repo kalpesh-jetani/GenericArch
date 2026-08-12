@@ -12,6 +12,14 @@ public struct AppError: Error, Sendable, Equatable {
     public let debugDescription: String
     public let isRetryable: Bool
 
+    /// Creates an error for display.
+    ///
+    /// - Parameters:
+    ///   - code: Stable and loggable. Never shown to a user.
+    ///   - messageKey: What the user reads. Never a raw server string.
+    ///   - debugDescription: Developer-facing detail; must already be redacted.
+    ///   - isRetryable: Drives whether the UI offers Retry. Set it deliberately — a
+    ///     non-retryable error with a Retry button is worse than no button.
     public init(code: Code, messageKey: LocalizedKey, debugDescription: String, isRetryable: Bool) {
         self.code = code
         self.messageKey = messageKey
@@ -28,6 +36,10 @@ public extension AppError {
         isRetryable: true
     )
 
+    /// Fallback for a failure that could not be mapped to a known `Code`.
+    ///
+    /// Reaching for this often means a layer is missing a mapping — prefer adding the specific
+    /// case over widening use of this one.
     static func unknown(_ debug: String) -> AppError {
         AppError(code: .unknown,
                  messageKey: LocalizedKey("common_error_unknown_message"),

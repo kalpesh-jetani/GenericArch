@@ -137,6 +137,38 @@ PY
 done
 printf '  %sindex paths verified%s\n' "$DIM" "$OFF"
 
+echo "── Doc comments ───────────────────────────────────────────"
+# Every function and initialiser carries a /// stating what the signature cannot
+# (docs/CONVENTIONS.md). SwiftLint's missing_docs only covers public/open; this covers all of them.
+# A @Test case whose string already describes it is exempt — a /// there would only duplicate.
+undoc=$(python3 - <<'PY'
+import re, pathlib
+DECL = re.compile(r'^\s*(?:@\w+\s+)*(?:public |private |internal |fileprivate |package |static |mutating |open |final )*(?:func|init)\b')
+out = []
+for f in sorted(pathlib.Path('.').rglob('*.swift')):
+    sp = str(f)
+    if '.build' in sp or not (sp.startswith('Packages') or sp.startswith('App')):
+        continue
+    lines = f.read_text().splitlines()
+    for i, line in enumerate(lines):
+        if not DECL.match(line):
+            continue
+        prev = lines[i - 1].strip() if i else ''
+        if prev.startswith('///') or prev.startswith('@Test('):
+            continue
+        out.append(f"{f}:{i+1}  {line.strip()[:70]}")
+print('\n'.join(out))
+PY
+)
+if [ -n "$undoc" ]; then
+  printf '%s✗ declarations with no /// doc comment%s\n' "$RED" "$OFF"
+  printf '  %sState the contract: thrown errors, cancellation, why a parameter matters.%s\n' "$DIM" "$OFF"
+  printf '%s\n' "$undoc" | sed 's/^/    /' | head -10
+  fails=$((fails + 1))
+else
+  printf '  %severy function and initialiser is documented%s\n' "$DIM" "$OFF"
+fi
+
 echo "── Docs & keys ────────────────────────────────────────────"
 for pkg in Packages/*/ Packages/Features/*/; do
   [ -f "${pkg}Package.swift" ] || continue

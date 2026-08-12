@@ -12,6 +12,8 @@ public struct DIContainer: Sendable {
     private let registeredNames: [String]
     public let mode: DIMode
 
+    /// Internal by design: a container is only ever produced by `DIContainerBuilder.build()`,
+    /// which is what guarantees it is frozen before anything can resolve from it.
     init(storage: [ObjectIdentifier: any Sendable], registeredNames: [String], mode: DIMode) {
         self.storage = storage
         self.registeredNames = registeredNames
@@ -39,13 +41,25 @@ public struct DIContainerBuilder {
     private var registeredNames: [String] = []
     private let mode: DIMode
 
+    /// Creates an empty builder.
+    ///
+    /// - Parameter mode: Which default an unregistered key falls back to. Tests and previews pass
+    ///   `.test` so nothing can silently reach a live service.
     public init(mode: DIMode = .live) { self.mode = mode }
 
+    /// Overrides a key's default with a concrete value.
+    ///
+    /// Registration order is irrelevant — keys carry their own defaults, so an unregistered key is
+    /// still resolvable. Only construction cost matters here (see PERFORMANCE.md's facade rule).
     public mutating func register<K: DependencyKey>(_ key: K.Type, _ value: K.Value) {
         storage[ObjectIdentifier(key)] = value
         registeredNames.append(String(describing: key))
     }
 
+    /// Freezes the registrations into an immutable, `Sendable` container.
+    ///
+    /// After this the graph cannot change, which is what removes the need for a lock and for
+    /// `@unchecked Sendable`.
     public func build() -> DIContainer {
         DIContainer(storage: storage, registeredNames: registeredNames, mode: mode)
     }

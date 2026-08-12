@@ -43,6 +43,9 @@ struct DIContainerTests {
 
 private actor Holder {
     private var container: DIContainer?
+    /// Stores the container inside the actor, forcing it across an isolation boundary.
     func store(_ c: DIContainer) { container = c }
+
+    /// Resolves from inside the actor, proving the frozen container is usable there.
     var resolvedText: String { container?[GreetingKey.self].text ?? "none" }
 }

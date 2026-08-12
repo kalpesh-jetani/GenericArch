@@ -312,9 +312,15 @@ Naming, file layout, access control, and doc comments: [CONVENTIONS.md](docs/CON
 Most are enforced by [`.swiftlint.yml`](.swiftlint.yml) and `./Scripts/check.sh`, so they don't need
 to be held in context.
 
-Two that are rules, not conventions: **`public` only what crosses a package boundary** (in an
-extracted package every `public` symbol is a semver commitment), and **comments explain *why*, never
-*what***.
+Three that are rules, not conventions:
+
+- **`public` only what crosses a package boundary** — in an extracted package every `public` symbol
+  is a semver commitment.
+- **Every function or initialiser you write or change carries a `///` doc comment**, stating what the
+  signature cannot: thrown errors, cancellation behaviour, why a parameter matters.
+- **Doc comments, not meta comments.** No `//` that restates the code, narrates the edit, or defers
+  work. Inline comments explain *why*, never *what*; anything about the change belongs in the commit
+  message.
 
 ---
 
