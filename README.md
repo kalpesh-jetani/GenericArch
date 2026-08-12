@@ -89,7 +89,7 @@ docs/                hand-written reasoning: module design + cross-cutting refer
 docs/modules/        one doc per package
 .claude/notes/       inventories generated from the code (features, routes, assets, fonts, schemes)
 .claude/skills/      procedures Claude applies on its own
-.claude/commands/    things you trigger: /build /verify /decide /gaps /project-init
+.claude/commands/    things you trigger: /build /verify /decide /gaps /project-init /upgrade-stack
 Scripts/check.sh     enforces the rules a linter can't express
 ```
 
@@ -124,6 +124,7 @@ Four commands:
 | `/verify` | Walk the Definition of Done against the working diff |
 | `/gaps` | Triage [docs/GAPS.md](docs/GAPS.md) — derives status from code on an existing repo, asks on a fresh one |
 | `/decide` | Record a settled decision in the log |
+| `/upgrade-stack` | Reconcile project settings with the machine — asks twice before changing anything |
 | `/build` | Build, test, or archive a stage |
 
 Two standing rules the agent follows: **CLAUDE.md is never edited without explicit approval**, and

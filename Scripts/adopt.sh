@@ -154,9 +154,10 @@ ${BLD}Next, in the target repo${OFF}
                     and reports missing safeguards as risks.
 
   3. ${BLD}./Scripts/detect-toolchain.sh${OFF}
-                    Reads the target's own deployment targets from its project file and its
-                    installed Xcode/Swift. Whatever CLAUDE.md ends up saying should come from
-                    this, not from GenericArch's numbers.
+                    Reads the target's own stack from its project settings, and the machine for
+                    the rest. Whatever CLAUDE.md ends up saying comes from this, not from
+                    GenericArch's numbers. If it reports a mismatch, ${BLD}/upgrade-stack${OFF}
+                    reviews it and asks twice before changing anything.
 
   4. ${BLD}./Scripts/check.sh${OFF}
                     Expect failures on an existing codebase — that is the point. Triage them in

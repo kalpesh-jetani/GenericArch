@@ -32,9 +32,14 @@ find . -name "Package.swift" -o -name "*.xcodeproj" -o -name "Podfile" \
 are the shipped contract), the **machine** fills the gaps, and whatever neither answers gets
 **asked** — see S1a.
 
-Never carry GenericArch's numbers or framework choices into another repo. If the detector reports a
-deployment target above the installed SDK, say so before anything else — that build cannot succeed
-for an app target.
+Never carry GenericArch's numbers or framework choices into another repo.
+
+**If the detector reports a BLOCKING mismatch — a deployment target above the installed SDK, or a
+language mode the compiler cannot provide — raise it before anything else and stop.** That build
+cannot succeed as configured, and adopting docs onto a repo that doesn't build wastes the session.
+Hand off to `/upgrade-stack`, which asks twice before changing any project setting. Do not fix it
+inline here: initialisation and mutating someone's build settings are different acts with different
+consent.
 
 | Signal | Mode |
 |---|---|

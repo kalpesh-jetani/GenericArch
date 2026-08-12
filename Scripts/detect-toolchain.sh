@@ -21,6 +21,7 @@ RED=$'\033[31m'; YEL=$'\033[33m'; GRN=$'\033[32m'; DIM=$'\033[2m'; BLD=$'\033[1m
 MODE=report
 [ "${1:-}" = "--markdown" ] && MODE=markdown
 [ "${1:-}" = "--options" ] && MODE=options
+[ "${1:-}" = "--mismatches" ] && MODE=mismatches
 
 # ── Machine ────────────────────────────────────────────────────────────────
 SWIFT=$(swift --version 2>/dev/null | sed -n 's/.*Apple Swift version \([0-9.]*\).*/\1/p' | head -1)
@@ -131,6 +132,41 @@ if [ "$MODE" = options ]; then
   exit 0
 fi
 
+# ── --mismatches : classified, machine-readable ────────────────────────────
+# Format: SEVERITY|id|what|current|available|remediation
+#   BLOCKING    cannot build as configured — must be resolved
+#   OPPORTUNITY builds fine; a newer option exists. Adopting it is a CHOICE, sometimes a
+#               product decision that drops users. Never applied without asking.
+#   DRIFT       docs disagree with reality — doc-only fix
+if [ "$MODE" = mismatches ]; then
+  vlt() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ] && [ "$1" != "$2" ]; }
+
+  [ -n "$MACOS_SDK" ] && [ -n "$SRC_MACOS" ] && vlt "$MACOS_SDK" "$SRC_MACOS" && \
+    echo "BLOCKING|macos-target-above-sdk|min macOS exceeds the installed SDK|$SRC_MACOS|SDK $MACOS_SDK|lower the target to $MACOS_SDK, or install an Xcode whose SDK is >= $SRC_MACOS"
+  [ -n "$IOS_SDK" ] && [ -n "$SRC_IOS" ] && vlt "$IOS_SDK" "$SRC_IOS" && \
+    echo "BLOCKING|ios-target-above-sdk|min iOS exceeds the installed SDK|$SRC_IOS|SDK $IOS_SDK|lower the target to $IOS_SDK, or install a newer Xcode"
+
+  # Language mode below the newest the compiler accepts.
+  PROJ_MODE=""
+  grep -rq 'swiftLanguageMode(.v6)\|swift-version 6' Packages/*/Package.swift Package.swift 2>/dev/null && PROJ_MODE=6
+  grep -rq 'swiftLanguageMode(.v5)\|swift-version 5' Packages/*/Package.swift Package.swift 2>/dev/null && PROJ_MODE=5
+  [ -n "$PROJ_MODE" ] && [ -n "$LATEST_MODE" ] && vlt "$PROJ_MODE" "$LATEST_MODE" && \
+    echo "OPPORTUNITY|swift-language-mode|Swift language mode is behind the compiler|$PROJ_MODE|$LATEST_MODE|migrate to mode $LATEST_MODE — expect new concurrency diagnostics; do it package by package"
+
+  # CLAUDE.md §1 disagreeing with the machine is a doc problem, not a build problem.
+  if [ -f CLAUDE.md ]; then
+    c=$(grep -E '^\| Xcode / Swift \|' CLAUDE.md | head -1)
+    [ -n "$c" ] && ! printf '%s' "$c" | grep -q "\*\*$XCODE\*\*" && \
+      echo "DRIFT|claude-md-toolchain|CLAUDE.md §1 disagrees with the machine|see §1|Xcode $XCODE / Swift $SWIFT|refresh §1 from --markdown (needs its own approval)"
+  fi
+
+  for pair in "UI:$UI" "dependencies:$DEPS" "concurrency:$CONC" "testing:$TESTS"; do
+    k="${pair%%:*}"; v="${pair#*:}"
+    [ -z "$v" ] && echo "DRIFT|unresolved-$k|$k is not answered by the project|(none)|see --options|ask at init and record with /decide"
+  done
+  exit 0
+fi
+
 # ── --markdown : the §1 table ──────────────────────────────────────────────
 if [ "$MODE" = markdown ]; then
   cat <<MDOUT
@@ -201,6 +237,11 @@ if [ "$unresolved" -gt 0 ]; then
   echo "  ${DIM}Run /project-init — it asks with these options: ./Scripts/detect-toolchain.sh --options${OFF}"
 fi
 
+if [ "$warn" -gt 0 ]; then
+  echo
+  echo "${BLD}Run /upgrade-stack${OFF} to review and act on these."
+  echo "  ${DIM}It asks twice before changing anything: once for what to address, once for the exact edits.${OFF}"
+fi
 [ "$warn" -eq 0 ] && [ "$unresolved" -eq 0 ] && echo "${GRN}stack fully resolved and consistent${OFF}"
 echo
 exit 0

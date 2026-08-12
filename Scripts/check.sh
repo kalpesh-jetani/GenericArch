@@ -109,6 +109,7 @@ if [ -x Scripts/detect-toolchain.sh ]; then
       esac
     done
     printf '%s\n' "$tc" | grep -q '^✗' && fails=$((fails + 1)) || warns=$((warns + 1))
+    printf '  %srun /upgrade-stack — it asks twice before changing anything%s\n' "$DIM" "$OFF"
   else
     printf '  %stoolchain matches §1%s\n' "$DIM" "$OFF"
   fi
