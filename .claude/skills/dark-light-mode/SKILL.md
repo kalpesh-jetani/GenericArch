@@ -1,6 +1,6 @@
 ---
 name: dark-light-mode
-description: Implement and verify Dark Mode and Light Mode in a GenericArch app — paired colour tokens, colorset dark appearances, dark versions of assets, and 4.5:1 contrast in both appearances. Use when asked to add dark mode, support light and dark, fix dark mode, or when told something looks wrong in dark; also whenever a colour token or image asset is added. Catches colorsets with only an Any appearance, hardcoded .white/.black, shadow-based elevation that vanishes on black, tokens that pass in light and fail in dark, and colorScheme branching that should have been a token. Related skill: rtl-support. Do NOT use for the app-wide visual direction decision (CLAUDE.md §1.1).
+description: Implement and verify Dark Mode and Light Mode — paired colour tokens, colorset dark appearances, dark versions of assets, 4.5:1 contrast in both appearances. Use when asked to add dark mode, support light and dark, fix dark mode, or when told something looks wrong in dark; also whenever a colour token or image asset is added. Catches colorsets with only an Any appearance, hardcoded .white/.black, elevation that vanishes on black, tokens passing in light and failing in dark. Related skill: rtl-support.
 ---
 
 # Dark / Light Mode

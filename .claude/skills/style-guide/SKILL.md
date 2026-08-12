@@ -1,6 +1,6 @@
 ---
 name: style-guide
-description: Keep the design token registry authoritative when styling UI — spacing, padding, radius, elevation, shadow, motion durations, the type scale, and component variants. Fires whenever a visual value is about to be written or changed: "round the corners", "tighten the spacing", "make this bigger", "add a variant", "restyle this", or any request that would introduce a literal size, radius, shadow or duration. Looks up the tokens that already exist and proposes one that fits rather than admitting a near-duplicate; asks the user when nothing fits; registers the agreed token in the same change. Related skills: dark-light-mode, new-feature.
+description: Keep the design token registry authoritative when styling UI — spacing, padding, radius, elevation, shadow, motion durations, type scale, component variants. Fires whenever a visual value is about to be written or changed: "round the corners", "tighten the spacing", "make this bigger", "add a variant", "restyle this". Proposes a token that already fits rather than admitting a near-duplicate; asks when nothing fits; registers the agreed token. Related skills: dark-light-mode, new-feature.
 ---
 
 # Style guide

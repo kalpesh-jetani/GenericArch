@@ -1,6 +1,6 @@
 ---
 name: new-feature
-description: Scaffold a new feature package in the GenericArch single-repo architecture (iOS 17 / macOS 26.6, SwiftUI, Swift 6 strict concurrency). Use when asked to add a feature, add a screen, create a new module or package, scaffold FeatureX, or "start the auth/home/settings feature". Enforces the ask-first decisions (presentation pattern, persistence engine, caching policy), the Packages/Features layout, localized keys, all ContentState cases, protocol+mock pairs, and the feature's own .md doc. Do NOT use for editing an existing feature, adding a single endpoint or view to one that already exists, or for infrastructure packages (NetworkKit, StorageKit, DesignSystem) — those follow their own module docs.
+description: Scaffold a new feature package. Use when asked to add a feature, create a new module or package, scaffold FeatureX, or "start the auth/home/settings feature". Enforces the ask-first decisions, the Packages/Features layout, localized keys, every ContentState case, protocol+mock pairs, and the feature doc. Do NOT use for editing one that exists, adding a single endpoint or view to it, or for infrastructure packages — those follow their own module docs.
 ---
 
 # New feature

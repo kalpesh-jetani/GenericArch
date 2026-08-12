@@ -1,6 +1,6 @@
 ---
 name: rtl-support
-description: Implement and verify right-to-left support in a GenericArch app — layoutDirection, mirroring, directional SF Symbols, asset flipping, text alignment, and locale-correct numbers and dates. Use when asked to support RTL, add Arabic, Hebrew, Farsi or Urdu, verify mirroring, or when adding a new locale. Catches .left/.right instead of leading/trailing, chevron.right that does not flip, string concatenation that freezes word order, custom Canvas or rotation drawing that ignores layoutDirection, and media controls or logos that must NOT flip. Related skill: dark-light-mode. Do NOT use for writing translations or the localization key convention — those are LocalizationKit.
+description: Implement and verify right-to-left support — layoutDirection, mirroring, directional SF Symbols, asset flipping, text alignment, locale-correct numbers and dates. Use when asked to support RTL, add Arabic, Hebrew, Farsi or Urdu, verify mirroring, or when adding a locale. Catches .left/.right instead of leading/trailing, chevron.right that does not flip, concatenation that freezes word order, custom drawing that ignores layoutDirection, and logos or media controls that must NOT flip. Related skill: dark-light-mode.
 ---
 
 # RTL support

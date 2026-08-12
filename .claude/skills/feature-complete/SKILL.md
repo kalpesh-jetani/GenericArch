@@ -1,6 +1,6 @@
 ---
 name: feature-complete
-description: Close out finished work and decide what to keep from it. Fires when a feature is called done — "that's finished", "wrap up the auth work", "mark this complete", "close this out" — or right after /verify returns clean. Offers four outcomes: capture the reusable pattern as a new skill, close with a note only, keep working, or decide later. Never creates a skill without judging that a genuine repeatable pattern exists, and records the outcome in the feature doc and the FEATURES note. Do NOT use mid-build, or to determine whether work is done — that is /verify.
+description: Close out finished work and decide what to keep from it. Fires when a feature is called done — "that's finished", "wrap up the auth work", "mark this complete", "close this out" — or after /verify returns clean. Offers four outcomes: save the pattern as a new skill, close with a note, keep working, or decide later. Never saves a skill without judging that a repeatable pattern exists. Do NOT use mid-build, or to determine whether work is done — that is /verify.
 ---
 
 # Closing out a feature

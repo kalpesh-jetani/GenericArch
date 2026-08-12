@@ -1,6 +1,6 @@
 ---
 name: release-bump
-description: Release a change to one of the two extracted GenericArch repos — GenericArch-NetworkKit or GenericArch-ImageCache — and bump the app repo to consume it. Use when asked to release, tag, bump, publish, or "ship" NetworkKit or ImageCache, or when asked "what breaks if I change this package". Produces the two-step plan (tag there, bump Package.resolved here), classifies the semver level, and flags when the change should not have been in an extracted repo at all. Do NOT use for changes to local packages under Packages/ — those have no versions and ship with the app commit — and do NOT use for app releases to TestFlight or the App Store, which are DELIVERY.md.
+description: Release a change to an extracted repo — GenericArch-NetworkKit or GenericArch-ImageCache — and bump the app to consume it. Use when asked to release, tag, bump, publish or "ship" one of them, or "what breaks if I change this package". Produces the two-step plan, classifies the semver level, and flags when the change should not have been in an extracted repo. Do NOT use for local packages under Packages/, or for App Store releases — that is DELIVERY.
 ---
 
 # Release bump

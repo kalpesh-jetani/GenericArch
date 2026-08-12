@@ -147,7 +147,7 @@ cd /path/to/GenericArch
 Copies the base, refuses to copy the state, and **never overwrites** — an existing file is reported
 as a collision and kept. Then:
 
-1. **`/project-init`** — reads their CLAUDE.md in full, builds the rule-conflict table (CocoaPods vs
+1. **`/project-init`** — follows [ADOPTION.md](ADOPTION.md): reads their CLAUDE.md in full, builds the rule-conflict table (CocoaPods vs
    SPM, UIKit vs SwiftUI, Combine, existing DI, min OS), classifies each honestly, and asks per
    conflict with **keep-theirs as the default**. *Adopt for new code only* is usually the right
    answer for a hard conflict — it's the only option honest about code that already exists.

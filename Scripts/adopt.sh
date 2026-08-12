@@ -146,7 +146,8 @@ cat <<NEXT
 
 ${BLD}Next, in the target repo${OFF}
 
-  1. ${BLD}/project-init${OFF}   Detects an existing repo, reads its CLAUDE.md, builds the rule-conflict
+  1. ${BLD}/project-init${OFF}   Detects an existing repo and follows docs/ADOPTION.md — reads its
+                    CLAUDE.md, builds the rule-conflict
                     table, and asks per conflict. Keeps their rules by default — nothing is
                     overwritten without an explicit yes.
 
