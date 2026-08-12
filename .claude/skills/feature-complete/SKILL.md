@@ -62,38 +62,60 @@ it against three questions, and say the answers out loud:
 Fewer than two yeses → say so and fall back to *Just Close*. **Do not create a thin skill to honour
 the option that was picked** — that is how a skills directory becomes noise nobody trusts.
 
-### 3b. Draft it, don't write it yet
+### 3b. Draft it — as pointers into the code, not a retelling of it
+
+**A derived skill references the files; it does not describe what they contain.** Prose about code
+is stale the moment the code changes, and it will still be followed. A path with a note stays
+useful: it lands on the living version, and if the file is gone the skill is visibly wrong instead
+of quietly wrong.
+
+So every step cites the file that shows it, with a clause saying what to look at there.
 
 ```markdown
 ---
 name: <verb-noun, kebab-case, no collision with an existing skill>
-description: <what it covers · the phrases that should fire it · when NOT to use it>
+description: <trigger phrases · when NOT to use it — short; the body carries the detail>
 ---
 
-> **Derived from** Feature<Name>, <date>. Generalise it when a second feature confirms the pattern;
-> delete it when it stops matching. A derived skill that no longer describes how the work is done
-> is worse than none — it will be followed anyway.
+> **Derived from** Feature<Name>, <date>. Delete it when the files below stop matching how the work
+> is done — a derived skill that no longer describes reality is worse than none.
 
 # <Title>
 
 ## The sequence that worked
-1. …            ← the actual order followed, not an idealised one
+
+1. **Protocol and mock before any view** —
+   `Packages/Features/FeatureAuth/Sources/FeatureAuth/Services/Authenticating.swift` — the
+   capability and its mock, written first so the view model had something to test against.
+2. **View model exposes `ContentState`** —
+   `Packages/Features/FeatureAuth/Sources/FeatureAuth/ViewModels/LoginViewModel.swift` — note how
+   `failed` keeps the entered email rather than clearing the form.
+3. **Assembly is the only file that sees the container** —
+   `Packages/Features/FeatureAuth/Sources/FeatureAuth/DI/AuthAssembly.swift`.
 
 ## Decisions this settled
-… link the DECISIONS.md rows rather than restating them
+
+Link the [DECISIONS.md](../../../docs/DECISIONS.md) rows. Do not restate them.
 
 ## What cost time
-… the gotcha, and the symptom that gives it away
+
+The gotcha, the symptom that gives it away, and **the file where the fix lives** — one line each.
 ```
 
 Rules for the draft:
 
-- **Write the sequence that was actually followed**, including the part that was got wrong first.
-  A cleaned-up version omits exactly the thing worth recording.
-- **Description decides whether it ever fires.** Name the concrete trigger phrases and when *not*
-  to use it. Vague descriptions fire everywhere or nowhere.
-- **Vocabulary must not overlap an existing skill.** Naming another skill's *topic* pulls its
-  keywords in — reference siblings by name only.
+- **Cite, don't narrate.** If you find yourself explaining what a function does, link the function
+  instead — it has a doc comment ([CONVENTIONS.md](../../../docs/CONVENTIONS.md)).
+- **Never a bare path.** Each one carries a clause saying what to look at there
+  ([STRUCTURE.md](../../../docs/STRUCTURE.md)).
+- **Paths must resolve.** Verify each before writing it; a pointer to a moved file is worse than no
+  pointer.
+- **Record the sequence that was actually followed**, including what was got wrong first. A tidied
+  version omits the part worth keeping.
+- **Keep it short.** A derived skill that runs past roughly a screen is narrating. The code is the
+  detail; this is the map.
+- **Description is for triggering only** — the phrases that should fire it and when not to use it.
+  Vocabulary must not overlap an existing skill; reference siblings by name, never by topic.
 
 ### 3c. Check it will not collide, then get approval
 

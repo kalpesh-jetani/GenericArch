@@ -119,6 +119,28 @@ nothing useful to say, the row probably isn't worth listing.
 Paths are repo-relative and must resolve to exactly one file — no `.../` abbreviations, because grep
 cannot follow them.
 
+## Writing a skill from working code
+
+A skill distilled from a finished feature **points at the code; it does not retell it**.
+
+```markdown
+✅ 2. View model exposes `ContentState` —
+      `Packages/Features/FeatureAuth/…/LoginViewModel.swift` — note how `failed` keeps the
+      entered email rather than clearing the form.
+
+❌ 2. The view model holds an enum with six cases. On failure it stores the error and keeps the
+      email so the user doesn't retype it. It also…
+```
+
+The prose version is stale the moment the code changes, and it will still be followed. The pointer
+lands on the living version — and if the file has moved, the skill is *visibly* wrong rather than
+quietly wrong.
+
+It follows that a derived skill is **short**. Running past roughly a screen means it is narrating,
+and the code is the detail. Its `description` is for triggering only: the phrases that should fire
+it and when not to. Same path rule as everywhere else — never a bare path, and verify each one
+resolves before writing it.
+
 ## Keeping it honest
 
 - **A doc that drifts from its code is worse than no doc.** Update it in the same change that changes
