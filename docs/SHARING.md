@@ -9,24 +9,59 @@ using two of them, for different layers.
 
 ---
 
-## First: this repo holds two different things
+## First: three categories, not two
 
-The base is reusable. The rest is **this product's state**, and carrying it into another repo makes
-the target's own docs lie.
+Copying is only one of the three ways something reaches a consumer.
 
-| Travels | Stays here |
+### 1. Copied — the reusable base
+
+| What | Why it travels |
 |---|---|
-| `docs/modules/*.md` — design per package | `CLAUDE.md` — the target's rules are its own |
-| `docs/{STRUCTURE,CONVENTIONS,DONE,REPO,DELIVERY,PERFORMANCE}.md` | `.claude/notes/*` — **this app's** screens, routes, assets, fonts |
-| `.claude/skills/*`, `.claude/commands/*` | `docs/DECISIONS.md` — **this product's** answers |
-| `.swiftlint.yml`, `.swiftformat`, `Scripts/*` (incl. `detect-toolchain.sh`) | `docs/GAPS.md` — statuses are per-product |
-| `Packages/{Core,DIKit}` as starting code | `Packages/Features/*`, `App/*` |
+| `docs/modules/*.md` | Design per package, product-independent |
+| `docs/{STRUCTURE,CONVENTIONS,DONE,REPO,DELIVERY,PERFORMANCE}.md` | Cross-cutting reference |
+| `.claude/skills/*`, `.claude/commands/*` | Agent tooling |
+| `.swiftlint.yml`, `.swiftformat`, `Scripts/*` (incl. `detect-toolchain.sh`) | Enforcement |
+| `Packages/{Core,DIKit}` | Starting code — a consumer edits its own copy |
 
-`Scripts/adopt.sh` enforces this split so nobody has to remember it — including the notes, which
-never travel in any form. `/project-init` creates the target's own.
+### 2. Resolved — the extracted packages, **never copied**
 
-**`CLAUDE.md` is on the "stays" side deliberately.** A target repo's rules were set with context you
-don't have, and `/project-init` reconciles rather than overwrites.
+| Package | Reaches a consumer as |
+|---|---|
+| `GenericArch-NetworkKit` | an SPM dependency by URL, pinned with `.upToNextMajor(from:)` |
+| `GenericArch-ImageCache` | the same |
+
+**These are standalone modular packages in their own repositories. A consuming project does not
+include their source, and `adopt.sh` never copies them.** A consumer adds one line to
+`Package.swift` and gets a versioned binary-compatible dependency:
+
+```swift
+.package(url: "https://github.com/<org>/GenericArch-NetworkKit.git", from: "1.0.0")
+```
+
+That is the whole point of extracting them (CLAUDE.md §4.2): they carry **zero dependencies** — not
+even `Core` — so any product can resolve them without inheriting this architecture. A consumer that
+vendors the source has undone the extraction and now owns a fork.
+
+Consequences worth stating:
+
+- They need to **exist and be reachable** only for a consumer that actually uses them. A project with
+  no networking never resolves NetworkKit, and nothing breaks.
+- They version **independently of the app and of each other** — `/release-bump`, [REPO.md](REPO.md).
+- They are the one layer where central updates reach every consumer for free, by bumping a version.
+
+### 3. Neither — this product's state
+
+| What | Why it must not travel |
+|---|---|
+| `CLAUDE.md` | The target's rules are its own; `/project-init` reconciles rather than overwrites |
+| `.claude/notes/*` | Inventories of **this app's** screens, routes, assets, fonts |
+| `docs/DECISIONS.md` | **This product's** answers |
+| `docs/GAPS.md` | Gap statuses are per-product |
+| `Packages/Features/*`, `App/*` | This product's code |
+
+`Scripts/adopt.sh` enforces all three categories so nobody has to remember them: it copies group 1,
+skips group 3 with the reason printed, and never touches group 2 — those arrive by dependency
+resolution, not by file copy.
 
 ---
 
@@ -133,7 +168,7 @@ Don't try to sync all of it. Three layers, three honest answers:
 
 | Layer | Strategy |
 |---|---|
-| `Packages/{NetworkKit,ImageCache}` | **Already solved** — semver over SPM, `/release-bump` |
+| `GenericArch-{NetworkKit,ImageCache}` | **Already solved** — separate repos, semver over SPM. A consumer bumps a version; no files move. Category 2 above |
 | Skills, commands, lint config | **Genuinely shared** → Option 2, the plugin |
 | `CLAUDE.md`, `docs/` | **Let them diverge** |
 
@@ -148,7 +183,10 @@ and someone edits it for everyone. Divergence here is correct behaviour, not deb
       if that tag isn't pushed, every consumer silently falls back to the default branch
 - [ ] `install.sh` tested against both a fresh and an existing repo — the existing case is the one
       that can damage someone's work
-- [ ] The two seed repos exist: `GenericArch-NetworkKit`, `GenericArch-ImageCache` (consumed by URL)
+- [ ] The two extracted packages are **published as their own repositories and tagged** —
+      `GenericArch-NetworkKit`, `GenericArch-ImageCache`. Consumers resolve them by URL; their source
+      is never copied into a consuming repo, so an untagged or unreachable repo is what breaks, not a
+      missing file. Each must build and test standalone with **zero dependencies** (CLAUDE.md §4.2)
 - [ ] `./Scripts/check.sh` and `Scripts/check-skill-triggers.py` pass
 - [ ] **`./Scripts/detect-toolchain.sh` is clean** — §1 is detected from the machine and the project
       file, not hand-written, and `check.sh` fails when it drifts. Each consumer detects its own;

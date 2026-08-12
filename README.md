@@ -88,8 +88,10 @@ docs/modules/        one doc per package
 Scripts/check.sh     enforces the rules a linter can't express
 ```
 
-Two packages live in **their own repositories** and are consumed by version:
-`GenericArch-NetworkKit` and `GenericArch-ImageCache` ([docs/REPO.md](docs/REPO.md)).
+Two packages are **not in this repo at all**. `GenericArch-NetworkKit` and `GenericArch-ImageCache`
+are standalone, zero-dependency packages in their own repositories — add them to `Package.swift` when
+a product needs them, and they resolve by version. Their source is never copied into a consuming
+codebase ([docs/REPO.md](docs/REPO.md)).
 
 ## Build
 
