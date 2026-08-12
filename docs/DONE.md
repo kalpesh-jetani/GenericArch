@@ -1,12 +1,13 @@
 # Definition of Done
 
-**Read this before saying a change is finished.** Run `/verify` to walk it against the working diff.
+**Read this before saying a change is finished.** `/verify` walks it against your working diff by
+reading and grepping — it does not build.
 
 Not every line is machine-checkable, and pretending otherwise is how a checklist gets rubber-stamped:
 
 | Marker | Meaning |
 |---|---|
-| 🤖 | Enforced by `./Scripts/check.sh`, SwiftLint, or the build. If it passes, it passes |
+| 🤖 | Machine-checkable by `./Scripts/check.sh`, SwiftLint, or the build — **run by you or CI**, never by Claude (CLAUDE.md §2.12) |
 | 👁 | Needs a device, a simulator, or a human eye. **Must be stated as verified or skipped** — never assumed |
 
 `/verify` reports 👁 items under *Not checkable here* rather than letting them read as passing.

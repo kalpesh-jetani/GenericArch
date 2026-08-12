@@ -93,10 +93,12 @@ Rules for this step:
 Only after gate 2:
 
 1. Make the edits.
-2. Re-run `./Scripts/detect-toolchain.sh` — the mismatch must be gone.
-3. Run `./Scripts/check.sh` and `swift build` for each touched package.
-4. **If verification fails, say so and stop.** Do not chase the failure with more unapproved edits;
-   that is how a two-gate process turns into an unsupervised one.
+2. Re-run `./Scripts/detect-toolchain.sh` — it only reads settings, so this one is yours to run.
+3. **Hand the user the verification commands** — `./Scripts/check.sh`, and `swift build` for each
+   touched package. Do not run them (CLAUDE.md §2.12); a stack change is exactly when someone
+   should watch the build output.
+4. **If they report a failure, say so and stop.** Do not chase it with more unapproved edits; that
+   is how a two-gate process turns into an unsupervised one.
 
 Record the outcome with `/decide` — a stack change is a settled decision, including a deliberate
 Skip, so it isn't re-raised next month.

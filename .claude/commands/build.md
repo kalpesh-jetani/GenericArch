@@ -6,6 +6,9 @@ allowed-tools: Bash, Read, Grep
 
 Build the project for the requested stage.
 
+**This command is the sanctioned exception to CLAUDE.md §2.12** — typing it *is* the instruction to
+build. Outside it, never build, run or test on your own initiative.
+
 **Arguments:** `$ARGUMENTS` — scheme stage, platform, action. Defaults when omitted:
 `DEV ios build`.
 

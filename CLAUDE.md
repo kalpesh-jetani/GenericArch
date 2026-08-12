@@ -93,6 +93,11 @@ until it's answered, DesignSystem tokens stay platform-neutral.
     the work looks finished. Leave everything in the working tree and say what changed; the user
     commits when *they* decide the work is done. Only act on an explicit "commit" or "push" — and
     a `/release-bump` or `/project-init` run is not that instruction either.
+12. **Never build, run, or test the app.** No `swift build`, `swift test`, `xcodebuild`, no
+    launching a simulator or device, and nothing that invokes the compiler — including
+    `./Scripts/check.sh`, whose iOS-floor step compiles. Say what to run and let the user run it.
+    Reading, grepping, and editing files need no permission; spending minutes of their machine and
+    acting on the result does.
 
 ---
 
@@ -336,7 +341,8 @@ Build and test: `/build [DEV|TEST|BETA|PROD] [ios|macos] [build|test|archive]`.
   shapes.
 - **Never edit this file without explicit approval** — including when certain. Show the exact text
   and wait. Where new guidance belongs instead: [STRUCTURE.md](docs/STRUCTURE.md).
-- **Run `./Scripts/check.sh`** before saying a change is done; it enforces §2 mechanically.
+- **Tell the user to run `./Scripts/check.sh`** before a change is called done — it enforces §2
+  mechanically, but running it is theirs (§2.12).
 - Read the relevant `Package.swift` before adding a dependency edge. If it violates §3's direction,
   stop and say so rather than adding it.
 - When asked for a feature, produce **protocol + mock + implementation + localized keys + every

@@ -112,8 +112,9 @@ integration surface.
 - Previews per screen covering every `ContentState`. **Snapshots are bounded** (CLAUDE.md §9):
   screens snapshot `loaded` + one failure state; the full light/dark × RTL × XXXL matrix belongs to
   DesignSystem components, which every screen inherits.
-- Package builds and tests **standalone** — `swift test --package-path Packages/Features/Feature<Name>`,
-  no app. Repo walls no longer enforce boundaries; this does.
+- Package builds and tests **standalone** — hand over
+  `swift test --package-path Packages/Features/Feature<Name>`; the user runs it (§2.12). Repo walls
+  no longer enforce boundaries; this test does.
 
 ## 6. The feature's own doc — required
 

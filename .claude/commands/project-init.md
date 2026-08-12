@@ -126,6 +126,40 @@ Skills and commands can be directory-scoped the same way. Ask whether any should
 
 # Shared — both paths continue here
 
+## S0. Deduplicate rules across the four levels
+
+A rule stated at two levels drifts, and the copy that goes stale is the one nobody is reading. Audit
+before adding anything, because adoption is when duplicates get created.
+
+```bash
+ls .claude-plugin dist/*/. claude-plugin 2>/dev/null          # 1 plugin
+find . -name CLAUDE.md -not -path '*/.git/*'; ls docs .claude/skills .claude/commands 2>/dev/null
+ls ~/.claude/CLAUDE.md ~/.claude/projects/*/memory/*.md 2>/dev/null   # 3 user
+ls "/Library/Application Support/ClaudeCode/managed-settings.json" 2>/dev/null  # 4 enterprise
+```
+
+**Keep the most specific copy; remove the broader duplicates, working inward** — Enterprise, then
+User-Level, then project, then Plugin. The most specific copy is the one that ships with the thing
+the rule governs, so it stays.
+
+| Level | Reach | On a duplicate |
+|---|---|---|
+| Enterprise | every repo, every user | **Read-only — never touch it.** If it duplicates a lower rule, remove the lower one instead |
+| User-Level | this user | Remove — the project or plugin copy already covers it |
+| project | everyone who clones the repo | Keep, unless a plugin ships the same rule |
+| Plugin | every repo that installs it | Keep for tooling rules; a product rule does not belong here |
+
+Two cautions:
+
+- **A project-scoped memory directory adds no reach over the repo itself.** If a rule sits in both
+  `~/.claude/projects/<this>/memory/` and `CLAUDE.md`, the memory copy is pure duplication — drop it.
+- **Check the copy you are keeping carries the reasoning**, not just the sentence. Deleting the
+  fuller statement and keeping a one-line restatement loses the *why*, which is what stops the rule
+  being argued again.
+
+Report what was removed and from where. Removing a rule from `CLAUDE.md` still needs its own
+approval ([STRUCTURE.md](../../docs/STRUCTURE.md)).
+
 ## S1a. Resolve the stack — detect first, ask only the remainder
 
 ```bash

@@ -37,7 +37,7 @@ Two that get misjudged:
 2. GenericArch (app repo)   update dependency range, commit Package.resolved
 ```
 
-Per step: `swift build && swift test` standalone → update the module `.md` if behavior changed
+Per step (the user runs the commands, §2.12): `swift build && swift test` standalone → update the module `.md` if behavior changed
 (STRUCTURE) → commit → tag → push tag. Then in the app repo: drop any `swift package edit`
 override, resolve, build both platforms, commit `Package.resolved`.
 
