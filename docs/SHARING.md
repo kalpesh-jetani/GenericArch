@@ -35,7 +35,7 @@ include their source, and `adopt.sh` never copies them.** A consumer adds one li
 `Package.swift` and gets a versioned binary-compatible dependency:
 
 ```swift
-.package(url: "https://github.com/<org>/GenericArch-NetworkKit.git", from: "1.0.0")
+.package(url: "https://github.com/kalpesh-jetani/GenericArch-NetworkKit.git", from: "1.0.0")
 ```
 
 That is the whole point of extracting them (CLAUDE.md §4.2): they carry **zero dependencies** — not
@@ -71,11 +71,11 @@ Best when the product starts from nothing. One command, everything present, no h
 
 ```bash
 # once, on the base repo
-gh repo create <org>/GenericArch --private --source=. --push
-gh repo edit <org>/GenericArch --template
+gh repo create kalpesh-jetani/GenericArch --private --source=. --push
+gh repo edit kalpesh-jetani/GenericArch --template
 
 # per new product
-gh repo create <org>/MyApp --template <org>/GenericArch --private --clone
+gh repo create kalpesh-jetani/MyApp --template <org>/GenericArch --private --clone
 cd MyApp
 ```
 
@@ -106,7 +106,7 @@ when several products should share the *tooling* while keeping their own rules.
 ./Scripts/build-plugin.sh 0.1.0        # generates dist/genericarch/
 cd dist/genericarch
 git init && git add -A && git commit -m "genericarch plugin 0.1.0"
-gh repo create <org>/genericarch-plugin --public --source=. --push
+gh repo create kalpesh-jetani/genericarch-plugin --public --source=. --push
 ```
 
 In any repo:

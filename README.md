@@ -16,7 +16,7 @@ Pick the row that matches what you have. All three are non-destructive — **not
 ### New project
 
 ```bash
-gh repo create <org>/MyApp --template <org>/GenericArch --private --clone && cd MyApp
+gh repo create kalpesh-jetani/MyApp --template <org>/GenericArch --private --clone && cd MyApp
 ```
 
 Then `/project-init MyApp` in Claude Code. Reset the inherited state it warns you about

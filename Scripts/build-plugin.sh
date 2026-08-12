@@ -30,7 +30,7 @@ cat > "$OUT/.claude-plugin/plugin.json" <<JSON
   "description": "Apple-platform app architecture for iPhone/iPad/Mac from one codebase — SwiftUI, Swift 6 strict concurrency, SPM only. Adds skills for scaffolding features, dark mode and RTL verification, package releases, and inventory notes; commands for build, verify, decide, gaps, and project adoption.",
   "version": "$VERSION",
   "author": { "name": "GenericArch" },
-  "homepage": "https://github.com/<org>/GenericArch",
+  "homepage": "https://github.com/kalpesh-jetani/GenericArch",
   "keywords": ["swift", "swiftui", "ios", "macos", "architecture", "spm"]
 }
 JSON
@@ -39,7 +39,7 @@ JSON
 cat > "$OUT/.claude-plugin/marketplace.json" <<JSON
 {
   "name": "genericarch-marketplace",
-  "owner": { "name": "<org>" },
+  "owner": { "name": "kalpesh-jetani" },
   "plugins": [
     {
       "name": "genericarch",

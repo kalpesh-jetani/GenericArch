@@ -18,7 +18,7 @@
 # Scripts/adopt.sh, in one place — duplicating it here is how the two would disagree.
 set -o pipefail
 
-GA_REPO="${GA_REPO:-https://github.com/<org>/GenericArch.git}"
+GA_REPO="${GA_REPO:-https://github.com/kalpesh-jetani/GenericArch.git}"
 GA_REF="${GA_REF:-v0.1.0}"
 APPLY=0
 for a in "$@"; do
