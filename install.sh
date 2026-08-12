@@ -80,7 +80,7 @@ fi
 echo "${DIM}target looks like a ${MODE} project${OFF}"
 
 if [ "$APPLY" -eq 1 ]; then
-  "$TMP/base/Scripts/adopt.sh" "$TARGET" --apply
+  "$TMP/base/Scripts/adopt.sh" "$TARGET" --apply --quiet-next
 else
   "$TMP/base/Scripts/adopt.sh" "$TARGET"
 fi

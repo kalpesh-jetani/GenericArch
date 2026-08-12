@@ -17,7 +17,12 @@ RED=$'\033[31m'; YEL=$'\033[33m'; GRN=$'\033[32m'; DIM=$'\033[2m'; BLD=$'\033[1m
 
 TARGET="${1:-}"
 APPLY=0
-[ "${2:-}" = "--apply" ] && APPLY=1
+QUIET_NEXT=0
+for a in "$@"; do
+  [ "$a" = "--apply" ] && APPLY=1
+  # install.sh prints advice matched to fresh-vs-existing; ours would contradict it.
+  [ "$a" = "--quiet-next" ] && QUIET_NEXT=1
+done
 [ "${1:-}" = "--apply" ] && { echo "${RED}pass the target path first${OFF}"; exit 2; }
 
 if [ -z "$TARGET" ]; then
@@ -135,7 +140,8 @@ if [ "$APPLY" -eq 0 ]; then
   exit 0
 fi
 
-chmod +x "$TARGET/Scripts/check.sh" 2>/dev/null
+chmod +x "$TARGET/Scripts/check.sh" "$TARGET/Scripts/detect-toolchain.sh" 2>/dev/null
+[ "$QUIET_NEXT" -eq 1 ] && exit 0
 cat <<NEXT
 
 ${BLD}Next, in the target repo${OFF}
