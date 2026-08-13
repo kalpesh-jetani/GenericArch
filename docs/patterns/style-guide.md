@@ -1,14 +1,21 @@
+# Pattern — style-guide
+
+**Not a skill yet.** It becomes one when this repo has the code it describes — `/learn style-guide`
+promotes it. Until then it is reference: read it when the situation arises.
+
+- **Promote when:** the code it governs exists
+- **Trigger phrases it would claim:** Keep the design token registry authoritative when styling UI — spacing, padding, radius, elevation, shadow, motion durations, type scale, component variants. Fires whenever a visual value is about to …
+
 ---
-name: style-guide
-description: Keep the design token registry authoritative when styling UI — spacing, padding, radius, elevation, shadow, motion durations, type scale, component variants. Fires whenever a visual value is about to be written or changed: "round the corners", "tighten the spacing", "make this bigger", "add a variant", "restyle this". Proposes a token that already fits rather than admitting a near-duplicate; asks when nothing fits; registers the agreed token. Related skills: dark-light-mode, new-feature.
----
+
+**Index before grep** — check the `.claude/notes/` inventories first ([PATTERN-SEARCH.md](../PATTERN-SEARCH.md)); they map a name to its files without a search.
 
 # Style guide
 
-The registry is [STYLE-GUIDE.md](../../notes/STYLE-GUIDE.md) — spacing, radius, elevation, motion,
-type scale, components. Colours are [ASSETS-COLORS.md](../../notes/ASSETS-COLORS.md); font families
-and registration are [FONTS.md](../../notes/FONTS.md). The rules behind all of it are
-[DesignSystem.md](../../../docs/modules/DesignSystem.md).
+The registry is [STYLE-GUIDE.md](../../.claude/notes/STYLE-GUIDE.md) — spacing, radius, elevation, motion,
+type scale, components. Colours are [ASSETS-COLORS.md](../../.claude/notes/ASSETS-COLORS.md); font families
+and registration are [FONTS.md](../../.claude/notes/FONTS.md). The rules behind all of it are
+[DesignSystem.md](../modules/DesignSystem.md).
 
 **The order is: look up → propose existing → ask → register.** Never invent a value, and never add a
 token without checking whether one already fits.
@@ -58,7 +65,7 @@ Never pick a value silently. Ask, and make the choice easy by showing what alrea
 Give options derived from **the existing scale**, not from arbitrary numbers. A scale with 4/8/16/24
 should not gain a 14.
 
-**Do not close an [Open style questions](../../notes/STYLE-GUIDE.md) row to unblock yourself.** An
+**Do not close an [Open style questions](../../.claude/notes/STYLE-GUIDE.md) row to unblock yourself.** An
 unanswered question is honest; a silently chosen value becomes precedent that the next screen copies.
 
 ## 4. Register it in the same change
@@ -67,8 +74,8 @@ A token agreed and not written down is a token that gets re-invented next week.
 
 - Add the row to the right table in STYLE-GUIDE.md — with the **declaring file and a note saying
   what's there**, never a bare path.
-- Colour → also [ASSETS-COLORS.md](../../notes/ASSETS-COLORS.md) with **both** hexes. Type token →
-  also [FONTS.md](../../notes/FONTS.md).
+- Colour → also [ASSETS-COLORS.md](../../.claude/notes/ASSETS-COLORS.md) with **both** hexes. Type token →
+  also [FONTS.md](../../.claude/notes/FONTS.md).
 - New component or variant → the Components table, with its variants and the states it covers.
 - Record the decision with `/decide` if it changes the vocabulary rather than extending it.
 

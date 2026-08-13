@@ -12,7 +12,7 @@ Add a row when a §0 decision is made; never remove one.
 | Stack | **Acquired, not assumed** — `Scripts/detect-toolchain.sh`. Project wins; machine fills gaps; the remainder is asked at init with machine-derived options, latest recommended | A baseline nobody can build with is worse than none, and a machine upgrade must not silently change what the app supports or what it is written in. §1's values are this repo's answers, not the tool's defaults | §1 |
 | Deployment targets | iOS/iPadOS **17.0**, macOS **26.6** | Asymmetric by intent; shared code compiles to the iOS 17 floor | §1.1 |
 | macOS strategy | Native SwiftUI target, **no Mac Catalyst** | Catalyst compromises menu bar, windowing, toolbars | §1 |
-| Project files | **SPM only** | No second build-system-of-record | REPO |
+| Project files | **SPM only** | No second build-system-of-record | [REPO.md](REPO.md) |
 | Repository | **Single repo**; only `GenericArch-NetworkKit` + `GenericArch-ImageCache` extracted | Feature packages change most, have one consumer, and would cost a tag + app bump each | §4.1–4.2 |
 | Extracted packages | **Standalone, zero-dependency** — no `Core` import | SPM resolves a git dep from its own root manifest; map at our boundary like a vendor | §4.2, §7 |
 | Extraction test | All three must hold: product-independent · actually reused · stable | Otherwise keep it local — local costs nothing | §4.2 |
@@ -41,7 +41,7 @@ Rejected with reasons already recorded — reopen only with new information, not
 | Rejected | Where the reasoning lives |
 |---|---|
 | Multi-repo per package *(tried, reversed 2026-08-12)* | §4.2 |
-| Tuist · XcodeGen | REPO |
+| Tuist · XcodeGen | [REPO.md](REPO.md) |
 | Manual composition root · `@Environment`-only DI · third-party container | [DIKit.md](modules/DIKit.md) |
 | Reducer/TCA presentation | §0 |
 | `SmartSense-` · `SSS-` name prefixes | — |

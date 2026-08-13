@@ -43,7 +43,7 @@ One row per real conflict. Do not pad it with cosmetic differences.
 | `.alert` used directly | one `MessagePresenting` (§2.4) | **Migration** — every call site |
 | Hardcoded or differently-keyed strings | `<feature>_<screen>_<element>_<role>` (§2.3) | **Convention** — renaming shipped keys breaks translators |
 | Swinject / Factory / other DI | own typed registry (DIKit) | **Hard** — DI is pervasive |
-| Different min iOS / macOS | iOS 17 / macOS 26.6 (§1) | **Hard** — changes what compiles |
+| Different min iOS / macOS | whatever `Package.swift` declares (§1.1) | **Hard** — changes what compiles |
 | VIPER / Clean / MVC / MVVM-C | MVVM + `@Observable`, layered (§0, §3) | **Structural** |
 | XCTest throughout | Swift Testing for new (§9) | **Soft** — both can coexist |
 | Multi-repo or different layout | single repo + two extracted (§4) | **Structural** |

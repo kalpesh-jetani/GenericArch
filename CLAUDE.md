@@ -32,42 +32,41 @@ without re-asking.
 **The stack is acquired, never assumed** — `./Scripts/detect-toolchain.sh`. The project wins, the
 machine fills the gaps, the rest is asked at init and recorded with `/decide`.
 
-Values below are **this repo's resolved answers**, not defaults. Refresh with `--markdown`;
-`./Scripts/check.sh` fails when they drift.
+This repo's **resolved values** — min iOS, min macOS, Xcode, Swift, language mode — live in
+[PROJECT.md](.claude/notes/PROJECT.md). Read them before anything version-dependent; never quote
+them from memory. Refresh with `--markdown`; `./Scripts/check.sh` fails when they drift.
 
-| Item | Value | Source |
-|---|---|---|
-| Minimum iOS / iPadOS | **17.0** | project |
-| Minimum macOS | **26.6** | project |
-| Xcode / Swift | **26.6** / **6.3.3** | machine |
-| Swift language mode | **6**, strict concurrency = complete *(available: 5, 6)* | machine |
-| UI | **SwiftUI** (UIKit/AppKit only behind a `Representable`, only when SwiftUI genuinely cannot) | chosen |
-| macOS | **Native SwiftUI target. No Mac Catalyst.** | chosen |
-| Dependencies | **SPM.** No CocoaPods, no Carthage, no checked-in `.framework`/`.xcframework` | project |
-| Project files | **SPM.** No Tuist, no XcodeGen — [REPO.md](docs/REPO.md) | project |
-| Concurrency | **async/await + structured concurrency.** No completion handlers, no Combine in new code, no `DispatchQueue` hopping | project |
-| Testing | Swift Testing (`import Testing`); XCTest only for UI tests | project |
+Fixed by **choice**, not detection. These are rules — a divergent answer changes what §2 and the
+module docs apply to, and `/project-init` names what it invalidates:
 
-A different stack is a valid answer and changes what applies — §2 and the module docs are written
-for the one above. `/project-init` names what a divergent choice invalidates.
+- **SwiftUI.** UIKit/AppKit only behind a `Representable`, only where SwiftUI genuinely cannot.
+- **macOS is a native SwiftUI target. No Mac Catalyst.**
+- **SPM for both dependencies and project files.** No CocoaPods, Carthage, Tuist, XcodeGen, or a
+  checked-in `.framework`/`.xcframework` — [REPO.md](docs/REPO.md).
+- **async/await + structured concurrency.** No completion handlers, no Combine in new code, no
+  `DispatchQueue` hopping.
+- **Swift Testing** (`import Testing`). XCTest only for UI tests.
 
 ### 1.1 The asymmetric baseline — read before writing shared code
 
-The Mac floor is ~9 OS generations above the iPhone floor.
+The Mac floor sits many OS generations above the iPhone floor, and shared code must satisfy the
+lower one.
 
-- **Shared code compiles against iOS 17.** A macOS 26 API in a shared file breaks the iOS build.
+**Never type either floor from memory or from this file.** Take them from the project — the
+`platforms:` line in any `Package.swift` — or from the machine with
+`./Scripts/detect-toolchain.sh`. [PROJECT.md](.claude/notes/PROJECT.md) records what they resolved
+to; the manifest is what the compiler actually obeys.
+
+- **Shared code compiles against the iOS floor.** An API newer than it breaks the iOS build even
+  where the Mac target would accept it.
 - Newer APIs only via `#if os(macOS)` (platform-exclusive) or `if #available` (with a working
   fallback). Never both silently.
-- **Never raise the iOS target to reach an API.** Gate it or don't ship it.
+- **Never raise a floor to reach an API.** Gate it or don't ship it.
 - Every gate lives **inside a DesignSystem component or an infrastructure wrapper**. A feature must
   not know which OS it is on.
 
-```swift
-platforms: [.iOS(.v17), .macOS("26.6")]
-```
-
-The iOS-17-vs-macOS-26 look-and-feel question is **open** ([DECISIONS.md](docs/DECISIONS.md));
-until it's answered, DesignSystem tokens stay platform-neutral.
+The cross-floor look-and-feel question is **open** ([DECISIONS.md](docs/DECISIONS.md)); until it's
+answered, DesignSystem tokens stay platform-neutral.
 
 ---
 
@@ -92,12 +91,27 @@ until it's answered, DesignSystem tokens stay platform-neutral.
 11. **Never `commit` or `push`.** Not at the end of a change, not to "save progress", not because
     the work looks finished. Leave everything in the working tree and say what changed; the user
     commits when *they* decide the work is done. Only act on an explicit "commit" or "push" — and
-    a `/release-bump` or `/project-init` run is not that instruction either.
+    a release or `/project-init` run is not that instruction either.
 12. **Never build, run, or test the app.** No `swift build`, `swift test`, `xcodebuild`, no
     launching a simulator or device, and nothing that invokes the compiler — including
     `./Scripts/check.sh`, whose iOS-floor step compiles. Say what to run and let the user run it.
     Reading, grepping, and editing files need no permission; spending minutes of their machine and
     acting on the result does.
+13. **Follow the skill that matches, and say which one.** Name it before starting. If you skip one
+    of its steps, say which step and why — silently deviating from a skill you invoked is worse than
+    not invoking it. If no skill fits, say that too; a wrong skill is worse than none.
+14. **Stop on a vague instruction — ask for a reference or a focused goal.** If a request admits
+    more than one reading and those readings lead to materially different work, do nothing until it
+    is settled. Do not pick silently, and do not do a "safe subset" and hope. Ask for whichever
+    resolves it:
+    - **A reference** — the sample repo, file, Figma frame, doc URL, or the existing thing it
+      should resemble. Building from the name of a thing produces something plausible and wrong.
+    - **A focused goal** — what success looks like, concretely. "Improve this" is not a goal;
+      "make the first paint under 300 ms" is.
+    - **Which reading**, listed, with your recommendation — when the ambiguity is scope, not input.
+
+    Ask only what the user alone can answer. Anything the code, the docs or
+    [DECISIONS.md](docs/DECISIONS.md) already settles, look up instead of asking.
 
 ---
 
@@ -166,7 +180,7 @@ repo's root manifest, so an extracted package cannot reach one inside this repo.
 own errors and protocols; we map at our boundary exactly as §7 treats a vendor.
 
 Versioning, local overrides, and adding a package: [REPO.md](docs/REPO.md). Releasing an extracted
-package: `/release-bump`.
+package: [release-bump](docs/patterns/release-bump.md).
 
 ### 4.2 When to extract — all three must be true
 
@@ -187,55 +201,35 @@ three by definition and are never candidates.
 
 ## 5. Index
 
-Where each layer, reference, and inventory lives. Where **new** material belongs:
-[STRUCTURE.md](docs/STRUCTURE.md).
+**Grep the map before reading anything** — [`.claude/MAP.tsv`](.claude/MAP.tsv) carries every module
+doc, cross-cutting doc, note, pattern and skill with its topics and when to read it. One grep costs a
+fraction of the table of contents it replaces.
 
-### Modules — `docs/modules/`
+```bash
+grep -i navigation .claude/MAP.tsv          # what covers this topic
+awk -F'\t' '$2=="module"' .claude/MAP.tsv   # every module doc
+```
 
-| Doc | Read it when |
-|---|---|
-| [Core.md](docs/modules/Core.md) | Shared protocol or model · `AppError` · `ContentState`, `Paged` |
-| [NetworkKit.md](docs/modules/NetworkKit.md) | Endpoint, middleware, token refresh, transfer *(extracted)* |
-| [ImageCache.md](docs/modules/ImageCache.md) | Remote image, cache sizing, prefetch *(extracted)* |
-| [StorageKit.md](docs/modules/StorageKit.md) | Persistence, secrets, caches, migrations |
-| [DIKit.md](docs/modules/DIKit.md) | Dependency key, `Assembly`, preview/test overrides |
-| [DesignSystem.md](docs/modules/DesignSystem.md) | Any view, token, component, content state, platform gate |
-| [LocalizationKit.md](docs/modules/LocalizationKit.md) | Any user-visible string, plurals, a new language |
-| [Messaging.md](docs/modules/Messaging.md) | Any message, error, confirmation, permission rationale |
-| [Navigation.md](docs/modules/Navigation.md) | A screen, deep link, split view, restoration |
-| [NotificationKit.md](docs/modules/NotificationKit.md) | Push registration, payload → `Route` |
-| [LoggingKit.md](docs/modules/LoggingKit.md) | Any log call; anything from a response or user input |
-| [AppShell.md](docs/modules/AppShell.md) | Composition root, scene phase, launch gates |
+**Read the module doc before touching a module.** It holds that module's rules and code shapes.
 
-### Cross-cutting — `docs/`
+**What earlier sessions learned** is in [`.claude/memory/INDEX.md`](.claude/memory/INDEX.md) —
+in-repo and tracked, so it survives a clone. Write memories there, not to a machine-local store; if
+that directory is absent, fall back to the core store and say so. `type: user` memories never go in
+the repo. Nothing that CLAUDE.md, [STRUCTURE.md](docs/STRUCTURE.md),
+[CONVENTIONS.md](docs/CONVENTIONS.md) or [DECISIONS.md](docs/DECISIONS.md) already records belongs
+in memory.
 
-| Doc | Read it when |
-|---|---|
-| [DECISIONS.md](docs/DECISIONS.md) | **Before any §0 question**, and before re-proposing anything |
-| [DONE.md](docs/DONE.md) | **Before calling a change finished** |
-| [CONVENTIONS.md](docs/CONVENTIONS.md) | Naming, file layout, access control, doc comments |
-| [STRUCTURE.md](docs/STRUCTURE.md) | Where new guidance belongs; the CLAUDE.md approval gate |
-| [REPO.md](docs/REPO.md) | Versioning, local overrides, adding a package |
-| [SHARING.md](docs/SHARING.md) | Publishing this base for someone else |
-| [ADOPTION.md](docs/ADOPTION.md) | Adopting it into a repo that has its own rules |
-| [DELIVERY.md](docs/DELIVERY.md) | CI, signing, versions, release, rollback |
-| [PERFORMANCE.md](docs/PERFORMANCE.md) | Launch budget, SwiftUI rendering, diagnosing a hitch |
-| [GAPS.md](docs/GAPS.md) | What this deliberately does not cover yet |
+Where **new** material belongs: [STRUCTURE.md](docs/STRUCTURE.md).
 
-### Generated inventories — `.claude/notes/`
+The `.claude/notes/` inventories are generated. **Edit the affected rows in the same change as every
+insertion or deletion** — screen, route, image, colour, font, token, scheme, target. A full rescan is
+the user's **`/sync-app-notes`** command; never start one yourself.
 
-[FEATURES](.claude/notes/FEATURES.md) · [NAVIGATION](.claude/notes/NAVIGATION.md) ·
-[ASSETS-IMAGES](.claude/notes/ASSETS-IMAGES.md) · [ASSETS-COLORS](.claude/notes/ASSETS-COLORS.md) ·
-[FONTS](.claude/notes/FONTS.md) · [STYLE-GUIDE](.claude/notes/STYLE-GUIDE.md) ·
-[SCHEMES](.claude/notes/SCHEMES.md) · [PROJECT](.claude/notes/PROJECT.md)
+## 6. Concurrency
 
-**Edit the affected rows in the same change as every insertion or deletion** — screen, route, image,
-colour, font, token, scheme, target. A full rescan is the user's **`/sync-app-notes`** command;
-never start one yourself.
-
----
-
-## 6. Concurrency (Swift 6, strict)
+These rules assume the strict-concurrency language mode recorded in
+[PROJECT.md](.claude/notes/PROJECT.md). On an older mode they still hold; the compiler just stops
+enforcing them for you.
 
 - UI types and view models are `@MainActor` — mark the type, not each method.
 - Services are actors or `Sendable` structs. **Never `@MainActor` a network service.**
@@ -285,7 +279,8 @@ Secrets to Keychain only → [StorageKit.md](docs/modules/StorageKit.md).
 `BiometricAuthenticating`.
 
 **Verify every screen at:** iPhone portrait/landscape · iPad portrait/landscape/split · Mac resized
-small and large · Dynamic Type XXXL · Dark Mode (`/dark-light-mode`) · RTL (`/rtl-support`).
+small and large · Dynamic Type XXXL · Dark Mode · RTL — procedures in
+[docs/patterns/](docs/patterns/dark-light-mode.md).
 
 ---
 
@@ -337,8 +332,10 @@ Build and test: `/build [DEV|TEST|BETA|PROD] [ios|macos] [build|test|archive]`.
 
 - **Check §0 first.** If the task touches a listed decision and [DECISIONS.md](docs/DECISIONS.md)
   has no answer, ask before writing code.
-- **Read the module doc before touching a module** (§5) — it holds that module's rules and code
-  shapes.
+- **A broad instruction is not permission to choose the scope** (§2.14). "Improve this", "make it
+  better", "fix the docs" — ask for the reference, the goal, or the list to pick from. Guessing
+  produces work that has to be undone, which costs more than the question. `/learn` is the path when
+  the answer is a resource.
 - **Never edit this file without explicit approval** — including when certain. Show the exact text
   and wait. Where new guidance belongs instead: [STRUCTURE.md](docs/STRUCTURE.md).
 - **Tell the user to run `./Scripts/check.sh`** before a change is called done — it enforces §2

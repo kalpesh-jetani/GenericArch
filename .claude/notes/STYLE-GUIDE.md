@@ -2,9 +2,7 @@
 
 Every design token and component variant that exists, so nothing gets invented twice.
 
-- **Maintained by:** targeted edit on every token or variant added, changed, or removed.
-  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
-- **Read this when:** building or restyling any view — **before** writing a value.
+**Read it when** building or restyling any view — **before** writing a value.
 - **Companions:** [ASSETS-COLORS.md](ASSETS-COLORS.md) (colour tokens + hex),
   [FONTS.md](FONTS.md) (families, registration, type tokens). This file owns everything else:
   spacing, radius, elevation, motion, and the component inventory.
@@ -16,8 +14,22 @@ Every design token and component variant that exists, so nothing gets invented t
 > two radii four points apart will never be reconciled, and every screen after them inherits the
 > ambiguity. If nothing here fits, that is a decision to bring to the user — not a value to invent.
 
-> Empty until `Packages/DesignSystem` exists. `/sync-app-notes` populates it by scanning the token
-> declarations and the `#Preview` blocks.
+## This file is an index, not the detail
+
+Every row points somewhere else. **Prefer the code** — a token's real definition is the file that
+declares it, and a description of implemented style is the same stale-prose problem as narrating a
+function. Only when a style is agreed but not yet code, or spans files a single path cannot capture,
+does it get its own note under `styles/`.
+
+| Detail lives in | Use when | Example |
+|---|---|---|
+| **A code path** *(preferred)* | The style is implemented | `Packages/DesignSystem/Sources/DesignSystem/Tokens/Radius.swift` — the scale |
+| **`styles/<name>.md`** | Agreed but not built, or spans several files | `styles/navigation-bar-style1.md` — the compact nav bar spec |
+
+A `styles/` note that describes shipped code should be **deleted and replaced with the path**. It
+exists to hold what code cannot yet answer, not to duplicate what it already does.
+
+> Empty until `Packages/DesignSystem` exists — `/sync-app-notes` populates it.
 
 ---
 
@@ -26,7 +38,7 @@ Every design token and component variant that exists, so nothing gets invented t
 The only permitted spacing values. A view needing something else needs a **token added here**, agreed
 with the user — not a literal at the call site.
 
-| Token | Value | Use for | Declared in — *what's there* |
+| Token | Value | Use for | Detail — *code path, or `styles/…`* |
 |---|---|---|---|
 | — | — | — | — |
 
@@ -40,7 +52,7 @@ with the user — not a literal at the call site.
 
 ## Radius
 
-| Token | Value | Use for | Declared in — *what's there* |
+| Token | Value | Use for | Detail — *code path, or `styles/…`* |
 |---|---|---|---|
 | — | — | — | — |
 
@@ -53,7 +65,7 @@ with the user — not a literal at the call site.
 
 **Dark mode is why this is a token and not a shadow.** Shadows are invisible on black, so elevation
 is carried by surface colour; the shadow is a light-appearance affordance layered on top
-([dark-light-mode](../skills/dark-light-mode/SKILL.md)).
+([dark-light-mode](../../docs/patterns/dark-light-mode.md)).
 
 | Level | Surface token | Shadow (light only) | Use for | Declared in — *what's there* |
 |---|---|---|---|---|
@@ -98,12 +110,13 @@ token to reach for, and what it maps to.
 The inventory. **Extend an existing component before adding a near-duplicate** — two that differ by a
 corner radius are one component and a parameter.
 
-| Component | Variants | States covered | File — *what's there* |
+| Component | Variants | States covered | Detail — *code path, or `styles/…`* |
 |---|---|---|---|
 | — | — | — | — |
 
 <!--
 | `PrimaryButton` | filled, tinted, destructive | default, pressed, disabled, loading | `Packages/DesignSystem/Sources/DesignSystem/Components/PrimaryButton.swift` — the button + its full preview matrix |
+| `NavigationBar` | compact, large, search | — *(spec only, not built)* | `styles/navigation-bar-style1.md` — heights, title behaviour, trailing items |
 | `ContentStateView` | — | idle, loading, loaded, empty, offline, failed, paging | `Packages/DesignSystem/Sources/DesignSystem/Components/ContentStateView.swift` — renders every ContentState so features supply only loaded content |
 -->
 
@@ -112,6 +125,9 @@ corner radius are one component and a parameter.
 ```bash
 # does a token for this already exist? — run BEFORE writing any value
 grep -in "radius\|spacing\|elevation" .claude/notes/STYLE-GUIDE.md
+
+# follow a row to its detail — a code path, or a styles/ note
+ls .claude/notes/styles/
 
 # every component and the file that defines it, each with a note
 grep -n "Components/" .claude/notes/STYLE-GUIDE.md

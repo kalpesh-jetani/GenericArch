@@ -16,23 +16,36 @@ for p in sorted((ROOT / ".claude/skills").glob("*/SKILL.md")):
 
 # prompt -> the skill that should win. "AMBIGUOUS" means a tie is acceptable.
 CASES = [
-    ("add a settings screen", "new-feature"),
+    ("create a new settings screen", "new-feature"),
     ("scaffold FeatureProfile", "new-feature"),
-    ("this button looks wrong in dark mode", "dark-light-mode"),
-    ("I added a new color token", "dark-light-mode"),
-    ("check the contrast on this card", "dark-light-mode"),
-    ("add Arabic support", "rtl-support"),
-    ("does this mirror correctly", "rtl-support"),
-    ("audit this screen for right to left", "rtl-support"),
-    ("ship NetworkKit 2.1", "release-bump"),
-    ("bump ImageCache after the cache fix", "release-bump"),
+    # These belong to patterns in docs/patterns/ that are not promoted. Until they are,
+    # no skill should claim them — a survivor absorbing them is the mis-fire to prevent.
+    ("this button looks wrong in dark mode", None),
+    ("I added a new color token", None),
+    ("check the contrast on this card", None),
+    ("add Arabic support", None),
+    ("does this mirror correctly", None),
+    # "screen" legitimately belongs to new-feature; with rtl-support unpromoted, the designed
+    # outcome is that it fires and redirects to docs/patterns/rtl-support.md.
+    ("audit this screen for right to left", "new-feature"),
+    ("ship NetworkKit 2.1", None),
+    ("bump ImageCache after the cache fix", None),
     # sync-app-notes is a COMMAND, not a skill — nothing should fire on this phrasing.
     ("refresh the inventory notes", None),
-    ("round the corners on this button", "style-guide"),
-    ("tighten the spacing between rows", "style-guide"),
-    ("add a destructive variant", "style-guide"),
-    ("mark this complete", "feature-complete"),
-    ("wrap up the auth work", "feature-complete"),
+    ("review my diff before I push", None),   # /review is a command
+    # The everyday cases — these are what a developer actually types.
+    ("fix this crash on the profile screen", "debug"),
+    ("why is the screen blank", "debug"),
+    ("this string shows as the raw key", "debug"),
+    ("the custom font renders as system font", "debug"),
+    ("push works in dev but is silent in testflight", "debug"),
+    ("add an email field to the signup request", None),
+    ("add an error case for rate limiting", None),
+    ("support one more parameter on that endpoint", None),
+    ("round the corners on this button", None),
+    ("tighten the spacing between rows", None),
+        ("mark this complete", None),
+    ("wrap up the auth work", None),
 ]
 
 # Stopwords carry no trigger signal. Counting them produced false collisions — the metric was
@@ -42,19 +55,49 @@ STOP = {
     "they", "then", "than", "also", "only", "into", "some", "more", "most", "such", "very",
     "just", "like", "over", "under", "after", "before", "correctly", "should", "would",
     "there", "here", "make", "made", "need", "want", "please", "help",
+    "the", "and", "for", "not", "but", "you", "its", "one", "two", "our", "any", "can",
 }
 
-def score(prompt: str, desc: str) -> int:
-    """Count distinctive prompt terms appearing in a description. Whole-word match —
-    substring matching let 'right' hit 'copyright' and inflated every score."""
-    words = {w for w in re.findall(r"[a-z]+", prompt.lower()) if len(w) > 3 and w not in STOP}
-    return sum(1 for w in words if re.search(rf"\b{re.escape(w)}", desc))
+def _terms(text: str) -> set:
+    return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) > 2 and w not in STOP}
+
+
+WEAK = {"new", "wrong", "fix", "add", "more", "other", "work", "works", "case", "support"}
+
+
+def _weak_alone(prompt: str, desc: str) -> bool:
+    """True when the only thing matched was a generic word."""
+    matched = [w for w in _terms(prompt) if re.search(rf"\b{re.escape(w)}", desc)]
+    return len(matched) == 1 and matched[0] in WEAK
+
+
+def score(prompt: str, desc: str, descs: dict) -> float:
+    """Weight each matched term by how few descriptions contain it.
+
+    Counting every word equally made 'screen' (in two descriptions) worth as much as 'crash'
+    (in one), so 'fix this crash on the profile screen' tied. A term shared by many skills
+    carries little signal about which one to pick; a term unique to one carries most of it.
+    """
+    total = 0.0
+    for w in _terms(prompt):
+        if not re.search(rf"\b{re.escape(w)}", desc):
+            continue                        # this description does not claim the term
+        holders = sum(1 for d in descs.values() if re.search(rf"\b{re.escape(w)}", d))
+        total += 1.0 / holders              # unique term = 1.0, shared by three = 0.33
+    return round(total, 3)
 
 problems = []
 for prompt, expected in CASES:
-    s = {k: score(prompt, d) for k, d in descs.items()}
+    s = {k: score(prompt, d, descs) for k, d in descs.items()}
     top = max(s.values()) if s else 0
-    winners = [k for k, v in s.items() if v == top and v > 0]
+    # A single shared word is not a trigger. Require a real match — one uniquely-owned term
+    # (1.0) or several shared ones — before treating a skill as firing at all.
+    FIRE = 1.0
+    winners = [k for k, v in s.items() if v >= FIRE and top - v < 0.15]
+    # A lone generic word is coincidence, not a trigger: "I added a NEW color token" is not a
+    # scaffolding request, and "after the cache FIX" is not a bug report. Such a word counts only
+    # alongside a specific one.
+    winners = [k for k in winners if not _weak_alone(prompt, descs[k])]
     if expected is None:
         # Must match no skill — it is a user-typed command.
         if winners:

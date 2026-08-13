@@ -2,17 +2,14 @@
 
 Every font family shipped, how it is registered, and the typed accessor that exposes it.
 
-- **Maintained by:** targeted edit on every font insertion or deletion.
-  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
 - **Companion:** [STYLE-GUIDE.md](STYLE-GUIDE.md) — spacing, radius, elevation, motion,
   component variants. This file owns only its own slice.
-- **Read this when:** adding a font file, adding a type token, or debugging a font that renders as
+**Read it when** adding a font file, adding a type token, or debugging a font that renders as
   system-default.
 - **Rule:** no `Font.custom("Inter-Bold", size: 17)` at a call site. Features use type tokens
   (`Font.appTitle`); only DesignSystem names a file.
 
-> Empty until `Packages/DesignSystem` ships a font. `/sync-app-notes` populates it by scanning
-> for `.otf`/`.ttf` resources and cross-checking registration.
+> Empty until `Packages/DesignSystem` ships a font — `/sync-app-notes` populates it.
 
 ---
 
@@ -89,7 +86,7 @@ never a fixed point size, or Dynamic Type stops working.
 // ✅ scales with Dynamic Type to XXXL
 static let appTitle = Font.custom("Inter-SemiBold", size: 22, relativeTo: .title2)
 
-// ❌ frozen — fails CLAUDE.md §8 and DONE
+// ❌ frozen — Dynamic Type stops working (CLAUDE.md §8)
 static let appTitle = Font.custom("Inter-SemiBold", size: 22)
 ```
 

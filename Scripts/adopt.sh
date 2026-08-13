@@ -12,6 +12,13 @@
 # CLAUDE.md, skills, and commands survive untouched.
 set -o pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
+GA_SRC_URL="${GA_SRC_URL:-https://github.com/kalpesh-jetani/GenericArch}"
+# Must be a ref raw.githubusercontent can resolve: an exact tag, a branch, or a full SHA.
+# `git describe` yields v0.1.0-15-g97afd51, which is none of those and 404s on every fetch.
+GA_SRC_REF="${GA_SRC_REF:-$(git -C "$SRC" describe --tags --exact-match 2>/dev/null \
+                           || git -C "$SRC" rev-parse HEAD 2>/dev/null || echo main)}"
+GA_RAW="${GA_SRC_URL#https://github.com/}"
+GA_RAW="https://raw.githubusercontent.com/$GA_RAW/$GA_SRC_REF"
 
 RED=$'\033[31m'; YEL=$'\033[33m'; GRN=$'\033[32m'; DIM=$'\033[2m'; BLD=$'\033[1m'; OFF=$'\033[0m'
 
@@ -42,20 +49,13 @@ TARGET="$(cd "$TARGET" && pwd)"
 BASE="
 .claude/skills
 .claude/commands
-docs/modules
-docs/STRUCTURE.md
-docs/CONVENTIONS.md
-docs/DONE.md
-docs/REPO.md
-docs/DELIVERY.md
-docs/PERFORMANCE.md
+.claude/INDEX.md
+.claude/MAP.tsv
 .swiftlint.yml
 .swiftformat
 Scripts/check.sh
 Scripts/check-skill-triggers.py
 Scripts/detect-toolchain.sh
-docs/ADOPTION.md
-docs/SHARING.md
 Scripts/adopt.sh
 Scripts/build-plugin.sh
 install.sh
@@ -70,19 +70,25 @@ docs/GAPS.md|gap statuses are per-product — an empty one is created instead (s
 Packages|this product's code
 App|this product's app shells
 README.md|the target has its own
+.claude/settings.json|permissions are per-machine consent — /project-init merges, never copies
+.claude-plugin|the target is not a plugin; build-plugin.sh generates one if it wants to be
 .gitignore|the target has its own; merge by hand if needed
 "
 
 # ── Nothing may fall through the lists ─────────────────────────────────────
-# ADOPTION.md, SHARING.md and install.sh were silently not installed for weeks: they were added
-# after these lists were written and nobody updated them. A missing file is invisible at adopt
-# time and only surfaces when a command references it in someone else's repo. So: fail loudly.
-SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes"
+# A file added later and not listed here is invisible at adopt time — it only surfaces when a
+# command references it in someone else's repo. So: fail loudly rather than skip silently.
+SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/memory"
+# Reference material — listed in genericarch.installation.md and fetched when actually read.
+# Not copied: 23 files a consumer may never open, that go stale the moment upstream moves.
+REFERENCED="docs/STRUCTURE.md docs/CONVENTIONS.md docs/DONE.md docs/REPO.md docs/DELIVERY.md
+docs/patterns docs/PERFORMANCE.md docs/ADOPTION.md docs/SHARING.md docs/PATTERN-SEARCH.md docs/modules"
 # BASE is newline-separated and EXCLUDED is "path|reason" — flatten both to a space-delimited
 # list of bare paths before matching, or every entry looks unaccounted for.
-KNOWN=" $(echo $BASE) $(printf '%s\n' "$EXCLUDED" | sed 's/|.*//' | tr '\n' ' ') $SCAFFOLDED "
+KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|.*//' | tr '\n' ' ') $SCAFFOLDED "
 unaccounted=""
-for f in $(ls -d docs/*.md docs/modules Scripts/* .swiftlint.yml .swiftformat .gitignore \
+for f in $(ls -d docs/*.md docs/modules docs/patterns docs/resources .claude/INDEX.md .claude/MAP.tsv \
+                 .claude/memory Scripts/* .swiftlint.yml .swiftformat .gitignore \
                  install.sh README.md CLAUDE.md .claude/skills .claude/commands .claude/notes \
                  Packages App 2>/dev/null); do
   case "$KNOWN" in *" $f "*) continue ;; esac
@@ -94,6 +100,36 @@ if [ -n "$unaccounted" ]; then
   for f in $unaccounted; do echo "    $f"; done
   echo "  ${DIM}Add each to one of the three lists in this script, then re-run.${OFF}"
   exit 1
+fi
+
+# ── Referenced docs must exist AT THE PINNED REF, not just on disk ─────────
+# REFERENCED files are never copied — they are fetched later from $GA_RAW/<path>. A file that is
+# only in the working tree resolves fine here and 404s for every consumer. Committed-ness is the
+# thing being checked, so check it against the ref, not the filesystem.
+if git -C "$SRC" rev-parse --verify --quiet "$GA_SRC_REF" >/dev/null 2>&1; then
+  unpushed=""
+  for item in $REFERENCED; do
+    if git -C "$SRC" cat-file -e "$GA_SRC_REF:$item" 2>/dev/null; then
+      continue                                   # a file, present at the ref
+    fi
+    if git -C "$SRC" ls-tree -r --name-only "$GA_SRC_REF" -- "$item" 2>/dev/null | grep -q .; then
+      # a directory: every entry on disk must also be at the ref
+      for leaf in $(cd "$SRC" && find "$item" -type f -name '*.md' 2>/dev/null); do
+        git -C "$SRC" cat-file -e "$GA_SRC_REF:$leaf" 2>/dev/null || unpushed="$unpushed $leaf"
+      done
+    else
+      unpushed="$unpushed $item"
+    fi
+  done
+  if [ -n "$unpushed" ]; then
+    echo
+    echo "${RED}✗ these are referenced but do not exist at $GA_SRC_REF${OFF}"
+    for f in $unpushed; do echo "    $f"; done
+    echo "  ${DIM}They are fetched, never copied — every consumer would get a 404.${OFF}"
+    echo "  ${DIM}Commit and push them, then re-run with GA_SRC_REF set to a ref that has them.${OFF}"
+    [ "$APPLY" -eq 1 ] && exit 1
+    echo "  ${YEL}(dry run — this would abort with --apply)${OFF}"
+  fi
 fi
 
 echo
@@ -109,9 +145,8 @@ fi
 
 copied=0; skipped=0; collided=0
 
-# Expand a directory into its immediate entries, so one pre-existing command doesn't block the
-# other four. Collisions must be per-item — a whole-directory skip is what made the first version
-# of this script useless against a repo that already had a `build` command.
+# Expand a directory into its immediate entries so collisions are per-item: one pre-existing
+# command must not block the others in the same directory.
 expand() {
   if [ -d "$SRC/$1" ]; then
     for e in "$SRC/$1"/*; do
@@ -146,6 +181,81 @@ for item in $BASE; do
   IFS="$OLDIFS"
 done
 
+# MAP.tsv is the router, and outside this repo most of its docs/ rows are not on disk. Stamp the
+# pinned base in so a grep hit carries its own recovery path — otherwise resolving a row means
+# knowing to open a second file, which is exactly the lookup the map exists to remove.
+if [ "$APPLY" -eq 1 ] && [ -f "$TARGET/.claude/MAP.tsv" ]; then
+  if ! grep -q '^# FETCH-BASE:' "$TARGET/.claude/MAP.tsv"; then
+    tmp="$TARGET/.claude/MAP.tsv.tmp"
+    { printf '# FETCH-BASE:\t%s\n' "$GA_RAW"
+      printf '# \tcurl -fsSL --create-dirs "$FETCH_BASE/<path>" -o "<path>"\n'
+      cat "$TARGET/.claude/MAP.tsv"
+    } > "$tmp" && mv "$tmp" "$TARGET/.claude/MAP.tsv"
+  fi
+fi
+
+echo
+echo "${BLD}── Referenced, not copied (genericarch.installation.md) ─${OFF}"
+referenced=0
+OLDIFS="$IFS"; IFS=$'\n'
+for item in $(echo $REFERENCED | tr ' ' '\n'); do
+  IFS="$OLDIFS"
+  for leaf in $(expand "$item"); do
+    printf '  %s→%s %s\n' "$DIM" "$OFF" "$leaf"
+    referenced=$((referenced + 1))
+  done
+  IFS=$'\n'
+done
+IFS="$OLDIFS"
+printf '  %s%d file(s) — fetched on demand, never stale%s\n' "$DIM" "$referenced" "$OFF"
+
+if [ "$APPLY" -eq 1 ]; then
+  MAN="$TARGET/genericarch.installation.md"
+  {
+    echo "# GenericArch — installed reference"
+    echo
+    echo "Reference material is **not copied into this repo**. It is listed below and fetched when"
+    echo "something actually needs it, so nothing goes stale and the repo stays uncluttered."
+    echo
+    echo "> ## A missing \`docs/…\` link is a fetch instruction, not a broken link"
+    echo ">"
+    echo "> The installed skills and commands link to these documents by relative path. Those paths"
+    echo "> resolve **after** you fetch — that is the design. When a link under \`docs/\` does not"
+    echo "> exist locally, fetch it to that exact path and continue; do not treat it as missing, and"
+    echo "> do not guess the content from the filename."
+    echo ">"
+    echo "> Fetch only what the task needs. Fetching all 21 defeats the point."
+    echo
+    echo "- **Source:** \`$GA_SRC_URL\`"
+    echo "- **Pinned to:** \`$GA_SRC_REF\`"
+    echo "- **Installed:** files under \`.claude/\` and \`Scripts/\` — those must be local to work."
+    echo
+    echo "## Fetch one"
+    echo
+    echo '```bash'
+    echo "curl -fsSL \"\$GA_RAW/<path>\" -o <path>     # GA_RAW=$GA_RAW"
+    echo '```'
+    echo
+    echo "Fetch into the same relative path so links between docs keep resolving. Delete it again"
+    echo "afterwards if you do not want it tracked — the manifest is the durable record."
+    echo
+    echo "## Available"
+    echo
+    echo "| Document | What's there | Read it when |"
+    echo "|---|---|---|"
+    for item in $(echo $REFERENCED | tr ' ' '\n'); do
+      for leaf in $(expand "$item"); do
+        title=$(head -1 "$SRC/$leaf" | sed 's/^#* *//')
+        when=$(grep -m1 -- '- \*\*When to read this:\*\*' "$SRC/$leaf" 2>/dev/null \
+               | sed 's/.*When to read this:\*\* *//' | cut -c1-90)
+        [ -z "$when" ] && when=$(sed -n '3p' "$SRC/$leaf" | cut -c1-90)
+        printf '| `%s` | %s | %s |\n' "$leaf" "$title" "$when"
+      done
+    done
+  } > "$MAN"
+  printf '  %s+%s genericarch.installation.md %s— the index; the only file added%s\n' "$GRN" "$OFF" "$DIM" "$OFF"
+fi
+
 echo
 echo "${BLD}── Deliberately NOT copied ─────────────────────────────${OFF}"
 OLDIFS="$IFS"; IFS=$'\n'
@@ -165,7 +275,8 @@ echo "${BLD}── Created empty (never copied) ──────────�
 scaffolded=0
 for pair in "docs/DECISIONS.md|the target records its own decisions here — /decide" \
             "docs/GAPS.md|the target triages its own gaps here — /gaps" \
-            ".claude/notes|the eight inventories, prose kept and data rows blanked"; do
+            ".claude/notes|the eight inventories, prose kept and data rows blanked" \
+            ".claude/memory|Claude's in-repo memory — the index only; our memories are ours"; do
   f="${pair%%|*}"; why="${pair#*|}"
   if [ -e "$TARGET/$f" ]; then
     printf '  %scollision%s  %s %s(exists — kept)%s\n' "$YEL" "$OFF" "$f" "$DIM" "$OFF"
@@ -183,19 +294,34 @@ if [ "$APPLY" -eq 1 ] && [ ! -e "$TARGET/.claude/notes" ]; then
   for n in "$TARGET"/.claude/notes/*.md; do
     python3 - "$n" <<'PY'
 import re, sys, pathlib
-p = pathlib.Path(sys.argv[1]); out = []; prev_header = False
-for line in p.read_text().splitlines():
+
+def is_sep(t):
+    return bool(re.fullmatch(r"\|[\s\-:|]+\|", t))
+
+p = pathlib.Path(sys.argv[1])
+lines = p.read_text().splitlines()
+out = []
+for i, line in enumerate(lines):
     st = line.strip()
-    is_row = st.startswith("|") and st.endswith("|") and st.count("|") >= 3
-    is_sep = bool(re.fullmatch(r"\|[\s\-:|]+\|", st))
-    is_dash = is_row and all(c.strip() in ("", "—", "-") for c in st.strip("|").split("|"))
-    if is_row and not is_sep and not is_dash and not prev_header:
-        continue                      # a filled data row — this product's state
-    out.append(line)
-    prev_header = is_row and not is_sep
+    row = st.startswith("|") and st.endswith("|") and st.count("|") >= 3
+    if not row:
+        out.append(line); continue
+    nxt = lines[i + 1].strip() if i + 1 < len(lines) else ""
+    header = is_sep(nxt)                    # a header is the row above the separator
+    placeholder = all(c.strip() in ("", "—", "-") for c in st.strip("|").split("|"))
+    if header or is_sep(st) or placeholder:
+        out.append(line)                    # structure — keep
+    elif out and out[-1].strip() and is_sep(out[-1].strip()):
+        out.append(re.sub(r"[^|]+", " — ", st))   # first data row → one blank placeholder
+    # any further data row is this product's state — dropped
 p.write_text("\n".join(out) + "\n")
 PY
   done
+fi
+
+if [ "$APPLY" -eq 1 ] && [ ! -e "$TARGET/.claude/memory" ]; then
+  mkdir -p "$TARGET/.claude/memory"
+  cp "$SRC/.claude/memory/INDEX.md" "$TARGET/.claude/memory/INDEX.md"
 fi
 
 if [ "$APPLY" -eq 1 ]; then
@@ -286,8 +412,8 @@ fi
 
 echo
 echo "${BLD}────────────────────────────────────────────────────────${OFF}"
-printf '%d to copy · %d created empty · %d collision(s) kept · %d excluded by design\n' \
-  "$copied" "$scaffolded" "$collided" "$skipped"
+printf '%d copied · %d referenced · %d created empty · %d collision(s) kept · %d excluded\n' \
+  "$copied" "$referenced" "$scaffolded" "$collided" "$skipped"
 
 if [ "$APPLY" -eq 0 ]; then
   echo

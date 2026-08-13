@@ -1,7 +1,14 @@
+# Pattern — release-bump
+
+**Not a skill yet.** It becomes one when this repo has the code it describes — `/learn release-bump`
+promotes it. Until then it is reference: read it when the situation arises.
+
+- **Promote when:** the code it governs exists
+- **Trigger phrases it would claim:** Release a change to an extracted repo — GenericArch-NetworkKit or GenericArch-ImageCache — and bump the app to consume it. Use when asked to release, tag, bump, publish or "ship" one of them, or "what…
+
 ---
-name: release-bump
-description: Release a change to an extracted repo — GenericArch-NetworkKit or GenericArch-ImageCache — and bump the app to consume it. Use when asked to release, tag, bump, publish or "ship" one of them, or "what breaks if I change this package". Produces the two-step plan, classifies the semver level, and flags when the change should not have been in an extracted repo. Do NOT use for local packages under Packages/, or for App Store releases — that is DELIVERY.
----
+
+**Index before grep** — check the `.claude/notes/` inventories first ([PATTERN-SEARCH.md](../PATTERN-SEARCH.md)); they map a name to its files without a search.
 
 # Release bump
 
@@ -38,7 +45,7 @@ Two that get misjudged:
 ```
 
 Per step (the user runs the commands, §2.12): `swift build && swift test` standalone → update the module `.md` if behavior changed
-(STRUCTURE) → commit → tag → push tag. Then in the app repo: drop any `swift package edit`
+([STRUCTURE.md](../STRUCTURE.md)) → commit → tag → push tag. Then in the app repo: drop any `swift package edit`
 override, resolve, build both platforms, commit `Package.resolved`.
 
 **Produce that plan and the exact commands — do not run the git steps.** Invoking this skill asks

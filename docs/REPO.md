@@ -70,13 +70,25 @@ toolchain to install, version, or upgrade.
 it shouldn't — which is why [PROJECT.md](../.claude/notes/PROJECT.md) forbids build settings in the
 Xcode UI. If conflicts start, say so rather than resolving the same one twice.
 
+## Permissions (`.claude/settings.json`)
+
+Allowlisted so they never prompt: **read-only inspection only** — `git status/diff/log/show`,
+`grep`, `find`, `ls`, `swift package describe`, `detect-toolchain.sh`, the trigger test.
+
+**Builds, tests and `check.sh` are deliberately *not* allowlisted.** CLAUDE.md §2.12 says Claude
+never runs them unasked; the approval prompt is the mechanical backstop for that rule, and
+allowlisting them would remove it. You run them — `/build` is the sanctioned path. Mutating git is
+absent for the same reason (§2.11).
+
+Add to the list only what you would let run unattended a hundred times.
+
 ## Adding a package
 
 1. Create `Packages/<Name>/` with its own `Package.swift`,
-   `platforms: [.iOS(.v17), .macOS("26.6")]`.
+   a `platforms:` line copied from a sibling package — the floors live in the manifests, not here.
 2. Wire consumers with `.package(path:)`. Check the edge against CLAUDE.md §3's direction before
    adding it.
-3. Add its `<Name>.md` and one row to CLAUDE.md §5's index.
+3. Add its `<Name>.md` and one row to `.claude/MAP.tsv`.
 4. Link it in the app targets; record it in [PROJECT.md](../.claude/notes/PROJECT.md).
 5. `swift test --package-path Packages/<Name>` must pass standalone.
 

@@ -66,6 +66,17 @@ Deciding where something goes:
 **Skill vs command:** a skill fires when the model recognises the situation; a command only runs when
 typed. If it must never trigger by inference, it is a command.
 
+**A skill that fires wrongly is a description bug.** CLAUDE.md §2.13 requires naming the skill
+before starting, so a mis-fire is visible in the first line rather than after an audit. When one
+happens: narrow the description, add the prompt to `Scripts/check-skill-triggers.py`, and re-run it.
+The test is the record of every mis-fire anyone has seen.
+
+**Skill descriptions must not share vocabulary.** A description is a trigger surface: every word in
+it competes. Give each skill a distinct set of terms, and **reference a sibling by name only** —
+writing "do NOT use for scaffolding a package" pulls that sibling's keywords into this one and makes
+both fire unpredictably. `Scripts/check-skill-triggers.py` catches it; run it after any description
+edit.
+
 **Project vs directory scope:** a nested `CLAUDE.md` loads only when files in that directory are
 touched. Anything true of one package belongs there, not at the root — it is cheaper and more
 accurate. Same for directory-scoped skills.
@@ -93,9 +104,8 @@ Two ways a note changes, and they are not interchangeable:
 | **When** | Every insertion or deletion, same change | First setup, or drift too large to fix by hand |
 | **Who starts it** | Claude, as part of the change | **The user, by typing the command** |
 
-`sync-app-notes` is a **command precisely because of the rule above** — it must never fire by
-inference, so it is not a skill. That is the worked example: when a procedure's own description has
-to say "never invoke automatically", the description is doing a job the file type should be doing.
+`sync-app-notes` is a command **because of the rule above** — it must never fire by inference. When
+a procedure's description has to say "never invoke automatically", the file type is wrong.
 
 A rescan against a half-finished tree overwrites correct rows with incomplete ones — which is worse
 than a stale note, because it looks current.
@@ -140,6 +150,24 @@ It follows that a derived skill is **short**. Running past roughly a screen mean
 and the code is the detail. Its `description` is for triggering only: the phrases that should fire
 it and when not to. Same path rule as everywhere else — never a bare path, and verify each one
 resolves before writing it.
+
+## Every note is an index
+
+A note in `.claude/notes/` lists *what exists* and points at the detail. It never holds the detail
+itself.
+
+| Detail lives in | Use when |
+|---|---|
+| **A code path** *(always prefer this)* | The thing is implemented — the code is the living answer |
+| **A sibling detail file** (`styles/navigation-bar-style1.md`) | Agreed but not built, or it spans more files than one path can name |
+
+When the code lands, **delete the detail file and put the path in the row**. Two sources of truth
+means one of them rots, and it is always the one being read.
+
+Detail files are named `<subject>-<variant>.md`, live in a subfolder beside the note that indexes
+them, and carry only what code cannot answer: the tokens used *by name*, behaviour per size class,
+what changes in dark and RTL, and what was deliberately not done. A raw number in a detail file is a
+token that was never registered.
 
 ## Keeping it honest
 

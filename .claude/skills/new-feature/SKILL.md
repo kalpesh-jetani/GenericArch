@@ -1,14 +1,48 @@
 ---
 name: new-feature
-description: Scaffold a new feature package. Use when asked to add a feature, create a new module or package, scaffold FeatureX, or "start the auth/home/settings feature". Enforces the ask-first decisions, the Packages/Features layout, localized keys, every ContentState case, protocol+mock pairs, and the feature doc. Do NOT use for editing one that exists, adding a single endpoint or view to it, or for infrastructure packages — those follow their own module docs.
+description: Scaffold a new screen or feature package from nothing. Fires on "create a new screen", "scaffold FeatureX", "new feature package", "start the settings module". Enforces the ask-first decisions, the Packages/Features layout, localized keys, every ContentState case, protocol+mock pairs, and the package doc. For editing something that already exists, see docs/patterns/change.md.
 ---
 
 # New feature
 
+**Check this is really scaffolding before you start.** Six neighbouring concerns live in
+`docs/patterns/` and are not promoted to skills in this repo yet — if the request is one of them,
+say so and read the pattern instead of improvising:
+
+| If it is really about | Read |
+|---|---|
+| Editing something that exists | [change](../../../docs/patterns/change.md) |
+| Spacing, radius, tokens | [style-guide](../../../docs/patterns/style-guide.md) |
+| Light vs dark | [dark-light-mode](../../../docs/patterns/dark-light-mode.md) |
+| Mirroring or a locale | [rtl-support](../../../docs/patterns/rtl-support.md) |
+| Tagging a package | [release-bump](../../../docs/patterns/release-bump.md) |
+| Closing finished work | [feature-complete](../../../docs/patterns/feature-complete.md) |
+
+Offer `/learn <pattern>` if it is now worth promoting. Scaffolding a package for a one-field change
+is the mis-fire this table exists to catch.
+
 Creates a feature package that satisfies CLAUDE.md §3 *Scalable*: adding it edits **zero** other
 features, one line in the composition root, and one case in `Route`.
 
-## 0. Is there already a pattern for this?
+## 1. Search the notes first — token efficiency
+
+**Before grepping the codebase, grep `.claude/MAP.tsv`, then read the note it points at:**
+
+1. **FEATURES.md** — What features exist? What's their structure, state handling, and content-state pattern?
+   - If a feature already handles similar states (loading, empty, error, loaded), use its pattern
+   - Check the file paths — the naming, folder depth, and View/ViewModel/Model colocation
+   - Zero grep if found in notes
+
+2. **CONVENTIONS.md** — What's the naming pattern? (FeatureName, Feature<Name>, or other?)
+   - How are View, ViewModel, and Models named?
+   - File layout inside `Sources/Feature<Name>/`?
+
+3. **If NOT found in notes** → grep for existing features, then record the pattern in FEATURES.md
+   in the same commit as the new feature.
+
+See [PATTERN-SEARCH.md](../../../docs/PATTERN-SEARCH.md) for the full token-efficiency approach.
+
+## 2. Is there already a pattern for this?
 
 A finished feature may have left a **derived skill** — a recorded sequence for building this kind of
 thing (`feature-complete`). Check before scaffolding from scratch:
@@ -30,7 +64,7 @@ Two cautions:
 - If it half-fits, take the sequence and say which steps you are dropping. Silently deviating from a
   pattern you announced is worse than not offering it.
 
-## 1. Ask before writing — do not skip
+## 3. Ask before writing — do not skip
 
 CLAUDE.md §0. Check `docs/DECISIONS.md` first; if the feature already has a row, follow it and
 don't re-ask.
@@ -48,7 +82,7 @@ localization keys. Do not write view models or views yet.
 
 Record answers in `docs/DECISIONS.md` under *Per feature*.
 
-## 2. Layout
+## 4. Layout
 
 A **local package** under `Packages/Features/Feature<Name>/` (CLAUDE.md §4.1). Not a repo — don't
 propose extracting it; feature packages fail all three §4.2 tests by definition.
@@ -56,7 +90,7 @@ propose extracting it; feature packages fail all three §4.2 tests by definition
 ```
 Packages/Features/Feature<Name>/
   Package.swift
-  Feature<Name>.md              required — see step 6
+  Feature<Name>.md              required — see step 8
   Sources/Feature<Name>/
     Models/                     domain types, Sendable value types
     Services/                   protocols + live impls (actors or Sendable structs)
@@ -67,13 +101,14 @@ Packages/Features/Feature<Name>/
   Tests/Feature<Name>Tests/
 ```
 
-`Package.swift`: `platforms: [.iOS(.v17), .macOS("26.6")]`. Wired with `.package(path:)` to `Core`,
+`Package.swift`: copy the `platforms:` line from a sibling package — never type a version from
+memory (CLAUDE.md §1.1). Wired with `.package(path:)` to `Core`,
 `DesignSystem`, `Navigation`, and the infrastructure it actually uses. **Never on another feature**
 (§2.1) — the manifest is what enforces that now, so get it right.
 
 Register it in the app targets' package list ([PROJECT.md](../../notes/PROJECT.md)).
 
-## 3. What to produce — not just the happy path
+## 5. What to produce — not just the happy path
 
 For every capability: **protocol + mock + live implementation**. The mock ships in the package,
 for tests *and* previews.
@@ -91,7 +126,7 @@ For every screen:
 Messages, confirmations, and permission rationales go through `MessagePresenting`
 (Messaging.md). Never `.alert`.
 
-## 4. Wiring
+## 6. Wiring
 
 ```swift
 // DI/<Name>Assembly.swift — the seam. Nothing else in the feature sees the container.
@@ -106,7 +141,7 @@ public struct AuthAssembly {
 Then: one `Route` case, one line in the shell's `navigationDestination` switch. That's the whole
 integration surface.
 
-## 5. Tests
+## 7. Tests
 
 - Every view model and mapper, against mocks. No network (DIKit.md `testValue`).
 - Previews per screen covering every `ContentState`. **Snapshots are bounded** (CLAUDE.md §9):
@@ -116,7 +151,7 @@ integration surface.
   `swift test --package-path Packages/Features/Feature<Name>`; the user runs it (§2.12). Repo walls
   no longer enforce boundaries; this test does.
 
-## 6. The feature's own doc — required
+## 8. The feature's own doc — required
 
 `Feature<Name>.md` in the package directory (CLAUDE.md §5), opening with the standard three lines:
 
@@ -132,9 +167,9 @@ Then: screens and their routes, services and their protocols, decisions taken (l
 `DECISIONS.md` rows), and anything non-obvious about the flow. **No CLAUDE.md edit** — the module
 index gets one row, nothing more.
 
-## 7. Before calling it done
+## 9. Before calling it done
 
-Run DONE. The ones missed most often here: every `ContentState` implemented, no raw
+Run [DONE.md](../../../docs/DONE.md). The ones missed most often here: every `ContentState` implemented, no raw
 string literal in a view, mocks provided, the feature's `.md` written, and the new rows added to
 `.claude/notes/FEATURES.md` and `NAVIGATION.md` — targeted edits, not a `/sync-app-notes` run.
 

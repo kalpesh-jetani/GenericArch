@@ -2,16 +2,13 @@
 
 Every image asset, by catalog group, with the package that owns it.
 
-- **Maintained by:** targeted edit on every asset insertion or deletion.
-  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
-- **Read this when:** looking for an existing asset before adding a near-duplicate, or checking
+**Read it when** looking for an existing asset before adding a near-duplicate, or checking
   which package an image lives in.
 - **Rule:** images are referenced through typed accessors, never a raw string
   (`Image.appEmptyInbox`, not `Image("empty_inbox")`). A raw name is a runtime blank, not a
   compile error.
 
-> Empty until the first asset catalog exists. `/sync-app-notes` populates it by scanning
-> `**/*.xcassets/**/*.imageset`.
+> Empty until the first asset catalog exists — `/sync-app-notes` populates it.
 
 ---
 

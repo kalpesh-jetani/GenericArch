@@ -5,8 +5,7 @@
 #   ./Scripts/build-plugin.sh 0.2.0      # sets the version
 #
 # The plugin is GENERATED, never hand-maintained. `.claude/skills` and `.claude/commands` stay the
-# single source of truth — a hand-copied plugin drifts, and this repo's own rule is that a doc which
-# drifts from its source is worse than none.
+# single source of truth — a hand-copied plugin drifts, and a doc that drifts is worse than none.
 #
 # Ships only the tooling layer. CLAUDE.md and docs/ deliberately stay out: those are a product's
 # rules, and a plugin that overwrote them would stop each product setting its own (docs/SHARING.md).

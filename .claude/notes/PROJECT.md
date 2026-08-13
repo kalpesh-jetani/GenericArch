@@ -1,15 +1,30 @@
-# Project File & Targets
+# Project File, Targets & Resolved Stack
 
-The `.xcodeproj`, every target in it, and how each one is configured.
+The `.xcodeproj`, every target in it, how each is configured, and the toolchain values this repo
+actually resolved to.
 
-- **Maintained by:** targeted edit whenever a target, capability, entitlement, `Info.plist` key, or linked package changes.
-  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
-- **Read this when:** adding a target or extension, adding a capability, wiring a package into a
-  target, or debugging a signing/entitlement failure.
-- **Lives in:** the repo root's `.xcodeproj` only. Packages have no project file — they are SPM
-  manifests, local under `Packages/` (CLAUDE.md §4.1).
-- **Companion:** [SCHEMES.md](SCHEMES.md) covers DEV/TEST/BETA/PROD *configurations*. This file
-  covers *targets*. The matrix at the bottom joins them.
+Read it when adding a target, extension or capability, wiring a package into a target, debugging a
+signing or entitlement failure, or **before anything version-dependent**.
+[SCHEMES.md](SCHEMES.md) is the companion: it covers DEV/TEST/BETA/PROD *configurations*, this file
+covers *targets*. The matrix at the bottom joins them. Packages have no project file — they are SPM
+manifests, local under `Packages/` (CLAUDE.md §4.1).
+
+---
+
+## Resolved stack
+
+**Detected, never hand-written** (CLAUDE.md §1). Refresh with `./Scripts/detect-toolchain.sh
+--markdown`; `./Scripts/check.sh` fails when these drift from the machine or the project.
+
+| Item | Value | Source |
+|---|---|---|
+| Minimum iOS / iPadOS | **17.0** | project |
+| Minimum macOS | **26.6** | project |
+| Xcode / Swift | **26.6** / **6.3.3** | machine |
+| Swift language mode | **6**, strict concurrency = complete *(available: 5, 6)* | machine |
+
+The gap between these two floors is ~9 OS generations, and it is the single most common source of a
+broken build here — CLAUDE.md §1.1 is the rule that governs it.
 
 ---
 
@@ -25,7 +40,7 @@ package product links, build phases, and a pointer to the `.xcconfig` per config
 (see [SCHEMES.md](SCHEMES.md)) — with a hand-maintained project file, a UI-set value is an
 invisible change that survives review and breaks a different configuration.
 
-This is what keeps REPO's "SPM only, no Tuist/XcodeGen" decision viable: the project file stays
+This is what keeps the "SPM only, no Tuist/XcodeGen" decision viable ([REPO.md](../../docs/REPO.md)): the project file stays
 small enough not to produce real merge conflicts. **If it starts producing them, that's the
 revisit trigger** — say so rather than resolving the same conflict twice.
 
@@ -44,7 +59,8 @@ revisit trigger** — say so rather than resolving the same conflict twice.
 | GenericArch-UITests  | UI test    | iOS   | 17.0 | —                          | —         | — |
 -->
 
-**Deployment targets must match `Package.swift`** — iOS 17.0, macOS 26.6 (CLAUDE.md §1.1). A target
+**Deployment targets must match `Package.swift`** — the two floors in *Resolved stack* above, never
+a number remembered from somewhere else (CLAUDE.md §1.1). A target
 set higher than its packages compiles; a target set *lower* fails to resolve. Never raise either to
 reach an API — gate it or don't ship it.
 

@@ -4,11 +4,18 @@ argument-hint: [optional: path or feature to scope to]
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
-Check the current change against the Definition of Done: @docs/DONE.md
+Check the current change against the Definition of Done.
+
+**Token-efficient approach:** read [DONE.md](../../docs/DONE.md) once, up front. It is *not* in
+context automatically — nothing under `docs/` is. Having read it, work from it — no
+grep needed. It is the source of truth for what "done" means.
 
 Scope: `$ARGUMENTS` if given, otherwise the whole working diff.
 
 ## How to run it
+
+0. **Read `docs/DONE.md`.** Grep `.claude/MAP.tsv` for it if the path has moved (if running under
+   GenericArch) or as `docs/DONE.md` directly. Use that checklist; no grep for "what is done?"
 
 1. **Get the diff first.** `git diff` and `git status` (or `git diff <base>...HEAD` on a branch).
    Everything below is judged against what actually changed — not the repo at large.

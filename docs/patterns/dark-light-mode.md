@@ -1,11 +1,20 @@
+# Pattern — dark-light-mode
+
+**Not a skill yet.** It becomes one when this repo has the code it describes — `/learn dark-light-mode`
+promotes it. Until then it is reference: read it when the situation arises.
+
+- **Promote when:** the code it governs exists
+- **Trigger phrases it would claim:** Implement and verify Dark Mode and Light Mode — paired colour tokens, colorset dark appearances, dark versions of assets, 4.5:1 contrast in both appearances. Use when asked to add dark mode, support l…
+
 ---
-name: dark-light-mode
-description: Implement and verify Dark Mode and Light Mode — paired colour tokens, colorset dark appearances, dark versions of assets, 4.5:1 contrast in both appearances. Use when asked to add dark mode, support light and dark, fix dark mode, or when told something looks wrong in dark; also whenever a colour token or image asset is added. Catches colorsets with only an Any appearance, hardcoded .white/.black, elevation that vanishes on black, tokens passing in light and failing in dark. Related skill: rtl-support.
----
+
+**Index before grep** — check the `.claude/notes/` inventories first ([PATTERN-SEARCH.md](../PATTERN-SEARCH.md)); they map a name to its files without a search.
+
+**Index first.** Look up a colour token in [ASSETS-COLORS.md](../../.claude/notes/ASSETS-COLORS.md) before grepping the codebase, then follow the row to its detail — a code path, or a sibling detail file. The note answers *what exists*; the pointer answers *what it is*.
 
 # Dark / Light Mode
 
-Design rules live in [DesignSystem.md](../../../docs/modules/DesignSystem.md). This is the
+Design rules live in [DesignSystem.md](../modules/DesignSystem.md). This is the
 implement-and-verify procedure.
 
 **The principle:** a view should never ask which appearance it is in. Tokens resolve; views
@@ -50,8 +59,8 @@ Work through these — they're the failures that survive review:
 - App icon, launch screen, and any marketing/onboarding imagery need dark variants too — these get
   missed because they're outside the normal screen flow.
 
-Record the variant in [ASSETS-IMAGES.md](../../notes/ASSETS-IMAGES.md); record both hexes
-in [ASSETS-COLORS.md](../../notes/ASSETS-COLORS.md).
+Record the variant in [ASSETS-IMAGES.md](../../.claude/notes/ASSETS-IMAGES.md); record both hexes
+in [ASSETS-COLORS.md](../../.claude/notes/ASSETS-COLORS.md).
 
 ## 4. When `colorScheme` is legitimately needed
 
@@ -106,5 +115,5 @@ with your tokens.
 - [ ] Text contrast ≥4.5:1 asserted in **both** appearances
 - [ ] Previews cover light and dark for every component
 - [ ] Verified with Increase Contrast and Reduce Transparency on
-- [ ] [ASSETS-COLORS.md](../../notes/ASSETS-COLORS.md) and
-      [ASSETS-IMAGES.md](../../notes/ASSETS-IMAGES.md) updated in this change
+- [ ] [ASSETS-COLORS.md](../../.claude/notes/ASSETS-COLORS.md) and
+      [ASSETS-IMAGES.md](../../.claude/notes/ASSETS-IMAGES.md) updated in this change

@@ -2,9 +2,7 @@
 
 Four schemes, four configurations, one rule for picking between them.
 
-- **Maintained by:** targeted edit whenever a scheme, configuration, bundle ID, or environment value changes.
-  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
-- **Read this when:** choosing which scheme to build, adding a configuration-dependent value,
+**Read it when** choosing which scheme to build, adding a configuration-dependent value,
   wiring an environment, or preparing a release.
 - **Lives in:** the app repo's `.xcodeproj` only. Packages have no schemes — they build with
   `swift build` / `swift test` standalone (CLAUDE.md §9).
@@ -117,7 +115,7 @@ Filled by `/sync-app-notes` from the `.xcconfig` files and the project's scheme 
 ## How configuration reaches code
 
 Build settings live in **`.xcconfig` files**, one per configuration, committed and reviewable.
-Don't set values in the Xcode build-settings UI — with a thin `.xcodeproj` (REPO), an
+Don't set values in the Xcode build-settings UI — with a thin `.xcodeproj`, an
 `.xcconfig` diff is the only readable record of what changed.
 
 ```

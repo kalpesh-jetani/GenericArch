@@ -3,15 +3,14 @@
 Protocols, domain models, `AppError`, and shared primitives.
 
 - **Package:** `Packages/Core` (local)
-- **Used by:** every package, including the two extracted repos. Nothing below it; everything above
-  depends on it.
+- **Used by:** every package in the repo. Nothing below it; everything above depends on it.
 - **When to read this:** adding a protocol two packages must share, defining a domain model,
   adding or mapping an error case, or deciding whether a type belongs here at all.
 
-> The two extracted repos (CLAUDE.md §4.2) do **not** import `Core` — they are standalone, and
-> their types are mapped in at our boundary. So a `Core` change recompiles this repo and stops
-> there. Still: confirm a type genuinely crosses a package boundary before adding it — the cheapest
-> `Core` change is the one you don't make.
+> A `Core` change recompiles everything above it, so confirm a type genuinely crosses a package
+> boundary before adding it — the cheapest `Core` change is the one you don't make. A package that
+> ships from its own repo cannot import `Core` at all; its types are mapped in at the boundary
+> (CLAUDE.md §4.2).
 
 ---
 
@@ -81,10 +80,10 @@ Rules:
 Use `throws(AppError)` **within** a package, where the domain is closed and you control every
 caller.
 
-At the **public boundary of an extracted package** (`GenericArch-NetworkKit`,
-`GenericArch-ImageCache`), use untyped `throws`. Widening a typed throw is a breaking change, so
-adding one routine error case would force a major bump and a coordinated update — the exact ripple
-REPO exists to avoid.
+At the **public boundary of any package that ships on its own version**, use untyped `throws`.
+Widening a typed throw is a breaking change, so
+adding one routine error case would force a major bump and a coordinated update across every
+consumer ([REPO.md](../REPO.md)).
 
 ---
 

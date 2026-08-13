@@ -1,0 +1,58 @@
+#	GenericArch document map — grep this instead of reading an index.
+#	  grep -i navigation .claude/MAP.tsv        what covers navigation
+#	  awk -F'\t' '$2=="module"' .claude/MAP.tsv every module doc
+#	Columns: path	kind	topics (grep targets)	read it when
+#	Maintained by targeted edit. A doc with no row here is a doc nobody finds.
+#	A row whose path is NOT on disk is a fetch instruction, not a broken link. Outside this repo
+#	the docs/ rows are fetched on demand — look for a '# FETCH-BASE:' line below and curl the path
+#	onto itself, keeping the same relative location so links between docs still resolve.
+#	Fetch only what the task needs.
+docs/modules/Core.md	module	protocol model AppError ContentState Paged error state	Adding a shared protocol or model, or handling a content state
+docs/modules/NetworkKit.md	module	http endpoint middleware token refresh retry download upload background transfer	Any request, auth refresh, or file transfer (extracted package)
+docs/modules/ImageCache.md	module	image remote cache prefetch decode thumbnail memory disk	Loading a remote image or sizing a cache (extracted package)
+docs/modules/StorageKit.md	module	persistence swiftdata coredata sqlite keychain secret migration cache	Storing anything on disk, or a secret
+docs/modules/DIKit.md	module	dependency injection container assembly key liveValue testValue preview override	Registering a dependency, or overriding one in a test or preview
+docs/modules/DesignSystem.md	module	view component token spacing radius color typography contentstate skeleton platform gate	Any view, token, component, empty/error state, or platform branch
+docs/modules/LocalizationKit.md	module	string localization xcstrings key plural language locale bundle L10n	Any user-visible string, a plural, or a new language
+docs/modules/Messaging.md	module	message alert toast banner confirmation permission rationale presenter	Any message, error surface, confirmation, or permission prompt
+docs/modules/Navigation.md	module	route deeplink navigationstack splitview restoration path tab	Adding a screen, deep link, split view, or state restoration
+docs/modules/NotificationKit.md	module	push apns registration payload token silent notification	Push registration, or mapping a payload to a Route
+docs/modules/LoggingKit.md	module	log logger privacy redaction signpost oslog	Any log call, or anything derived from a response or user input
+docs/modules/AppShell.md	module	composition root main scenephase launch gate appdelegate environment	Wiring the app shell, scene phase, or a launch gate
+docs/DECISIONS.md	cross	decision record settled choice rationale	Before any §0 question, and before re-proposing anything
+docs/DONE.md	cross	definition of done checklist finish complete ship	Before calling any change finished
+docs/CONVENTIONS.md	cross	naming file layout access control doc comment style	Naming a type or file, or setting access control
+docs/STRUCTURE.md	cross	where guidance belongs doc placement approval gate skill trigger	Writing a new doc, skill, or command — and before editing CLAUDE.md
+docs/REPO.md	cross	package version local override spm dependency add package resolved	Adding a package, or overriding an extracted one locally
+docs/SHARING.md	cross	publish share template plugin installer distribute	Publishing this base for someone else
+docs/ADOPTION.md	cross	adopt existing repo conflict migration brownfield	Adopting this into a repo that already has its own rules
+docs/DELIVERY.md	cross	ci signing version bump release rollback testflight archive	CI, code signing, versioning, releasing, or rolling back
+docs/PERFORMANCE.md	cross	launch budget hitch rendering profile instruments memory	A launch budget, a SwiftUI redraw problem, or diagnosing a hitch
+docs/GAPS.md	cross	gap missing not covered scope backlog	Deciding what this architecture should cover for your product
+docs/PATTERN-SEARCH.md	cross	search grep find token efficiency lookup	Before grepping the codebase for an existing pattern
+.claude/notes/FEATURES.md	note	feature screen package route state inventory	Checking whether a feature exists, or where a screen belongs
+.claude/notes/NAVIGATION.md	note	route deeplink flow graph navigation inventory	Tracing a route, or adding one
+.claude/notes/ASSETS-IMAGES.md	note	image asset icon symbol catalog inventory	Looking for an existing image before adding one
+.claude/notes/ASSETS-COLORS.md	note	color colorset hex appearance dark light inventory	Looking for an existing colour before adding one
+.claude/notes/FONTS.md	note	font typeface weight registration UIAppFonts inventory	Adding or debugging a custom font
+.claude/notes/STYLE-GUIDE.md	note	token spacing radius elevation component style inventory	Applying an existing design token instead of a raw value
+.claude/notes/SCHEMES.md	note	scheme DEV TEST BETA PROD configuration build stage environment	Choosing a build stage, or debugging stage-specific behaviour
+.claude/notes/PROJECT.md	note	project target bundle id capability entitlement info.plist resolved stack toolchain	Anything target-, capability- or toolchain-version dependent
+.claude/memory/INDEX.md	memory	memory remembered fact preference context history	Starting work — what earlier sessions learned about this repo
+docs/patterns/change.md	pattern	edit modify existing extend refactor	Changing something that already exists (not yet a skill)
+docs/patterns/style-guide.md	pattern	token spacing radius design system value	Applying or adding a design token (not yet a skill)
+docs/patterns/dark-light-mode.md	pattern	dark light appearance colorscheme contrast	Light/dark appearance work (not yet a skill)
+docs/patterns/rtl-support.md	pattern	rtl ltr mirror layoutdirection arabic hebrew locale	Mirroring or adding a right-to-left locale (not yet a skill)
+docs/patterns/release-bump.md	pattern	release tag semver version bump extracted package	Tagging an extracted package (not yet a skill)
+docs/patterns/feature-complete.md	pattern	close out finish feature retrospective derive skill	Closing out a finished feature (not yet a skill)
+.claude/skills/new-feature/SKILL.md	skill	scaffold new feature package screen module create	Scaffolding a feature or screen from nothing (fires on its own)
+.claude/skills/debug/SKILL.md	skill	debug crash broken blank silent wrong symptom stacktrace	Diagnosing broken or unexpected behaviour (fires on its own)
+.claude/commands/project-init.md	command	/project-init init adopt bootstrap setup onboard	Initializing a fresh repo, or adopting this into an existing one
+.claude/commands/learn.md	command	/learn resource figma sample repo docs url promote skill	Turning a resource or finished work into a note, or promoting a pattern
+.claude/commands/verify.md	command	/verify done checklist finish	Walking the Definition of Done against your working diff
+.claude/commands/review.md	command	/review diff pr code review	Reviewing someone else's diff
+.claude/commands/gaps.md	command	/gaps missing coverage triage	Deciding what this architecture should cover
+.claude/commands/decide.md	command	/decide decision record settle	Recording a settled §0 decision
+.claude/commands/upgrade-stack.md	command	/upgrade-stack toolchain xcode swift version mismatch upgrade	Reconciling project settings with the machine
+.claude/commands/sync-app-notes.md	command	/sync-app-notes rescan rebuild inventory scan	Rebuilding the inventories from a filesystem scan (user-typed only)
+.claude/commands/build.md	command	/build compile test archive scheme	Building, testing or archiving a stage (user-typed only)

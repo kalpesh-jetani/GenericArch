@@ -23,15 +23,13 @@ Launch budget and SwiftUI rendering. The two places these apps actually get slow
 launch that's fine on current hardware and 1.4 s on the floor device is a regression nobody
 measured.
 
-### The tension with eager DI — resolve it deliberately
+### Eager dependency construction is a launch cost — bound it
 
-[DIKit.md](modules/DIKit.md) says *prefer eager construction*, and `DIContainerBuilder.build()`
-constructs the whole graph before the first frame. That is a real launch cost, chosen on purpose:
-it buys an immutable `Sendable` container with no locks and no runtime resolution failure.
+Building the whole dependency graph before the first frame buys an immutable, lock-free container
+([DIKit.md](modules/DIKit.md)) and pays for it on every launch.
 
-**Keep it, with a rule:** a dependency may be constructed eagerly only if its `init` does no I/O,
-no disk read, no `URLSession` creation with a background configuration, and no work proportional to
-stored data.
+**The rule:** a dependency may be constructed eagerly only if its `init` does no I/O, no disk read,
+no `URLSession` creation with a background configuration, and no work proportional to stored data.
 
 Anything failing that test registers a **facade** — a cheap value that builds the real thing on
 first `await`:

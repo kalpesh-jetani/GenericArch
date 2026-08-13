@@ -2,9 +2,7 @@
 
 Every `Route` case, what presents it, and how the user gets there.
 
-- **Maintained by:** targeted edit on every route insertion or deletion.
-  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
-- **Read this when:** adding a screen, wiring a deep link, or checking whether a flow is
+**Read it when** adding a screen, wiring a deep link, or checking whether a flow is
   reachable.
 - **Design rules:** [Navigation.md](../../docs/modules/Navigation.md). This file is the
   *inventory*; that file is the *rules*.

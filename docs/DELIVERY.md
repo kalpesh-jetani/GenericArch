@@ -9,19 +9,14 @@ How a commit becomes a build, and a build becomes a release.
 
 ---
 
-## What single-repo bought us
+## What CI runs
 
-One PR, one CI run, one merge. Only two things are versioned independently — `GenericArch-NetworkKit`
-and `GenericArch-ImageCache` (CLAUDE.md §4.2) — and each has its own small pipeline. Everything
-else moves together.
-
-| Repo | CI runs |
+| Repo | Pipeline |
 |---|---|
-| `GenericArch` | lint → build all packages → test all packages → build iOS + macOS apps → (on tag) archive + upload |
-| `GenericArch-NetworkKit` | lint → `swift build` → `swift test` on iOS + macOS |
-| `GenericArch-ImageCache` | same |
+| The app repo | lint → build every package → test every package → build iOS + macOS → (on tag) archive + upload |
+| Any package in its own repo | lint → `swift build` → `swift test`, on iOS **and** macOS |
 
-The two extracted repos never build an app. If their CI needs a host app to pass, they aren't
+A package in its own repo never builds an app. If its CI needs a host app to pass, it is not
 standalone and CLAUDE.md §9 is being violated.
 
 ---

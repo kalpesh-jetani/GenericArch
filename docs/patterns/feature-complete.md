@@ -1,7 +1,16 @@
+# Pattern — feature-complete
+
+**Not a skill yet.** It becomes one when this repo has the code it describes — `/learn feature-complete`
+promotes it. Until then it is reference: read it when the situation arises.
+
+- **Promote when:** there is a feature to close out
+- **Trigger phrases it would claim:** Close out finished work and decide what to keep from it. Fires when a feature is called done — "that's finished", "wrap up the auth work", "mark this complete", "close this out" — or after /verify ret…
+
 ---
-name: feature-complete
-description: Close out finished work and decide what to keep from it. Fires when a feature is called done — "that's finished", "wrap up the auth work", "mark this complete", "close this out" — or after /verify returns clean. Offers four outcomes: save the pattern as a new skill, close with a note, keep working, or decide later. Never saves a skill without judging that a repeatable pattern exists. Do NOT use mid-build, or to determine whether work is done — that is /verify.
----
+
+**Index before grep** — check the `.claude/notes/` inventories first ([PATTERN-SEARCH.md](../PATTERN-SEARCH.md)); they map a name to its files without a search.
+
+**Index first.** Look up the feature's own row in [FEATURES.md](../../.claude/notes/FEATURES.md) before grepping the codebase, then follow the row to its detail — a code path, or a sibling detail file. The note answers *what exists*; the pointer answers *what it is*.
 
 # Closing out a feature
 
@@ -11,7 +20,7 @@ Two jobs: confirm it is actually finished, then decide what is worth keeping fro
 
 ## 1. Confirm it is done before offering to close it
 
-Run `/verify` first, or check [DONE.md](../../../docs/DONE.md). **Do not offer the closing options
+Run `/verify` first, or check [DONE.md](../DONE.md). **Do not offer the closing options
 over a red checklist** — "mark complete" on unfinished work is how a definition of done stops
 meaning anything.
 
@@ -95,7 +104,7 @@ description: <trigger phrases · when NOT to use it — short; the body carries 
 
 ## Decisions this settled
 
-Link the [DECISIONS.md](../../../docs/DECISIONS.md) rows. Do not restate them.
+Link the [DECISIONS.md](../DECISIONS.md) rows. Do not restate them.
 
 ## What cost time
 
@@ -105,9 +114,9 @@ The gotcha, the symptom that gives it away, and **the file where the fix lives**
 Rules for the draft:
 
 - **Cite, don't narrate.** If you find yourself explaining what a function does, link the function
-  instead — it has a doc comment ([CONVENTIONS.md](../../../docs/CONVENTIONS.md)).
+  instead — it has a doc comment ([CONVENTIONS.md](../CONVENTIONS.md)).
 - **Never a bare path.** Each one carries a clause saying what to look at there
-  ([STRUCTURE.md](../../../docs/STRUCTURE.md)).
+  ([STRUCTURE.md](../STRUCTURE.md)).
 - **Paths must resolve.** Verify each before writing it; a pointer to a moved file is worse than no
   pointer.
 - **Record the sequence that was actually followed**, including what was got wrong first. A tidied
@@ -142,8 +151,8 @@ No skill. Record the outcome where it will be read:
 
 - **`Feature<Name>.md`** — a short *What this settled* section: the shape chosen, the decisions
   taken, anything a future reader would otherwise have to reconstruct from the diff.
-- **[FEATURES.md](../../notes/FEATURES.md)** — the feature and screen rows, with their file paths
-  and a note on each ([STRUCTURE.md](../../../docs/STRUCTURE.md)). Targeted edits, not a
+- **[FEATURES.md](../../.claude/notes/FEATURES.md)** — the feature and screen rows, with their file paths
+  and a note on each ([STRUCTURE.md](../STRUCTURE.md)). Targeted edits, not a
   `/sync-app-notes` run.
 - Any §0 answer that is not yet logged → `/decide`.
 

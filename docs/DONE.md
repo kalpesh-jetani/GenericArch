@@ -18,7 +18,7 @@ Not every line is machine-checkable, and pretending otherwise is how a checklist
 
 - [ ] 🤖 Clean build for **iOS, iPadOS, and macOS** with **zero warnings** under Swift 6 strict
       concurrency
-- [ ] 🤖 Shared code compiles against the **iOS 17** floor; every newer API gated (CLAUDE.md §1.1)
+- [ ] 🤖 Shared code compiles against the **iOS floor in `Package.swift`**; every newer API gated (CLAUDE.md §1.1)
 - [ ] 🤖 `swift test` passes standalone for every package touched — not only through the app
 - [ ] 👁 Extracted-package change? Tagged there, `Package.resolved` bumped here
       ([REPO.md](REPO.md))

@@ -9,59 +9,55 @@ using two of them, for different layers.
 
 ---
 
-## First: three categories, not two
+## Four categories
 
-Copying is only one of the three ways something reaches a consumer.
+### 1. Copied — must be local to function
 
-### 1. Copied — the reusable base
-
-| What | Why it travels |
+| What | Why it cannot be lazy |
 |---|---|
-| `docs/modules/*.md` | Design per package, product-independent |
-| `docs/{STRUCTURE,CONVENTIONS,DONE,REPO,DELIVERY,PERFORMANCE}.md` | Cross-cutting reference |
-| `.claude/skills/*`, `.claude/commands/*` | Agent tooling |
-| `.swiftlint.yml`, `.swiftformat`, `Scripts/*` (incl. `detect-toolchain.sh`) | Enforcement |
-| `Packages/{Core,DIKit}` | Starting code — a consumer edits its own copy |
+| `.claude/skills/*`, `.claude/commands/*` | Claude Code discovers them from disk; a fetched skill never fires |
+| `.claude/MAP.tsv` | Grepped on every task to route to a doc — a fetched map costs more than it saves |
+| `Scripts/*` | Executed, and referenced by CI |
+| `.swiftlint.yml`, `.swiftformat` | Read by the linter |
 
-### 2. Resolved — the extracted packages, **never copied**
+### 2. Referenced — listed, fetched when read
+
+All of `docs/` except the two below. `genericarch.installation.md` carries the index: every path, what
+is there, and when to read it, pinned to a commit. **A `docs/…` link that is not on disk is a fetch
+instruction, not a broken link.**
+
+Nothing to keep in sync, nothing to go stale, and 21 files a consumer may never open stay out of
+their repo.
+
+### 3. Scaffolded — created empty, never copied
+
+`docs/DECISIONS.md`, `docs/GAPS.md`, the eight `.claude/notes/*`, and `.claude/memory/`
+(its `INDEX.md` only — our memories are ours). All are **written to** —
+`/decide`, `/gaps` and every insertion or deletion edit them. Copying this product's versions would
+hand over its answers; referencing them would make them unwritable. So: created fresh.
+
+### 4. Resolved — SPM dependencies, never copied
 
 | Package | Reaches a consumer as |
 |---|---|
 | `GenericArch-NetworkKit` | an SPM dependency by URL, pinned with `.upToNextMajor(from:)` |
 | `GenericArch-ImageCache` | the same |
 
-**These are standalone modular packages in their own repositories. A consuming project does not
-include their source, and `adopt.sh` never copies them.** A consumer adds one line to
-`Package.swift` and gets a versioned binary-compatible dependency:
-
 ```swift
 .package(url: "https://github.com/kalpesh-jetani/GenericArch-NetworkKit.git", from: "1.0.0")
 ```
 
-That is the whole point of extracting them (CLAUDE.md §4.2): they carry **zero dependencies** — not
-even `Core` — so any product can resolve them without inheriting this architecture. A consumer that
-vendors the source has undone the extraction and now owns a fork.
+They carry **zero dependencies** — not even `Core` — so any product resolves them without inheriting
+this architecture. A consumer that vendors the source has undone the extraction and owns a fork.
+They need to exist only for a consumer that uses them, and they are the one layer where an update
+reaches every consumer by bumping a version.
 
-Consequences worth stating:
+### Never travels
 
-- They need to **exist and be reachable** only for a consumer that actually uses them. A project with
-  no networking never resolves NetworkKit, and nothing breaks.
-- They version **independently of the app and of each other** — `/release-bump`, [REPO.md](REPO.md).
-- They are the one layer where central updates reach every consumer for free, by bumping a version.
+`CLAUDE.md` (the target's rules are its own), `README.md`, `Packages/`, `App/`,
+`.claude/settings.json` (per-machine consent), `.claude-plugin/`.
 
-### 3. Neither — this product's state
-
-| What | Why it must not travel |
-|---|---|
-| `CLAUDE.md` | The target's rules are its own; `/project-init` reconciles rather than overwrites |
-| `.claude/notes/*` | Inventories of **this app's** screens, routes, assets, fonts |
-| `docs/DECISIONS.md` | **This product's** answers |
-| `docs/GAPS.md` | Gap statuses are per-product |
-| `Packages/Features/*`, `App/*` | This product's code |
-
-`Scripts/adopt.sh` enforces all three categories so nobody has to remember them: it copies group 1,
-skips group 3 with the reason printed, and never touches group 2 — those arrive by dependency
-resolution, not by file copy.
+`Scripts/adopt.sh` enforces all of this, and **refuses to run** if a file is in none of the lists.
 
 ---
 
@@ -117,8 +113,8 @@ In any repo:
 ```
 
 The plugin is **generated, never hand-edited** — `.claude/skills` and `.claude/commands` stay the
-single source of truth, because a hand-copied plugin drifts and this repo's own rule is that a doc
-which drifts from its source is worse than none.
+single source of truth. A hand-copied plugin drifts, and a doc that drifts from its source is worse
+than none.
 
 | Good | Bad |
 |---|---|
@@ -144,8 +140,9 @@ cd /path/to/GenericArch
 ./Scripts/adopt.sh /path/to/ExistingApp --apply
 ```
 
-Copies the base, refuses to copy the state, and **never overwrites** — an existing file is reported
-as a collision and kept. Then:
+Installs the tooling, writes `genericarch.installation.md` for the reference docs, scaffolds what
+gets written to, and **never overwrites** — an existing file is reported as a collision and kept.
+Then:
 
 1. **`/project-init`** — follows [ADOPTION.md](ADOPTION.md): reads their CLAUDE.md in full, builds the rule-conflict table (CocoaPods vs
    SPM, UIKit vs SwiftUI, Combine, existing DI, min OS), classifies each honestly, and asks per

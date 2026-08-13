@@ -1,12 +1,21 @@
+# Pattern — rtl-support
+
+**Not a skill yet.** It becomes one when this repo has the code it describes — `/learn rtl-support`
+promotes it. Until then it is reference: read it when the situation arises.
+
+- **Promote when:** the code it governs exists
+- **Trigger phrases it would claim:** Implement and verify right-to-left support — layoutDirection, mirroring, directional SF Symbols, asset flipping, text alignment, locale-correct numbers and dates. Use when asked to support RTL, add Ar…
+
 ---
-name: rtl-support
-description: Implement and verify right-to-left support — layoutDirection, mirroring, directional SF Symbols, asset flipping, text alignment, locale-correct numbers and dates. Use when asked to support RTL, add Arabic, Hebrew, Farsi or Urdu, verify mirroring, or when adding a locale. Catches .left/.right instead of leading/trailing, chevron.right that does not flip, concatenation that freezes word order, custom drawing that ignores layoutDirection, and logos or media controls that must NOT flip. Related skill: dark-light-mode.
----
+
+**Index before grep** — check the `.claude/notes/` inventories first ([PATTERN-SEARCH.md](../PATTERN-SEARCH.md)); they map a name to its files without a search.
+
+**Index first.** Look up script coverage for a locale in [FONTS.md](../../.claude/notes/FONTS.md) before grepping the codebase, then follow the row to its detail — a code path, or a sibling detail file. The note answers *what exists*; the pointer answers *what it is*.
 
 # RTL support
 
 Key format, catalogs, and typed accessors are in
-[LocalizationKit.md](../../../docs/modules/LocalizationKit.md). This is the layout-mirroring
+[LocalizationKit.md](../modules/LocalizationKit.md). This is the layout-mirroring
 procedure.
 
 **RTL is not a translation problem — it's a layout problem.** A perfectly translated screen with
@@ -101,7 +110,7 @@ correctly **only** if you let the system lay it out. Don't split the string to p
 ## 7. Verify
 
 Preview both directions for every component — alongside the light/dark and Dynamic Type matrix
-required by [DesignSystem.md](../../../docs/modules/DesignSystem.md):
+required by [DesignSystem.md](../modules/DesignSystem.md):
 
 ```swift
 #Preview("RTL") {
@@ -128,7 +137,7 @@ breaks real layouts.
 2. Run the localization test (CLAUDE.md §9): no key missing in any language.
 3. Verify font fallback covers the script — a custom font with no Arabic glyphs silently falls
    back, and the mismatch is visible. Record coverage in
-   [FONTS.md](../../notes/FONTS.md).
+   [FONTS.md](../../.claude/notes/FONTS.md).
 4. Check line-height and truncation: Arabic and Urdu ascenders/descenders need more vertical room
    than Latin at the same point size.
 
@@ -143,4 +152,4 @@ breaks real layouts.
 - [ ] Numbers, dates, currency via `FormatStyle`
 - [ ] Previews cover RTL for every component
 - [ ] Run and checked under RTL pseudolanguage **and** at Dynamic Type XXXL
-- [ ] Font covers the script; noted in [FONTS.md](../../notes/FONTS.md)
+- [ ] Font covers the script; noted in [FONTS.md](../../.claude/notes/FONTS.md)

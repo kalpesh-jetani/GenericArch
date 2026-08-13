@@ -2,15 +2,11 @@
 
 Inventory of every feature package and the screens it owns.
 
-- **Maintained by:** targeted edit on every insertion or deletion.
-  A full rescan is the `/sync-app-notes` **command** — it runs only when you type it.
-- **Read this when:** deciding where a screen belongs, checking whether a feature already exists,
+- **Indexed from:** [../INDEX.md](../INDEX.md) — the feature table there links each feature to its skill.
+**Read it when** deciding where a screen belongs, checking whether a feature already exists,
   or tracing which package owns a route.
-- **Source of truth:** the code. If this file and the code disagree, the code wins and this file
-  is stale — fix it in the same change.
 
-> Empty until the first feature package exists. `/sync-app-notes` populates it by scanning
-> `Sources/Feature*/Views/` and each feature's `Route` cases.
+> Empty until the first feature package exists — `/sync-app-notes` populates it.
 
 ---
 
@@ -19,13 +15,13 @@ Inventory of every feature package and the screens it owns.
 **Every row carries the path.** This note is an index — `grep` a feature or screen here and you get
 the file, without opening the project.
 
-| Feature | Package path — *what's there* | Screens | Route cases | Presentation pattern |
-|---|---|---|---|---|
-| — | — | — | — | — |
+| Feature | Package path — *what's there* | Screens | Route cases | Presentation | Skill |
+|---|---|---|---|---|---|
+| — | — | — | — | — | — |
 
 <!-- Example rows, delete when the first real feature lands:
-| Auth | `Packages/Features/FeatureAuth` — sign-in, OTP, password reset; doc at `FeatureAuth.md` | 3 | `.authLogin`, `.authForgot`, `.authOTP` | MVVM + @Observable |
-| Home | `Packages/Features/FeatureHome` — paged feed and item detail; doc at `FeatureHome.md` | 2 | `.homeFeed`, `.itemDetail(id:)` | MVVM + @Observable |
+| Auth | `Packages/Features/FeatureAuth` — sign-in, OTP, password reset; doc at `FeatureAuth.md` | 3 | `.authLogin`, `.authForgot`, `.authOTP` | MVVM + @Observable | `auth-screen-flow` — derived from it |
+| Home | `Packages/Features/FeatureHome` — paged feed and item detail; doc at `FeatureHome.md` | 2 | `.homeFeed`, `.itemDetail(id:)` | MVVM + @Observable | `new-feature` — left no pattern |
 -->
 
 ## Screens

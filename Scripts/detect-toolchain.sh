@@ -2,7 +2,7 @@
 # Determine the tech stack this repo actually uses — never assume one.
 #
 #   ./Scripts/detect-toolchain.sh              # full report
-#   ./Scripts/detect-toolchain.sh --markdown   # the CLAUDE.md §1 table, ready to paste
+#   ./Scripts/detect-toolchain.sh --markdown   # PROJECT.md 'Resolved stack', ready to paste
 #   ./Scripts/detect-toolchain.sh --options    # choice lists for /project-init, machine-derived
 #
 # Precedence, deliberately:
@@ -153,11 +153,11 @@ if [ "$MODE" = mismatches ]; then
   [ -n "$PROJ_MODE" ] && [ -n "$LATEST_MODE" ] && vlt "$PROJ_MODE" "$LATEST_MODE" && \
     echo "OPPORTUNITY|swift-language-mode|Swift language mode is behind the compiler|$PROJ_MODE|$LATEST_MODE|migrate to mode $LATEST_MODE — expect new concurrency diagnostics; do it package by package"
 
-  # CLAUDE.md §1 disagreeing with the machine is a doc problem, not a build problem.
-  if [ -f CLAUDE.md ]; then
-    c=$(grep -E '^\| Xcode / Swift \|' CLAUDE.md | head -1)
+  # The recorded stack disagreeing with the machine is a doc problem, not a build problem.
+  if [ -f .claude/notes/PROJECT.md ]; then
+    c=$(grep -E '^\| Xcode / Swift \|' .claude/notes/PROJECT.md | head -1)
     [ -n "$c" ] && ! printf '%s' "$c" | grep -q "\*\*$XCODE\*\*" && \
-      echo "DRIFT|claude-md-toolchain|CLAUDE.md §1 disagrees with the machine|see §1|Xcode $XCODE / Swift $SWIFT|refresh §1 from --markdown (needs its own approval)"
+      echo "DRIFT|recorded-toolchain|PROJECT.md 'Resolved stack' disagrees with the machine|see PROJECT.md|Xcode $XCODE / Swift $SWIFT|refresh it from --markdown"
   fi
 
   for pair in "UI:$UI" "dependencies:$DEPS" "concurrency:$CONC" "testing:$TESTS"; do
@@ -167,8 +167,9 @@ if [ "$MODE" = mismatches ]; then
   exit 0
 fi
 
-# ── --markdown : the §1 table ──────────────────────────────────────────────
+# ── --markdown : the 'Resolved stack' table ────────────────────────────────
 if [ "$MODE" = markdown ]; then
+  # The detected rows — paste over PROJECT.md "Resolved stack".
   cat <<MDOUT
 | Item | Value | Source |
 |---|---|---|
@@ -176,12 +177,16 @@ if [ "$MODE" = markdown ]; then
 | Minimum macOS | **$SRC_MACOS** | $([ "$FRESH" -eq 1 ] && echo "machine" || echo "project") |
 | Xcode / Swift | **$XCODE** / **$SWIFT** | machine |
 | Swift language mode | **$LATEST_MODE** (available: $LANG_MODES) | machine |
-| UI | **${UI:-ask}** | $([ -n "$UI" ] && echo project || echo unresolved) |
-| Dependencies | **${DEPS:-ask}** | $([ -n "$DEPS" ] && echo project || echo unresolved) |
-| Project files | **${GEN:-ask}** | $([ -n "$GEN" ] && echo project || echo unresolved) |
-| Concurrency | **${CONC:-ask}** | $([ -n "$CONC" ] && echo project || echo unresolved) |
-| Testing | **${TESTS:-ask}** | $([ -n "$TESTS" ] && echo project || echo unresolved) |
 MDOUT
+  # The chosen constraints are CLAUDE.md §1 rules, not data — a divergence is a
+  # violation to raise, not a table to refresh. Reported, never pasted.
+  echo
+  echo "# CLAUDE.md §1 chosen constraints, as the project actually reads:"
+  for pair in "UI:${UI:-unresolved}" "Dependencies:${DEPS:-unresolved}" \
+              "Project files:${GEN:-unresolved}" "Concurrency:${CONC:-unresolved}" \
+              "Testing:${TESTS:-unresolved}"; do
+    echo "#   ${pair%%:*}: ${pair#*:}"
+  done
   exit 0
 fi
 
@@ -221,11 +226,11 @@ if [ -n "$IOS_SDK" ] && [ -n "$SRC_IOS" ] && verlt "$IOS_SDK" "$SRC_IOS"; then
   echo "${RED}✗ min iOS $SRC_IOS is above the installed iOS SDK $IOS_SDK${OFF}"; warn=$((warn + 1))
 fi
 
-if [ -f CLAUDE.md ]; then
-  claimed=$(grep -E '^\| Xcode / Swift \|' CLAUDE.md | head -1)
+if [ -f .claude/notes/PROJECT.md ]; then
+  claimed=$(grep -E '^\| Xcode / Swift \|' .claude/notes/PROJECT.md | head -1)
   if [ -n "$claimed" ] && ! printf '%s' "$claimed" | grep -q "\*\*$XCODE\*\*"; then
-    echo "${YEL}⚠ CLAUDE.md §1 disagrees with this machine${OFF}"
-    echo "  ${DIM}found: Xcode $XCODE / Swift $SWIFT — refresh with --markdown, then get approval to edit${OFF}"
+    echo "${YEL}⚠ PROJECT.md 'Resolved stack' disagrees with this machine${OFF}"
+    echo "  ${DIM}found: Xcode $XCODE / Swift $SWIFT — refresh with --markdown${OFF}"
     warn=$((warn + 1))
   fi
 fi
