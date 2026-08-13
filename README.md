@@ -7,9 +7,10 @@ into a new product with minimal change.
 
 **The stack is acquired, not imposed.** `./Scripts/detect-toolchain.sh` reads it from your project's
 settings where they exist, falls back to your machine, and `/project-init` asks about the rest with
-options derived from your installed Xcode — recommending the latest, never assuming it. This repo's
-own resolved answers are SwiftUI, Swift 6 language mode and SPM; yours can differ, and
-`/project-init` will tell you which rules that changes.
+options derived from your installed Xcode — recommending the latest, never assuming it. No version
+number is written in `CLAUDE.md`: the floors live in each `Package.swift`, and
+`.claude/notes/PROJECT.md` records what they resolved to. Your answers can differ from this repo's,
+and `/project-init` tells you which rules that changes.
 
 ---
 
@@ -52,6 +53,7 @@ structure, and they are not yours:
 - `docs/DECISIONS.md` — delete the per-product rows, keep the toolchain ones
 - `docs/GAPS.md` — reset statuses to ▶ Open, then run `/gaps`
 - `.claude/notes/*` — clear the table bodies; they describe *this* app's screens and assets
+- `.claude/memory/` — delete every file except `INDEX.md`; those memories are about this repo
 
 ### B. Existing project — from inside your repo
 
@@ -88,8 +90,13 @@ by editing a doc ([docs/ADOPTION.md](docs/ADOPTION.md)).
 | `GA_REF=v0.2.0` | A different version |
 | `GA_REPO=/path/to/checkout` | A local clone or your fork |
 
-> If the repo is private, `curl` cannot reach it. Clone it once over SSH and run
-> `./Scripts/adopt.sh /path/to/YourApp --apply` instead.
+> **`v0.1.0` predates `docs/patterns/` and `docs/PATTERN-SEARCH.md`**, so those seven files 404 when
+> fetched at that tag. The installer detects this and refuses to `--apply` rather than produce a
+> half-resolving install. Until a newer tag exists, install from a checkout with
+> `./Scripts/adopt.sh /path/to/YourApp --apply`.
+
+> If the repo is private, `curl` cannot reach it. Clone it once over SSH and use `adopt.sh` the same
+> way.
 
 ### C. Several repos — just the tooling
 
@@ -105,18 +112,34 @@ and tooling fixes reach every repo by updating one plugin.
 
 ## What you just installed
 
+### The map — how the agent finds anything
+
+`.claude/MAP.tsv` is one grep-able row per doc, note, pattern, skill and command: its topics and when
+to read it. It replaces a table of contents that used to be re-read every session.
+
+```bash
+grep -i navigation .claude/MAP.tsv           # what covers this topic
+awk -F'\t' '$2=="module"' .claude/MAP.tsv    # every module doc
+```
+
+Reference docs are **not copied** into your repo — they are fetched when a task needs them. A
+`docs/…` row that isn't on disk is a fetch instruction, not a broken link; the map's `# FETCH-BASE:`
+line, stamped at install time with the exact commit you installed from, says where to get it.
+`/project-init` verifies every row resolves before reporting success.
+
 ### Skills — these fire on their own when the situation matches
 
-You never type these. They activate from their description when what you are doing matches.
+You never type these. They activate from their description when what you're doing matches.
 
 | Skill | Fires when | What it stops you doing |
 |---|---|---|
-| `new-feature` | Adding a feature or package | Shipping a happy path — it requires every content state, a mock, and localized keys |
-| `style-guide` | Any spacing, radius, shadow or duration is about to be written | Adding a near-duplicate token; it proposes the existing one first |
-| `dark-light-mode` | A colour or asset changes, or something looks wrong in dark | Shipping a colorset with no dark appearance, or elevation that vanishes on black |
-| `rtl-support` | Adding a locale, or checking mirroring | `.left`/`.right` and `chevron.right`, which do not flip |
-| `release-bump` | Releasing NetworkKit or ImageCache | Tagging in the wrong order, or misjudging the semver level |
-| `feature-complete` | Work is called done | Closing without deciding whether the pattern is worth keeping |
+| `new-feature` | Adding a feature, screen or package | Shipping a happy path — it requires every content state, a mock, and localized keys |
+| `debug` | Something is broken, blank, or silently wrong | Reading the wrong file first; it narrows to a layer before opening anything |
+
+**Only two ship, deliberately.** A skill costs its description in context every session, and one
+that cannot fire in an empty repo costs it for nothing. Six more are written and waiting as patterns
+— `change`, `style-guide`, `dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`. Each
+becomes a real skill via `/learn <name>` once your repo has the code it describes.
 
 ### Commands — you type these
 
@@ -124,26 +147,34 @@ You never type these. They activate from their description when what you are doi
 |---|---|
 | `/project-init` | Set up a fresh repo, or adopt this into an existing one |
 | `/verify` | Walk the Definition of Done against your working diff — reports, never fixes |
+| `/review` | Review someone else's diff or PR against the rules — reports, never edits |
+| `/learn` | Turn a resource (sample repo, Figma frame, vendor docs) or finished work into a note — and promote a pattern to a skill when it has earned it |
 | `/gaps` | Decide what this architecture should and should not cover for your product |
 | `/decide` | Record a settled decision so it is not re-argued |
 | `/upgrade-stack` | Reconcile project settings with your machine — asks twice before changing anything |
 | `/sync-app-notes` | Rebuild the inventories from a filesystem scan |
 | `/build` | Build, test or archive a stage: `DEV`, `TEST`, `BETA`, `PROD` |
 
+Anything that must **never** trigger by inference is a command, not a skill — which is why the full
+inventory rescan is `/sync-app-notes` and why builds are `/build`.
+
 ### Scripts — run these yourself or in CI
 
 | Script | Does |
 |---|---|
 | `./Scripts/check.sh` | Enforces the rules a linter cannot express, **and** typechecks every package at the iOS floor — `swift build` on a Mac does not |
-| `./Scripts/detect-toolchain.sh` | Reports the stack; `--markdown` emits the §1 table, `--options` the valid choices |
-| `./Scripts/adopt.sh` | Copies the base into another repo, refusing to copy this product's state |
+| `./Scripts/detect-toolchain.sh` | Reports the stack; `--markdown` emits the `PROJECT.md` *Resolved stack* table, `--options` the valid choices |
+| `./Scripts/adopt.sh` | Copies the base into another repo, refusing to copy this product's state — and refusing to run at all if a referenced doc isn't reachable at the pinned commit |
 | `./Scripts/build-plugin.sh` | Generates the plugin from `.claude/` — never hand-edit the output |
 | `./Scripts/check-skill-triggers.py` | Catches two skills competing for the same phrasing |
 
-### Two rules the agent follows without being asked
+### Four rules the agent follows without being asked
 
 - **`CLAUDE.md` is never edited without your explicit approval** — it loads into every session, so a
   change there alters every future response.
+- **It never commits or pushes.** Work is left in the working tree; you decide when it's done.
+- **It never builds, runs, or tests** — including `./Scripts/check.sh`, which compiles. It tells you
+  what to run.
 - **The note inventories are updated row by row** as part of a change; a full rescan only happens
   when you type `/sync-app-notes`.
 
@@ -153,7 +184,9 @@ You never type these. They activate from their description when what you are doi
 
 | You want to… | Read |
 |---|---|
-| Know the rules before writing code | [CLAUDE.md](CLAUDE.md) — rules, and the resolved stack |
+| Know the rules before writing code | [CLAUDE.md](CLAUDE.md) |
+| Find the doc for a topic | `grep -i <topic> .claude/MAP.tsv` |
+| Know the resolved stack — min OS, Xcode, Swift | [.claude/notes/PROJECT.md](.claude/notes/PROJECT.md) |
 | Understand a specific layer | [docs/modules/](docs/modules/) — one doc per package |
 | Know why something is the way it is | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | Know what's deliberately missing | [docs/GAPS.md](docs/GAPS.md) |
@@ -163,15 +196,18 @@ You never type these. They activate from their description when what you are doi
 ## Layout
 
 ```
-CLAUDE.md            always-on rules (kept deliberately small)
+CLAUDE.md            always-on rules (kept deliberately small — no version numbers)
 Packages/            local Swift packages — Core, DIKit, DesignSystem, Features/…
 App/                 thin iOS + macOS shells: @main, composition root, no logic
 docs/                hand-written reasoning: module design + cross-cutting reference
 docs/modules/        one doc per package
-.claude/notes/       inventories generated from the code (features, routes, assets, fonts, schemes)
+docs/patterns/       procedures not yet skills — /learn promotes one when it earns it
+.claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable
+.claude/notes/       inventories generated from the code (features, routes, assets, fonts,
+                     schemes, targets, resolved stack)
+.claude/memory/      what earlier sessions learned — in-repo and tracked, so it survives a clone
 .claude/skills/      procedures Claude applies on its own
-.claude/commands/    things you trigger: /project-init /verify /gaps /decide
-                     /upgrade-stack /sync-app-notes /build
+.claude/commands/    things you trigger, listed above
 Scripts/check.sh     enforces the rules a linter can't express
 ```
 
@@ -188,40 +224,14 @@ swift test  --package-path Packages/Core
 ./Scripts/check.sh                           # rule enforcement
 ```
 
-Apps build per stage — DEV / TEST / BETA / PROD ([.claude/notes/SCHEMES.md](.claude/notes/SCHEMES.md)):
-
-```bash
-xcodebuild -scheme GenericArch-DEV -configuration Debug \
-  -destination 'platform=iOS Simulator,name=iPhone 17' build
-```
-
-## Working with Claude Code
-
-The `.claude/` directory is set up so an agent gets the architecture without being told each time.
-Four commands:
-
-| Command | Does |
-|---|---|
-| `/project-init` | Initialize a fresh repo, or adopt this structure into an existing one — reconciles conflicting rules with approval first |
-| `/verify` | Walk the Definition of Done against the working diff |
-| `/gaps` | Triage [docs/GAPS.md](docs/GAPS.md) — derives status from code on an existing repo, asks on a fresh one |
-| `/decide` | Record a settled decision in the log |
-| `/upgrade-stack` | Reconcile project settings with the machine — asks twice before changing anything |
-| `/sync-app-notes` | Rebuild the seven inventories from a filesystem scan |
-| `/build` | Build, test, or archive a stage |
-
-Skills fire on their own when the situation matches — `new-feature`, `style-guide`,
-`dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`. That last one closes finished
-work and can distil what it taught into a new skill, which then surfaces the next time similar work
-starts. Commands only run when you type them. Anything that must **never**
-trigger by inference is a command, which is why the full inventory rescan is `/sync-app-notes` and
-not a skill.
-
-Two standing rules the agent follows: **CLAUDE.md is never edited without explicit approval**, and
-the note inventories are updated by targeted edit — never by an unrequested full rescan.
+Apps build per stage — DEV / TEST / BETA / PROD ([.claude/notes/SCHEMES.md](.claude/notes/SCHEMES.md)),
+or via `/build`, which picks the scheme and destination for you.
 
 ## Status
 
 The architecture is documented and a vertical slice (`Core`, `DIKit`) builds and tests clean. Most
 packages are specified but not yet implemented; [docs/GAPS.md](docs/GAPS.md) tracks what is
 deliberately absent.
+
+`./Scripts/check.sh` is currently red on one item: the recorded minimum macOS is above the installed
+macOS SDK. `/upgrade-stack` reviews that and asks before changing anything.
