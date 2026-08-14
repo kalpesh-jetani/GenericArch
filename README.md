@@ -127,6 +127,27 @@ Reference docs are **not copied** into your repo — they are fetched when a tas
 line, stamped at install time with the exact commit you installed from, says where to get it.
 `/project-init` verifies every row resolves before reporting success.
 
+### The notes — a grep index, not documents
+
+`.claude/notes/` holds nine inventories generated from your code: features and screens, routes, the
+API map, images, colours, fonts, design tokens, schemes, targets. They exist to be **searched, never
+read** — one grep returns the row, the row answers the question, and the file never enters context.
+
+```bash
+./Scripts/find.sh SmartLockHomeView      # or /find — every inventory, one call
+```
+
+Three rules follow, and they are what keeps the saving real
+([docs/PATTERN-SEARCH.md](docs/PATTERN-SEARCH.md)):
+
+- **Never read a note in full.** If you had to, the row wasn't self-contained — fix the row.
+- **A note is never promoted to a skill**, at any size. A skill loads its whole body when it fires
+  and its description every session; a note is hit once for one line.
+- **Maintained by inserting and deleting rows**, in the change that adds or removes the thing.
+
+Rows are dense on purpose — no link syntax, root declared once in the header, no filename restated
+three times. On a real app that is **−21% across the nine notes, −47% on `FEATURES.md`**.
+
 ### Skills — these fire on their own when the situation matches
 
 You never type these. They activate from their description when what you're doing matches.
@@ -151,8 +172,9 @@ becomes a real skill via `/learn <name>` once your repo has the code it describe
 | `/learn` | Turn a resource (sample repo, Figma frame, vendor docs) or finished work into a note — and promote a pattern to a skill when it has earned it |
 | `/gaps` | Decide what this architecture should and should not cover for your product |
 | `/decide` | Record a settled decision so it is not re-argued |
+| `/find` | Look up where a screen, route, endpoint, asset, colour or target is — one call, no note opened |
 | `/upgrade-stack` | Reconcile project settings with your machine — asks twice before changing anything |
-| `/sync-app-notes` | Rebuild the inventories from a filesystem scan |
+| `/sync-app-notes` | Rebuild the inventories from a filesystem scan — **incremental**: it scans only the notes whose sources changed |
 | `/build` | Build, test or archive a stage: `DEV`, `TEST`, `BETA`, `PROD` |
 
 Anything that must **never** trigger by inference is a command, not a skill — which is why the full
@@ -167,6 +189,12 @@ inventory rescan is `/sync-app-notes` and why builds are `/build`.
 | `./Scripts/adopt.sh` | Copies the base into another repo, refusing to copy this product's state — and refusing to run at all if a referenced doc isn't reachable at the pinned commit |
 | `./Scripts/build-plugin.sh` | Generates the plugin from `.claude/` — never hand-edit the output |
 | `./Scripts/check-skill-triggers.py` | Catches two skills competing for the same phrasing |
+| `./Scripts/find.sh` | One-call lookup across every note; on a miss, routes through the map and tells you to record the row |
+| `./Scripts/notes-staleness.sh` | Which notes are stale and why — reads **git** timestamps, not mtime, so a fresh clone doesn't read as fully stale |
+| `./Scripts/scan-api-map.py` | API surface → screen. Finds the router **from the call sites**, not by filename |
+| `./Scripts/scan-colors.py`, `scan-fonts.py`, `scan-unused-assets.py` | The scans behind `/sync-app-notes`; run standalone to check one inventory |
+| `./Scripts/check-note-links.py` | Every path in every note resolves |
+| `./Scripts/detect-capabilities.sh` | Evidence scan behind `/gaps` — analytics, crash reporting, StoreKit, biometrics… |
 
 ### Four rules the agent follows without being asked
 
@@ -176,7 +204,7 @@ inventory rescan is `/sync-app-notes` and why builds are `/build`.
 - **It never builds, runs, or tests** — including `./Scripts/check.sh`, which compiles. It tells you
   what to run.
 - **The note inventories are updated row by row** as part of a change; a full rescan only happens
-  when you type `/sync-app-notes`.
+  when you type `/sync-app-notes`, and even then it scans only what changed.
 
 ---
 
@@ -186,6 +214,8 @@ inventory rescan is `/sync-app-notes` and why builds are `/build`.
 |---|---|
 | Know the rules before writing code | [CLAUDE.md](CLAUDE.md) |
 | Find the doc for a topic | `grep -i <topic> .claude/MAP.tsv` |
+| Find *where something is* — a screen, route, endpoint, asset | `/find <name>` |
+| Know why a scan is written the way it is | [docs/SCAN-TRAPS.md](docs/SCAN-TRAPS.md) |
 | Know the resolved stack — min OS, Xcode, Swift | [.claude/notes/PROJECT.md](.claude/notes/PROJECT.md) |
 | Understand a specific layer | [docs/modules/](docs/modules/) — one doc per package |
 | Know why something is the way it is | [docs/DECISIONS.md](docs/DECISIONS.md) |
@@ -202,9 +232,10 @@ App/                 thin iOS + macOS shells: @main, composition root, no logic
 docs/                hand-written reasoning: module design + cross-cutting reference
 docs/modules/        one doc per package
 docs/patterns/       procedures not yet skills — /learn promotes one when it earns it
+docs/SCAN-TRAPS.md   why each scan is shaped as it is — read only to change one
 .claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable
-.claude/notes/       inventories generated from the code (features, routes, assets, fonts,
-                     schemes, targets, resolved stack)
+.claude/notes/       nine inventories generated from the code (features, routes, API map, images,
+                     colours, fonts, tokens, schemes, targets) — grepped, never read
 .claude/memory/      what earlier sessions learned — in-repo and tracked, so it survives a clone
 .claude/skills/      procedures Claude applies on its own
 .claude/commands/    things you trigger, listed above
