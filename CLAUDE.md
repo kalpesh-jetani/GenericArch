@@ -142,7 +142,7 @@ Core (protocols, models, errors — zero dependencies)
 ```
 
 **Boundaries are enforced by `Package.swift`, not repo walls** — a local package still cannot import
-a sibling feature. That is why §4 can be one repo without weakening rule 1.
+a sibling feature.
 
 **Inheritable** — a new feature gets standard behavior free and can override any piece. The path is
 a **protocol + extension** supplying state handling, error mapping, retry, lifecycle. **No generic
@@ -174,8 +174,7 @@ Layout, what each extracted package contains, versioning and local overrides:
 Otherwise **keep it local**; local costs nothing and reversing an extraction doesn't. A package that
 can't stand alone without `Core` was never product-independent. Extraction is a §0 question.
 
-**One exception, closed and not growing by precedent:** the two seed packages, designated at
-inception before any second product could satisfy test 2 — reasoning in
+**One exception, closed and not growing by precedent:** the two seed packages —
 [DECISIONS.md](docs/DECISIONS.md). Feature packages fail all three tests by definition.
 
 ---
@@ -275,12 +274,12 @@ including required-reason APIs. Biometrics behind `BiometricAuthenticating`.
 
 - Unit-test every view model, mapper, and service against protocol mocks. **No network** — enforced
   by mandatory `testValue` on every dependency key.
-- **Snapshots are bounded on purpose:** full matrix for DesignSystem components; screens get
+- **Snapshots are bounded:** full matrix for DesignSystem components; screens get
   `loaded` + one failure state → [DesignSystem.md](docs/modules/DesignSystem.md)
 - Contract tests per wrapper — real implementation and mock satisfy the same suite.
 - Localization test: no `.xcstrings` key missing in any language, no view using a raw literal.
-- **Every package builds and tests standalone** with `swift test`. That is what keeps boundaries
-  honest now that repo walls don't.
+- **Every package builds and tests standalone** with `swift test`. That is what enforces the
+  module boundaries.
 
 ---
 
@@ -307,7 +306,7 @@ the diff. Do not declare completion from memory of the checklist — the items m
 the ones that feel already handled.
 
 If something can't be checked here (device, VoiceOver, Mac resize), **say what was skipped**.
-Silently omitting it is the failure that checklist exists to prevent. Build and test: `/build`.
+Build and test: `/build`.
 
 ---
 

@@ -18,8 +18,7 @@ say so and read the pattern instead of improvising:
 | Tagging a package | [release-bump](../../../docs/patterns/release-bump.md) |
 | Closing finished work | [feature-complete](../../../docs/patterns/feature-complete.md) |
 
-Offer `/learn <pattern>` if it is now worth promoting. Scaffolding a package for a one-field change
-is the mis-fire this table exists to catch.
+Offer `/learn <pattern>` if it is now worth promoting.
 
 Creates a feature package that satisfies CLAUDE.md §3 *Scalable*: adding it edits **zero** other
 features, one line in the composition root, and one case in `Route`.
@@ -186,7 +185,7 @@ integration surface.
 - Every view model and mapper, against mocks. No network (DIKit.md `testValue`).
 - Previews per screen covering every `ContentState`.
 - Hand over `swift test --package-path Packages/Features/Feature<Name>` — the user runs it (§2.12).
-  Standalone package tests are what enforces the boundaries now that repo walls don't.
+  Standalone package tests are what enforce the module boundaries.
 
 Snapshot scope and the rest of the bar: [DONE.md](../../../docs/DONE.md).
 
