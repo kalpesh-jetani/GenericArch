@@ -1,6 +1,6 @@
 # GenericArch
 
-Reference architecture for building **iPhone / iPad / Mac** apps usoing CLAUDE from one shared codebase.
+Reference architecture for building **iPhone / iPad / Mac** apps using CLAUDE from one shared codebase.
 
 This repo is the blueprint. Every package in it is meant to be reusable, replaceable, and droppable
 into a new product with minimal change.
@@ -127,6 +127,37 @@ Reference docs are **not copied** into your repo — they are fetched when a tas
 line, stamped at install time with the exact commit you installed from, says where to get it.
 `/project-init` verifies every row resolves before reporting success.
 
+### The script registry — the agent calls scripts instead of rewriting them
+
+`.claude/SCRIPTS.tsv` is one row per script: its inputs, outputs, exit codes, side effects, and
+whether the agent is allowed to run it at all. Every script declares its own contract in a `#@`
+header and the registry is **generated** from those headers — so it cannot drift from the scripts it
+describes.
+
+```bash
+grep -i lint .claude/SCRIPTS.tsv                # which script covers this
+awk -F'\t' '$4!="call"' .claude/SCRIPTS.tsv     # what the agent must not simply run
+./Scripts/claude-utils/register-scripts.sh --check   # CI: fail if a header changed
+```
+
+The point is what the agent *stops* doing. **It never reads a script's body to find out what the
+script does** — the row says, and the body would cost tokens the row already spent. It calls the
+script and relies on the declared output instead of re-deriving the answer by reading files. The one
+time the body gets opened is when a call fails; then it is fixed, in the same change, and the registry
+regenerated.
+
+The `claude` column is what makes that safe:
+
+| Value | Means |
+|---|---|
+| `call` | run it |
+| `emit-only` | it prints commands it deliberately does not run |
+| `needs-approval` | it writes; needs an explicit `--approve` or `--yes` |
+| `never:<reason>` | the agent must not run it — `check.sh` compiles the iOS floor |
+
+`register-scripts.sh` refuses to register a script with an incomplete header, so a script cannot be
+added without stating its contract. A script with no row is a script the agent will never call.
+
 ### The notes — a grep index, not documents
 
 `.claude/notes/` holds nine inventories generated from your code: features and screens, routes, the
@@ -157,6 +188,13 @@ You never type these. They activate from their description when what you're doin
 | `new-feature` | Adding a feature, screen or package | Shipping a happy path — it requires every content state, a mock, and localized keys |
 | `debug` | Something is broken, blank, or silently wrong | Reading the wrong file first; it narrows to a layer before opening anything |
 
+**Both open with a script step, in a fixed order.** `new-feature` checks whether the screen already
+exists before registering anything — if it does, the work is a change, not a scaffold — and checks for
+an open task before starting a new one, because resuming beats restarting. `debug` maps the symptom to
+the one scan that answers it (`scan-colors.py` for dark mode, `scan-fonts.py` for a font rendering as
+system) rather than opening files. The sequences are ordered deliberately; running them out of order is
+how you scaffold a package that already exists.
+
 **Only two ship, deliberately.** A skill costs its description in context every session, and one
 that cannot fire in an empty repo costs it for nothing. Six more are written and waiting as patterns
 — `change`, `style-guide`, `dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`. Each
@@ -169,7 +207,7 @@ becomes a real skill via `/learn <name>` once your repo has the code it describe
 | `/project-init` | Set up a fresh repo, or adopt this into an existing one |
 | `/verify` | Walk the Definition of Done against your working diff — reports, never fixes |
 | `/review` | Review someone else's diff or PR against the rules — reports, never edits |
-| `/learn` | Turn a resource (sample repo, Figma frame, vendor docs) or finished work into a note — and promote a pattern to a skill when it has earned it |
+| `/learn` | Turn a resource (sample repo, Figma frame, vendor docs) or finished work into a note — promote a pattern to a skill, or `--script` a twice-repeated manual operation into a registered script |
 | `/gaps` | Decide what this architecture should and should not cover for your product |
 | `/decide` | Record a settled decision so it is not re-argued |
 | `/find` | Look up where a screen, route, endpoint, asset, colour or target is — one call, no note opened |
@@ -181,6 +219,15 @@ Anything that must **never** trigger by inference is a command, not a skill — 
 inventory rescan is `/sync-app-notes` and why builds are `/build`.
 
 ### Scripts — run these yourself or in CI
+
+**macOS only.** These are written to a Mac, not hedged for portability: bash 3.2, BSD `sed`/`awk`,
+`shasum`, and the Xcode command-line tools. `_common.sh` checks `uname` and exits 78 on anything else
+— because the failures otherwise don't look like a platform problem. GNU `sed -i` takes no argument,
+so `sed -i ''` silently eats the next one; BSD and GNU `awk` disagree on `length()`, so a
+line-length rule reports different numbers on each. Both read as bad data rather than the wrong
+machine.
+
+**Don't memorise this table — grep the registry.** It is here for orientation.
 
 | Script | Does |
 |---|---|
@@ -195,8 +242,45 @@ inventory rescan is `/sync-app-notes` and why builds are `/build`.
 | `./Scripts/scan-colors.py`, `scan-fonts.py`, `scan-unused-assets.py` | The scans behind `/sync-app-notes`; run standalone to check one inventory |
 | `./Scripts/check-note-links.py` | Every path in every note resolves |
 | `./Scripts/detect-capabilities.sh` | Evidence scan behind `/gaps` — analytics, crash reporting, StoreKit, biometrics… |
+| `./Scripts/claude-utils/register-scripts.sh` | Regenerates `.claude/SCRIPTS.tsv` from every `#@` header; `--check` fails when one drifted |
 
-### Four rules the agent follows without being asked
+#### The CLAUDE.md task pipeline
+
+`Scripts/claude-workflows/` is a nine-phase pipeline for editing a markdown document — usually a
+`CLAUDE.md` — under a record, with `Scripts/claude-utils/` holding the cross-phase utilities. Full
+reference: [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md).
+
+```bash
+./Scripts/claude-utils/init-claude-env.sh --add myapp ~/code/myapp
+./Scripts/claude-workflows/run-task.sh myapp task-1 all --approve --text "<the request>"
+./Scripts/claude-workflows/run-task.sh myapp task-1 status
+```
+
+intake → locate → audit → plan → **edit** → verify → **test** → present → **commit**. Each phase
+writes one artifact under `.claude/claude-tasks/`, so the next phase greps a row instead of re-parsing
+the document, and you can read what happened without re-running anything.
+
+Three phases are gated, and none of the gates can be turned off:
+
+| Phase | Gate |
+|---|---|
+| **5 edit** | Refuses to write without `--approve`. It backs the file up first, applies all-or-nothing, and rejects a plan whose target changed since it was built |
+| **7 test** | Extracts the document's code snippets and **prints** `xcrun swiftc -parse` and the project's real `xcodebuild test …` line. Runs nothing |
+| **9 commit** | Composes a tagged commit message and **emits a script**. Never runs git |
+
+Phase 4 is where a bad edit is meant to die: it rejects text that is absent, text that matches more
+than once, and a section that does not exist — and warns when a delete would orphan anchor links
+pointing at it. `rollback-claude.sh` undoes phase 5 from its own backup rather than from git, because
+the file may have been dirty before the task started.
+
+**Xcode, without building.** `init-claude-env.sh` reads your `.xcworkspace`/`.xcodeproj` and its
+**shared** scheme names off the filesystem — `xcodebuild -list` would be authoritative and would also
+be a build. Phase 7 emits `xcrun swiftc` rather than bare `swiftc`, since on a Mac with several Xcodes
+those are different toolchains and a snippet can pass with one and fail in the IDE; it names the active
+`xcode-select -p` for that reason. Findings print `xed -l <line> <file>`, so a reported line opens in
+Xcode where it lives.
+
+### Five rules the agent follows without being asked
 
 - **`CLAUDE.md` is never edited without your explicit approval** — it loads into every session, so a
   change there alters every future response.
@@ -205,6 +289,9 @@ inventory rescan is `/sync-app-notes` and why builds are `/build`.
   what to run.
 - **The note inventories are updated row by row** as part of a change; a full rescan only happens
   when you type `/sync-app-notes`, and even then it scans only what changed.
+- **It calls a script rather than reading it.** `.claude/SCRIPTS.tsv` states each script's inputs and
+  outputs, so the agent relies on the result instead of opening the body or re-deriving the answer. It
+  reads a script only when a call fails — and then it fixes it.
 
 ---
 
@@ -214,7 +301,9 @@ inventory rescan is `/sync-app-notes` and why builds are `/build`.
 |---|---|
 | Know the rules before writing code | [CLAUDE.md](CLAUDE.md) |
 | Find the doc for a topic | `grep -i <topic> .claude/MAP.tsv` |
+| Find *which script already does this* | `grep -i <verb> .claude/SCRIPTS.tsv` |
 | Find *where something is* — a screen, route, endpoint, asset | `/find <name>` |
+| Edit a `CLAUDE.md` under a record | [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md) |
 | Know why a scan is written the way it is | [docs/SCAN-TRAPS.md](docs/SCAN-TRAPS.md) |
 | Know the resolved stack — min OS, Xcode, Swift | [.claude/notes/PROJECT.md](.claude/notes/PROJECT.md) |
 | Understand a specific layer | [docs/modules/](docs/modules/) — one doc per package |
@@ -233,13 +322,18 @@ docs/                hand-written reasoning: module design + cross-cutting refer
 docs/modules/        one doc per package
 docs/patterns/       procedures not yet skills — /learn promotes one when it earns it
 docs/SCAN-TRAPS.md   why each scan is shaped as it is — read only to change one
+docs/CLAUDE-TASKS.md the nine-phase pipeline: contracts, gates, and how to add a phase
 .claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable
+.claude/SCRIPTS.tsv  the script registry: inputs, outputs, exit codes — GENERATED, never hand-edited
 .claude/notes/       nine inventories generated from the code (features, routes, API map, images,
                      colours, fonts, tokens, schemes, targets) — grepped, never read
 .claude/memory/      what earlier sessions learned — in-repo and tracked, so it survives a clone
 .claude/skills/      procedures Claude applies on its own
 .claude/commands/    things you trigger, listed above
+.claude/claude-tasks/ per-run pipeline artifacts — gitignored working state, not a record to keep
 Scripts/check.sh     enforces the rules a linter can't express
+Scripts/claude-workflows/  the nine numbered phases, plus run-task.sh
+Scripts/claude-utils/      cross-phase utilities: lint, links, rollback, registry — macOS only
 ```
 
 Two packages are **not in this repo at all**. `GenericArch-NetworkKit` and `GenericArch-ImageCache`
