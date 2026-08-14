@@ -16,7 +16,8 @@ Add a row when a §0 decision is made; never remove one.
 | Repository | **Single repo**; only `GenericArch-NetworkKit` + `GenericArch-ImageCache` extracted | Feature packages change most, have one consumer, and would cost a tag + app bump each | §4.1–4.2 |
 | Extracted packages | **Standalone, zero-dependency** — no `Core` import | SPM resolves a git dep from its own root manifest; map at our boundary like a vendor | §4.2, §7 |
 | Extraction test | All three must hold: product-independent · actually reused · stable | Otherwise keep it local — local costs nothing | §4.2 |
-| Naming | `GenericArch-<Name>` for extracted repos; bare name under `Packages/` for local | Dependency URLs embed it | §4.1 |
+| Seed packages — **closed list** | `NetworkKit` + `ImageCache` were designated extracted at inception, before any second product could satisfy test 2. The designation does not grow by precedent | They had to exist before a consumer could reuse them. Any further extraction must pass all three tests on evidence — "we did it for NetworkKit" is not evidence. Feature packages fail all three by definition | §4.2 |
+| Naming | `GenericArch-<Name>` for extracted repos; bare name under `Packages/` for local | Dependency URLs embed it | [REPO.md](REPO.md) |
 | Dependency injection | **Own typed registry in `DIKit`** | Least root boilerplate, no vendor to wrap. Its two failure modes are designed out, not tolerated | [DIKit.md](modules/DIKit.md) |
 | `DependencyKey` | Two values — `liveValue`, `testValue` | A third `previewValue` defaulted to `testValue` and earned nothing | [DIKit.md](modules/DIKit.md) |
 | Presentation options | MVVM + `@Observable` (default) **or** view-owned for trivial screens | §3's shared-behavior promise only holds if screens share a shape | §0 |
@@ -24,7 +25,7 @@ Add a row when a §0 decision is made; never remove one.
 | Paged content | `Paged<Item>` + `PageState` in `Core`, as `ContentState<Paged<Item>>` | Prevents per-feature `isLoadingMore`; stops a failed page discarding loaded rows | [Core.md](modules/Core.md) |
 | Typed throws | Inside a package only; **untyped** at an extracted package's public boundary | Widening a typed throw is a major bump for a routine new error case | §6 |
 | Certificate pinning | **Off by default**; opt-in per product | A rotated cert bricks every installed copy with no remote fix | §8 |
-| Snapshot scope | Full matrix for DesignSystem components; screens get `loaded` + one failure | The full matrix per screen is 40+ each and becomes the flakiest suite | §8 |
+| Snapshot scope | Full matrix for DesignSystem components; screens get `loaded` + one failure | The full matrix per screen is 40+ each and becomes the flakiest suite | §9 |
 | Contrast | Asserted by token test, **not** tabulated in a note | A hand-maintained duplicate of a test result drifts, then gets believed | [ASSETS-COLORS.md](../.claude/notes/ASSETS-COLORS.md) |
 | Dependency graph | **No `DEPENDENCY-GRAPH.md`** | Would drift; the DEBUG container dump + per-package key tests are automatic | [DIKit.md](modules/DIKit.md) |
 
@@ -32,7 +33,8 @@ Add a row when a §0 decision is made; never remove one.
 
 Presentation pattern (per feature/screen) · persistence engine (only if data is stored) · caching
 and offline policy (any remote fetch) · any new external dependency · extracting a package.
-Options and phrasing: CLAUDE.md §0. Record the answer below.
+Options and phrasing: the `new-feature` skill, which carries the full table. Record the answer
+below.
 
 ## Do not re-propose
 

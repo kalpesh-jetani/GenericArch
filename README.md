@@ -200,6 +200,24 @@ that cannot fire in an empty repo costs it for nothing. Six more are written and
 — `change`, `style-guide`, `dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`. Each
 becomes a real skill via `/learn <name>` once your repo has the code it describes.
 
+**A description is trigger phrases and nothing else.** Not a summary of the body — the body is
+loaded only when the skill fires, but the description is paid for on every session that it
+doesn't. Worse, a summary makes the skill fire on work it doesn't own: `new-feature` used to list
+"layout, localized keys, every ContentState case, protocol+mock pairs" and so it claimed *"fix the
+layout on this card"*, *"add a protocol and a mock"*, and *"handle one more content state"* — none
+of which is scaffolding.
+
+That is a testable property, so it is tested:
+
+```bash
+python3 Scripts/check-skill-triggers.py      # 29 prompts, each with the skill that should win
+```
+
+Run it after **any** description edit. It scores each prompt against every description, weighting a
+term by how few skills claim it, and fails on three things: two skills tying, the wrong skill
+winning, and a prompt leaking to a skill when it should match **none** — the last being what catches
+a description that has quietly grown into a summary.
+
 ### Commands — you type these
 
 | Command | Use it to |
@@ -235,7 +253,7 @@ machine.
 | `./Scripts/detect-toolchain.sh` | Reports the stack; `--markdown` emits the `PROJECT.md` *Resolved stack* table, `--options` the valid choices |
 | `./Scripts/adopt.sh` | Copies the base into another repo, refusing to copy this product's state — and refusing to run at all if a referenced doc isn't reachable at the pinned commit |
 | `./Scripts/build-plugin.sh` | Generates the plugin from `.claude/` — never hand-edit the output |
-| `./Scripts/check-skill-triggers.py` | Catches two skills competing for the same phrasing |
+| `./Scripts/check-skill-triggers.py` | 29 prompts vs every skill description — catches two skills competing for one phrasing, **and** a description claiming words it has no business claiming |
 | `./Scripts/find.sh` | One-call lookup across every note; on a miss, routes through the map and tells you to record the row |
 | `./Scripts/notes-staleness.sh` | Which notes are stale and why — reads **git** timestamps, not mtime, so a fresh clone doesn't read as fully stale |
 | `./Scripts/scan-api-map.py` | API surface → screen. Finds the router **from the call sites**, not by filename |
@@ -310,12 +328,14 @@ reported line opens in Xcode where it lives.
 | Know why something is the way it is | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | Know what's deliberately missing | [docs/GAPS.md](docs/GAPS.md) |
 | Set up a machine, or ship | [docs/REPO.md](docs/REPO.md), [docs/DELIVERY.md](docs/DELIVERY.md) |
+| Know when a change is actually finished | [docs/DONE.md](docs/DONE.md), or `/verify` |
 | Know where a new doc belongs | [docs/STRUCTURE.md](docs/STRUCTURE.md) |
 
 ## Layout
 
 ```
-CLAUDE.md            always-on rules (kept deliberately small — no version numbers)
+CLAUDE.md            always-on rules ONLY — no version numbers, no reference tables, no
+                     checklists. Those live in docs/ and are read when a task needs them
 Packages/            local Swift packages — Core, DIKit, DesignSystem, Features/…
 App/                 thin iOS + macOS shells: @main, composition root, no logic
 docs/                hand-written reasoning: module design + cross-cutting reference

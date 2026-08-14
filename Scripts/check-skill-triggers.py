@@ -55,6 +55,14 @@ CASES = [
     ("tighten the spacing between rows", None),
         ("mark this complete", None),
     ("wrap up the auth work", None),
+    # Pin what the description trim changed. The first two prove a kept trigger phrase still
+    # fires; the rest prove a REMOVED word no longer over-claims — "layout", "protocol", "mock"
+    # and "ContentState case" were all in new-feature's description and pulled unrelated work in.
+    ("start the settings module", "new-feature"),
+    ("it crashed on launch", "debug"),
+    ("fix the layout on this card", None),
+    ("add a protocol and a mock for this service", None),
+    ("handle one more content state here", None),
 ]
 
 # Stopwords carry no trigger signal. Counting them produced false collisions — the metric was

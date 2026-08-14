@@ -1,6 +1,6 @@
 ---
 name: new-feature
-description: Scaffold a new screen or feature package from nothing. Fires on "create a new screen", "scaffold FeatureX", "new feature package", "start the settings module". Enforces the ask-first decisions, the Packages/Features layout, localized keys, every ContentState case, protocol+mock pairs, and the package doc. For editing something that already exists, see docs/patterns/change.md.
+description: Scaffold a new screen, feature package or module from nothing. Fires on "create a new screen", "scaffold FeatureX", "new feature package", "start the settings module".
 ---
 
 # New feature
@@ -43,23 +43,14 @@ Order matters: **2 before 3** (an existing screen means this is `change`, not sc
 If no script covers a step you end up doing by hand more than once, say so and offer
 `/learn --script` — it captures the sequence as a registered script for next time.
 
-## 1. Search the notes first — token efficiency
+## 1. Match an existing feature's shape
 
-**Before grepping the codebase, grep `.claude/MAP.tsv`, then read the note it points at:**
+`FEATURES.md` gives the structure, state handling and file layout of every feature that already
+exists; `CONVENTIONS.md` gives the naming. **Reuse the shape you find** — if one already handles the
+same content states, follow it rather than inventing a second pattern.
 
-1. **FEATURES.md** — What features exist? What's their structure, state handling, and content-state pattern?
-   - If a feature already handles similar states (loading, empty, error, loaded), use its pattern
-   - Check the file paths — the naming, folder depth, and View/ViewModel/Model colocation
-   - Zero grep if found in notes
-
-2. **CONVENTIONS.md** — What's the naming pattern? (FeatureName, Feature<Name>, or other?)
-   - How are View, ViewModel, and Models named?
-   - File layout inside `Sources/Feature<Name>/`?
-
-3. **If NOT found in notes** → grep for existing features, then record the pattern in FEATURES.md
-   in the same commit as the new feature.
-
-See [PATTERN-SEARCH.md](../../../docs/PATTERN-SEARCH.md) for the full token-efficiency approach.
+On a miss, grep the codebase once and **record the row in `FEATURES.md` in this same change**. Why
+that ordering pays: [PATTERN-SEARCH.md](../../../docs/PATTERN-SEARCH.md).
 
 ## 2. Is there already a pattern for this?
 
@@ -193,12 +184,11 @@ integration surface.
 ## 7. Tests
 
 - Every view model and mapper, against mocks. No network (DIKit.md `testValue`).
-- Previews per screen covering every `ContentState`. **Snapshots are bounded** (CLAUDE.md §9):
-  screens snapshot `loaded` + one failure state; the full light/dark × RTL × XXXL matrix belongs to
-  DesignSystem components, which every screen inherits.
-- Package builds and tests **standalone** — hand over
-  `swift test --package-path Packages/Features/Feature<Name>`; the user runs it (§2.12). Repo walls
-  no longer enforce boundaries; this test does.
+- Previews per screen covering every `ContentState`.
+- Hand over `swift test --package-path Packages/Features/Feature<Name>` — the user runs it (§2.12).
+  Standalone package tests are what enforces the boundaries now that repo walls don't.
+
+Snapshot scope and the rest of the bar: [DONE.md](../../../docs/DONE.md).
 
 ## 8. The feature's own doc — required
 
@@ -218,9 +208,6 @@ index gets one row, nothing more.
 
 ## 9. Before calling it done
 
-Run [DONE.md](../../../docs/DONE.md). The ones missed most often here: every `ContentState` implemented, no raw
-string literal in a view, mocks provided, the feature's `.md` written, and the new rows added to
-`.claude/notes/FEATURES.md` and `NAVIGATION.md` — targeted edits, not a `/sync-app-notes` run.
-
-Then `feature-complete` closes it out — and decides whether this build left a pattern worth keeping
-as a skill, or just a note.
+Run [DONE.md](../../../docs/DONE.md), or `/verify`. Missed most often here: every `ContentState`
+implemented, the feature's `.md` written, and rows added to `FEATURES.md` and `NAVIGATION.md` —
+targeted edits, never a `/sync-app-notes` run. Then `feature-complete` closes it out.

@@ -48,11 +48,20 @@ Not every line is machine-checkable, and pretending otherwise is how a checklist
 
 ## Platforms & accessibility
 
-- [ ] 👁 Works in **compact and regular** width; verified on iPhone, iPad, and Mac
+Accessibility is a requirement, not polish (CLAUDE.md §8). Most of it is guaranteed inside
+DesignSystem components — these lines are what a *screen* still has to prove.
+
+- [ ] 👁 Works in **compact and regular** width, at every size the app ships: iPhone
+      portrait/landscape · iPad portrait/landscape/split · Mac resized small **and** large
 - [ ] 👁 Dark Mode verified — run `/dark-light-mode` if colors or assets changed
 - [ ] 👁 RTL verified — run `/rtl-support` if layout or strings changed
 - [ ] 👁 Dynamic Type to **XXXL** with no truncation or clipping
 - [ ] 👁 Localized `accessibilityLabel`, correct trait, ≥44×44pt target on every interactive element
+- [ ] 👁 **VoiceOver order verified** — reading order follows visual order, not view-tree order
+- [ ] 👁 **Reduce Motion, Reduce Transparency, Increase Contrast and Bold Text** all respected
+- [ ] 🤖 Contrast **≥4.5:1** for body text — asserted by the token test, not eyeballed
+      ([ASSETS-COLORS.md](../.claude/notes/ASSETS-COLORS.md))
+- [ ] 👁 **No meaning carried by color alone** — an icon, label, or shape carries it too
 
 ## Tests
 

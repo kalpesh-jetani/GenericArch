@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Diagnose broken or unexpected behaviour by narrowing the symptom to a layer before reading code. Fires on "fix this crash", "it crashed", "why is it blank", "nothing happens", "renders as the raw key", "silently does nothing", "fine locally but wrong in TestFlight", or a stack trace. Starts from an index mapping known symptoms to their cause, names the layer, then reads only that layer.
+description: Diagnose broken or unexpected behaviour. Fires on "fix this crash", "it crashed", "why is it blank", "nothing happens", "renders as the raw key", "silently does nothing", "fine locally but wrong in TestFlight", or a stack trace.
 ---
 
 # Debugging
@@ -23,15 +23,7 @@ grep -i <symptom-word> .claude/SCRIPTS.tsv      # 2. is there a script for this 
 ./Scripts/notes-staleness.sh                    # 3. are the notes lying to you?
 ```
 
-Then the symptom-specific ones, only the one that matches:
-
-| Symptom is about | Call | Reads |
-|---|---|---|
-| A raw localization key on screen | `python3 Scripts/scan-api-map.py` neighbours, then [LocalizationKit.md](../../../docs/modules/LocalizationKit.md) | — |
-| A colour wrong in dark mode | `python3 Scripts/scan-colors.py` | asset catalogs |
-| A font rendering as system | `python3 Scripts/scan-fonts.py` | font files + registration |
-| An asset that never appears | `python3 Scripts/scan-unused-assets.py` | catalog vs source refs |
-| A doc or link that misleads | `./Scripts/claude-utils/validate-claude-links.sh <file>` | that file |
+The symptom index in §1 names the scan that confirms each cause — run that one, not all of them.
 
 **Never run `./Scripts/check.sh`** — it compiles the iOS floor (CLAUDE.md §2.12). Tell the user to
 run it; its registry row records this.
@@ -46,10 +38,10 @@ symptom appears.
 | Symptom | Likely cause | Confirm in |
 |---|---|---|
 | A string renders as its raw key | Wrong bundle — inside a package it is `.module`, not `.main` | [LocalizationKit.md](../../../docs/modules/LocalizationKit.md) |
-| Custom font renders as system | Package fonts need runtime registration; `UIAppFonts` reads the **main bundle only** | [FONTS.md](../../notes/FONTS.md) |
+| Custom font renders as system | Package fonts need runtime registration; `UIAppFonts` reads the **main bundle only** | `scan-fonts.py` → [FONTS.md](../../notes/FONTS.md) |
 | Blank screen, no error | A `ContentState` case not handled — usually `empty` or `idle` | [Core.md](../../../docs/modules/Core.md) |
 | Rows vanish when a page fails | `PageState.failed` collapsed into `ContentState.failed` | [Core.md](../../../docs/modules/Core.md) |
-| Fine in light, unreadable in dark | Colorset with only an Any appearance, or shadow-based elevation | `dark-light-mode` |
+| Fine in light, unreadable in dark | Colorset with only an Any appearance, or shadow-based elevation | `scan-colors.py` → `dark-light-mode` |
 | Layout inverts wrongly, or does not | `.left`/`.right` instead of leading/trailing; custom drawing ignores `layoutDirection` | `rtl-support` |
 | Push works in DEV, silent in TestFlight | APNs sandbox vs production — TestFlight always uses production | [SCHEMES.md](../../notes/SCHEMES.md) |
 | Crash the instant a permission is requested | Missing `NS*UsageDescription` — crashes on call, not at build | [PROJECT.md](../../notes/PROJECT.md) |
@@ -57,9 +49,7 @@ symptom appears.
 | Signed out unexpectedly under load | Token refresh is not single-flight; concurrent 401s raced | [NetworkKit.md](../../../docs/modules/NetworkKit.md) |
 | Works on device, fails to compile for iOS | A macOS-only API in shared code — `swift build` on a Mac never checks the iOS floor | CLAUDE.md §1.1 |
 | Feature reads a stale flag in a test build | Build-flag branching instead of injected `AppEnvironment` | [SCHEMES.md](../../notes/SCHEMES.md) |
-
-**Check the notes index before grepping** ([PATTERN-SEARCH.md](../../../docs/PATTERN-SEARCH.md)) —
-`FEATURES.md` and `NAVIGATION.md` map a screen name to its files without a search.
+| An image never appears | Asset not referenced, or referenced by a name that no longer exists | `scan-unused-assets.py` |
 
 ## 2. If it is not in the table
 

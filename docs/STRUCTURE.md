@@ -44,7 +44,7 @@ CLAUDE.md contains rules about **building the app**. It does not contain:
 State the rule. If the reason is short and prevents a specific mistake, one clause is fine. If it
 takes a paragraph, the paragraph goes in the module doc and the rule gets a link.
 
-## The five homes
+## The six homes
 
 | Home | Holds | Auto-loaded |
 |---|---|---|
@@ -53,6 +53,7 @@ takes a paragraph, the paragraph goes in the module doc and the rule gets a link
 | `.claude/notes/` | inventories generated from the code | no |
 | `.claude/skills/` | procedures Claude should recognise and apply on its own | descriptions only |
 | `.claude/commands/` | things the user triggers explicitly | no |
+| `.claude/memory/` | what earlier sessions learned about *this* repo | index only |
 
 Deciding where something goes:
 
@@ -76,6 +77,20 @@ it competes. Give each skill a distinct set of terms, and **reference a sibling 
 writing "do NOT use for scaffolding a package" pulls that sibling's keywords into this one and makes
 both fire unpredictably. `Scripts/check-skill-triggers.py` catches it; run it after any description
 edit.
+
+## Where memories go
+
+`.claude/memory/` is **in-repo and tracked**, so what one session learned survives a clone and
+reaches everyone. Write there, not to a machine-local store; if the directory is absent, fall back to
+the core store and say so.
+
+Two rules keep it from becoming a second copy of the docs:
+
+- **`type: user` memories never go in the repo.** Who a developer is and how they like to work is
+  per-person; committing it pushes one developer's preferences onto every consumer.
+- **Nothing already recorded in `CLAUDE.md`, this file, [CONVENTIONS.md](CONVENTIONS.md) or
+  [DECISIONS.md](DECISIONS.md) belongs in memory.** Rules live at the level that ships. A memory that
+  restates a rule is a rule with two homes, and one of them will rot.
 
 **Project vs directory scope:** a nested `CLAUDE.md` loads only when files in that directory are
 touched. Anything true of one package belongs there, not at the root — it is cheaper and more

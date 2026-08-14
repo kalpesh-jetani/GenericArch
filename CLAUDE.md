@@ -11,13 +11,15 @@ reusable, replaceable, and droppable into a new product with minimal change.
 `/decide`. Check [DECISIONS.md](docs/DECISIONS.md) first; if a row already answers it, follow it
 without re-asking.
 
-| Decision | When to ask | Options |
-|---|---|---|
-| **Presentation pattern** | **Before every new feature or screen** | MVVM + `@Observable` *(default)* · View-owned state (trivial screens only) · Other |
-| **Persistence engine** | Only **if** the feature stores data | SwiftData · Core Data · SQLite/GRDB · Other · **Skip** — trade-offs in [StorageKit.md](docs/modules/StorageKit.md) |
-| **Caching / offline policy** | Any screen that fetches remote data | Network-only · Cache-then-network · Offline-first with sync · Skip |
-| **New external dependency** | Always, before adding it | Named alternatives + "write it ourselves" + Skip |
-| **Extracting a package to a repo** | Only when all three §4.2 tests pass | Extract · Keep local *(default)* |
+| Decision | When to ask |
+|---|---|
+| **Presentation pattern** | **Before every new feature or screen** |
+| **Persistence engine** | Only **if** the feature stores data |
+| **Caching / offline policy** | Any screen that fetches remote data |
+| **New external dependency** | Always, before adding it |
+| **Extracting a package to a repo** | Only when all three §4.2 tests pass |
+
+The options to offer per decision, and the trade-offs behind them: the `new-feature` skill.
 
 - Ask **once per feature**, not once per file.
 - Always give your recommendation and reason, plus **Other** and (where meaningful) **Skip**.
@@ -155,32 +157,13 @@ composition root, one `Route` case. Use `/new-feature`.
 
 ### 4.1 Single repo, two extracted packages
 
-```
-GenericArch/
-├── App/{GenericArch-iOS, GenericArch-macOS}    thin shells
-├── Packages/
-│   ├── Core, DIKit, StorageKit, LocalizationKit,
-│   │   LoggingKit, NotificationKit, Navigation, DesignSystem
-│   ├── Wrappers/                               one target per external library (§7)
-│   └── Features/Feature<Name>/
-├── docs/                                       reasoning
-└── .claude/{notes, skills, commands}
-```
-
 Local packages wire with `.package(path:)` and carry **no version numbers** — git history is the
-version.
+version. **The two extracted packages — `GenericArch-NetworkKit`, `GenericArch-ImageCache` — have
+zero dependencies and neither imports `Core`;** they declare their own errors and protocols, and we
+map at our boundary exactly as §7 treats a vendor.
 
-| Extracted repo | Contains |
-|---|---|
-| `GenericArch-NetworkKit` | HTTP, middleware, token refresh, download/upload, background + resumable transfer |
-| `GenericArch-ImageCache` | remote image loading, memory + disk cache, prefetch, off-main decode |
-
-**Both have zero dependencies — neither imports `Core`.** SPM resolves a git dependency from that
-repo's root manifest, so an extracted package cannot reach one inside this repo. They declare their
-own errors and protocols; we map at our boundary exactly as §7 treats a vendor.
-
-Versioning, local overrides, and adding a package: [REPO.md](docs/REPO.md). Releasing an extracted
-package: [release-bump](docs/patterns/release-bump.md).
+Layout, what each extracted package contains, versioning and local overrides:
+[REPO.md](docs/REPO.md). Releasing one: [release-bump](docs/patterns/release-bump.md).
 
 ### 4.2 When to extract — all three must be true
 
@@ -191,11 +174,9 @@ package: [release-bump](docs/patterns/release-bump.md).
 Otherwise **keep it local**; local costs nothing and reversing an extraction doesn't. A package that
 can't stand alone without `Core` was never product-independent. Extraction is a §0 question.
 
-**One exception, and only this one: seed packages.** `NetworkKit` and `ImageCache` were designated
-extracted at inception, before any second product could satisfy test 2. That designation is
-deliberate and closed — **the list does not grow by precedent.** Any further extraction must pass all
-three tests on evidence, and "we did it for NetworkKit" is not evidence. Feature packages fail all
-three by definition and are never candidates.
+**One exception, closed and not growing by precedent:** the two seed packages, designated at
+inception before any second product could satisfy test 2 — reasoning in
+[DECISIONS.md](docs/DECISIONS.md). Feature packages fail all three tests by definition.
 
 ---
 
@@ -229,11 +210,8 @@ one call and prints the row without opening a note. A miss prints the code-searc
 the row when you find it, in the same change.
 
 **What earlier sessions learned** is in [`.claude/memory/INDEX.md`](.claude/memory/INDEX.md) —
-in-repo and tracked, so it survives a clone. Write memories there, not to a machine-local store; if
-that directory is absent, fall back to the core store and say so. `type: user` memories never go in
-the repo. Nothing that CLAUDE.md, [STRUCTURE.md](docs/STRUCTURE.md),
-[CONVENTIONS.md](docs/CONVENTIONS.md) or [DECISIONS.md](docs/DECISIONS.md) already records belongs
-in memory.
+in-repo and tracked, so it survives a clone. Write memories there, never to a machine-local store.
+What may and may not be written: [STRUCTURE.md](docs/STRUCTURE.md).
 
 Where **new** material belongs: [STRUCTURE.md](docs/STRUCTURE.md).
 
@@ -281,22 +259,15 @@ shortcuts, hover, drag & drop, multiple scenes, Slide Over. Mac: menu bar `Comma
 restoration, sidebar, toolbar, context menus. `#if os(...)` lives **inside DesignSystem
 components**, not features.
 
-**Accessibility — a requirement, not polish.** Localized `accessibilityLabel`, correct trait,
-≥44×44pt on every interactive element. VoiceOver order verified. Dynamic Type to XXXL without
-truncation. Respect Reduce Motion, Reduce Transparency, Increase Contrast, Bold Text. Contrast
-≥4.5:1 for body text. **Never encode meaning in color alone.** Mostly guaranteed inside components
-→ [DesignSystem.md](docs/modules/DesignSystem.md).
+**Accessibility — a requirement, not polish.** **Never encode meaning in color alone.** Mostly
+guaranteed inside components → [DesignSystem.md](docs/modules/DesignSystem.md); what a screen must
+still prove, and the sizes to prove it at, is the checklist in [DONE.md](docs/DONE.md).
 
-**Security & privacy** — ATS enforced, no arbitrary loads. **Certificate pinning off by default**
-(a rotated cert bricks every installed copy with no remote fix); opt in per product only with a
-rotation plan and kill switch. No PII, tokens, or bodies in logs → [LoggingKit.md](docs/modules/LoggingKit.md).
-Secrets to Keychain only → [StorageKit.md](docs/modules/StorageKit.md).
-`PrivacyInfo.xcprivacy` current **per package**, including required-reason APIs. Biometrics behind
-`BiometricAuthenticating`.
-
-**Verify every screen at:** iPhone portrait/landscape · iPad portrait/landscape/split · Mac resized
-small and large · Dynamic Type XXXL · Dark Mode · RTL — procedures in
-[docs/patterns/](docs/patterns/dark-light-mode.md).
+**Security & privacy** — ATS enforced, no arbitrary loads. **Certificate pinning off by default**;
+opt in per product only with a rotation plan and kill switch. No PII, tokens, or bodies in logs →
+[LoggingKit.md](docs/modules/LoggingKit.md). Secrets to Keychain only →
+[StorageKit.md](docs/modules/StorageKit.md). `PrivacyInfo.xcprivacy` current **per package**,
+including required-reason APIs. Biometrics behind `BiometricAuthenticating`.
 
 ---
 
@@ -304,9 +275,8 @@ small and large · Dynamic Type XXXL · Dark Mode · RTL — procedures in
 
 - Unit-test every view model, mapper, and service against protocol mocks. **No network** — enforced
   by mandatory `testValue` on every dependency key.
-- **Snapshots are bounded on purpose:** full matrix (states × light/dark × RTL × XXXL × disabled)
-  for DesignSystem components; screens get `loaded` + one failure state. The full matrix per screen
-  is 40+ each and becomes the flakiest suite in the repo → [DesignSystem.md](docs/modules/DesignSystem.md)
+- **Snapshots are bounded on purpose:** full matrix for DesignSystem components; screens get
+  `loaded` + one failure state → [DesignSystem.md](docs/modules/DesignSystem.md)
 - Contract tests per wrapper — real implementation and mock satisfy the same suite.
 - Localization test: no `.xcstrings` key missing in any language, no view using a raw literal.
 - **Every package builds and tests standalone** with `swift test`. That is what keeps boundaries
@@ -323,11 +293,10 @@ Three that are rules, not conventions:
 
 - **`public` only what crosses a package boundary** — in an extracted package every `public` symbol
   is a semver commitment.
-- **Every function or initialiser you write or change carries a `///` doc comment**, stating what the
-  signature cannot: thrown errors, cancellation behaviour, why a parameter matters.
-- **Doc comments, not meta comments.** No `//` that restates the code, narrates the edit, or defers
-  work. Inline comments explain *why*, never *what*; anything about the change belongs in the commit
-  message.
+- **Every function or initialiser you write or change carries a `///` doc comment** stating what
+  the signature cannot.
+- **Doc comments, not meta comments.** No `//` that restates the code or narrates the edit; anything
+  about the change belongs in the commit message.
 
 ---
 
@@ -338,26 +307,17 @@ the diff. Do not declare completion from memory of the checklist — the items m
 the ones that feel already handled.
 
 If something can't be checked here (device, VoiceOver, Mac resize), **say what was skipped**.
-Silently omitting it is the failure that checklist exists to prevent.
-
-Build and test: `/build [DEV|TEST|BETA|PROD] [ios|macos] [build|test|archive]`.
+Silently omitting it is the failure that checklist exists to prevent. Build and test: `/build`.
 
 ---
 
 ## 12. For Claude specifically
 
-- **Check §0 first.** If the task touches a listed decision and [DECISIONS.md](docs/DECISIONS.md)
-  has no answer, ask before writing code.
-- **A broad instruction is not permission to choose the scope** (§2.14). "Improve this", "make it
-  better", "fix the docs" — ask for the reference, the goal, or the list to pick from. Guessing
-  produces work that has to be undone, which costs more than the question. `/learn` is the path when
-  the answer is a resource.
 - **Never edit this file without explicit approval** — including when certain. Show the exact text
   and wait. Where new guidance belongs instead: [STRUCTURE.md](docs/STRUCTURE.md).
-- **Tell the user to run `./Scripts/check.sh`** before a change is called done — it enforces §2
-  mechanically, but running it is theirs (§2.12).
 - Read the relevant `Package.swift` before adding a dependency edge. If it violates §3's direction,
   stop and say so rather than adding it.
 - When asked for a feature, produce **protocol + mock + implementation + localized keys + every
   content state** — not just the happy path.
-- If a requirement conflicts with a §2 rule, **raise it** — don't silently work around it.
+- If a requirement conflicts with a §2 rule, or §0 has no recorded answer, **raise it** — don't
+  silently work around it, and don't choose the scope of a broad instruction yourself (§2.14).
