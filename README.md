@@ -143,8 +143,8 @@ awk -F'\t' '$4!="call"' .claude/SCRIPTS.tsv     # what the agent must not simply
 The point is what the agent *stops* doing. **It never reads a script's body to find out what the
 script does** — the row says, and the body would cost tokens the row already spent. It calls the
 script and relies on the declared output instead of re-deriving the answer by reading files. The one
-time the body gets opened is when a call fails; then it is fixed, in the same change, and the registry
-regenerated.
+time the body gets opened is when a call fails; then it is fixed, in the same change, and the
+registry regenerated.
 
 The `claude` column is what makes that safe:
 
@@ -188,12 +188,12 @@ You never type these. They activate from their description when what you're doin
 | `new-feature` | Adding a feature, screen or package | Shipping a happy path — it requires every content state, a mock, and localized keys |
 | `debug` | Something is broken, blank, or silently wrong | Reading the wrong file first; it narrows to a layer before opening anything |
 
-**Both open with a script step, in a fixed order.** `new-feature` checks whether the screen already
-exists before registering anything — if it does, the work is a change, not a scaffold — and checks for
-an open task before starting a new one, because resuming beats restarting. `debug` maps the symptom to
-the one scan that answers it (`scan-colors.py` for dark mode, `scan-fonts.py` for a font rendering as
-system) rather than opening files. The sequences are ordered deliberately; running them out of order is
-how you scaffold a package that already exists.
+**Both open with a script step, in a fixed order.** `new-feature` checks whether the screen
+already exists before registering anything — if it does, the work is a change, not a scaffold —
+and checks for an open task before starting a new one, because resuming beats restarting. `debug`
+maps the symptom to the one scan that answers it (`scan-colors.py` for dark mode, `scan-fonts.py`
+for a font rendering as system) rather than opening files. The sequences are ordered deliberately;
+running them out of order is how you scaffold a package that already exists.
 
 **Only two ship, deliberately.** A skill costs its description in context every session, and one
 that cannot fire in an empty repo costs it for nothing. Six more are written and waiting as patterns
@@ -221,10 +221,10 @@ inventory rescan is `/sync-app-notes` and why builds are `/build`.
 ### Scripts — run these yourself or in CI
 
 **macOS only.** These are written to a Mac, not hedged for portability: bash 3.2, BSD `sed`/`awk`,
-`shasum`, and the Xcode command-line tools. `_common.sh` checks `uname` and exits 78 on anything else
-— because the failures otherwise don't look like a platform problem. GNU `sed -i` takes no argument,
-so `sed -i ''` silently eats the next one; BSD and GNU `awk` disagree on `length()`, so a
-line-length rule reports different numbers on each. Both read as bad data rather than the wrong
+`shasum`, and the Xcode command-line tools. `_common.sh` checks `uname` and exits 78 on anything
+else — because the failures otherwise don't look like a platform problem. GNU `sed -i` takes no
+argument, so `sed -i ''` silently eats the next one; BSD and GNU `awk` disagree on `length()`, so
+a line-length rule reports different numbers on each. Both read as bad data rather than the wrong
 machine.
 
 **Don't memorise this table — grep the registry.** It is here for orientation.
@@ -257,8 +257,8 @@ reference: [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md).
 ```
 
 intake → locate → audit → plan → **edit** → verify → **test** → present → **commit**. Each phase
-writes one artifact under `.claude/claude-tasks/`, so the next phase greps a row instead of re-parsing
-the document, and you can read what happened without re-running anything.
+writes one artifact under `.claude/claude-tasks/`, so the next phase greps a row instead of
+re-parsing the document, and you can read what happened without re-running anything.
 
 Three phases are gated, and none of the gates can be turned off:
 
@@ -268,17 +268,17 @@ Three phases are gated, and none of the gates can be turned off:
 | **7 test** | Extracts the document's code snippets and **prints** `xcrun swiftc -parse` and the project's real `xcodebuild test …` line. Runs nothing |
 | **9 commit** | Composes a tagged commit message and **emits a script**. Never runs git |
 
-Phase 4 is where a bad edit is meant to die: it rejects text that is absent, text that matches more
-than once, and a section that does not exist — and warns when a delete would orphan anchor links
-pointing at it. `rollback-claude.sh` undoes phase 5 from its own backup rather than from git, because
-the file may have been dirty before the task started.
+Phase 4 is where a bad edit is meant to die: it rejects text that is absent, text that matches
+more than once, and a section that does not exist — and warns when a delete would orphan anchor
+links pointing at it. `rollback-claude.sh` undoes phase 5 from its own backup rather than from
+git, because the file may have been dirty before the task started.
 
 **Xcode, without building.** `init-claude-env.sh` reads your `.xcworkspace`/`.xcodeproj` and its
-**shared** scheme names off the filesystem — `xcodebuild -list` would be authoritative and would also
-be a build. Phase 7 emits `xcrun swiftc` rather than bare `swiftc`, since on a Mac with several Xcodes
-those are different toolchains and a snippet can pass with one and fail in the IDE; it names the active
-`xcode-select -p` for that reason. Findings print `xed -l <line> <file>`, so a reported line opens in
-Xcode where it lives.
+**shared** scheme names off the filesystem — `xcodebuild -list` would be authoritative and would
+also be a build. Phase 7 emits `xcrun swiftc` rather than bare `swiftc`, since on a Mac with
+several Xcodes those are different toolchains and a snippet can pass with one and fail in the IDE;
+it names the active `xcode-select -p` for that reason. Findings print `xed -l <line> <file>`, so a
+reported line opens in Xcode where it lives.
 
 ### Five rules the agent follows without being asked
 
@@ -289,9 +289,9 @@ Xcode where it lives.
   what to run.
 - **The note inventories are updated row by row** as part of a change; a full rescan only happens
   when you type `/sync-app-notes`, and even then it scans only what changed.
-- **It calls a script rather than reading it.** `.claude/SCRIPTS.tsv` states each script's inputs and
-  outputs, so the agent relies on the result instead of opening the body or re-deriving the answer. It
-  reads a script only when a call fails — and then it fixes it.
+- **It calls a script rather than reading it.** `.claude/SCRIPTS.tsv` states each script's inputs
+  and outputs, so the agent relies on the result instead of opening the body or re-deriving the
+  answer. It reads a script only when a call fails — and then it fixes it.
 
 ---
 
