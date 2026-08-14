@@ -208,9 +208,14 @@ fraction of the table of contents it replaces.
 ```bash
 grep -i navigation .claude/MAP.tsv          # what covers this topic
 awk -F'\t' '$2=="module"' .claude/MAP.tsv   # every module doc
+./Scripts/find.sh SmartLockHomeView         # where is this screen/route/endpoint/asset?
 ```
 
 **Read the module doc before touching a module.** It holds that module's rules and code shapes.
+
+**Look it up before you search for it** — `./Scripts/find.sh <thing>` greps all nine inventories in
+one call and prints the row without opening a note. A miss prints the code-search fallback; record
+the row when you find it, in the same change.
 
 **What earlier sessions learned** is in [`.claude/memory/INDEX.md`](.claude/memory/INDEX.md) —
 in-repo and tracked, so it survives a clone. Write memories there, not to a machine-local store; if
@@ -222,8 +227,8 @@ in memory.
 Where **new** material belongs: [STRUCTURE.md](docs/STRUCTURE.md).
 
 The `.claude/notes/` inventories are generated. **Edit the affected rows in the same change as every
-insertion or deletion** — screen, route, image, colour, font, token, scheme, target. A full rescan is
-the user's **`/sync-app-notes`** command; never start one yourself.
+insertion or deletion** — screen, route, API path, image, colour, font, token, scheme, target. A full
+rescan is the user's **`/sync-app-notes`** command; never start one yourself.
 
 ## 6. Concurrency
 

@@ -9,7 +9,14 @@ Review a change you did not write.
 Target: `$ARGUMENTS` — a PR number, a branch, or a base ref. Default: current branch vs `main`.
 
 ```bash
-git diff main...HEAD --stat        # or: gh pr diff <n>
+# a branch or the current one
+BASE=$(git merge-base HEAD main 2>/dev/null || echo main)
+git diff "$BASE"...HEAD --stat
+git log --oneline "$BASE"..HEAD
+
+# or a PR by number
+gh pr diff "$ARGUMENTS" --patch | head -400
+gh pr view "$ARGUMENTS" --json title,body,files --jq '.title, .body'
 ```
 
 `/verify` walks your own working tree. This walks someone else's finished work, so the bar is
@@ -28,7 +35,27 @@ Say in one line what the change does. If you cannot, that is the first finding.
 
 `./Scripts/check.sh` and SwiftLint already cover raw strings, force-unwraps, `.alert`, `#if DEBUG`
 in a feature, and the iOS floor. **Do not spend the review on those** — say "check.sh covers this"
-and move on.
+and move on. (Do not run it yourself — it compiles, CLAUDE.md §2.12.)
+
+Two structural checks a linter genuinely cannot make, worth running before you read:
+
+```bash
+CHANGED=$(git diff --name-only "$BASE"...HEAD -- '*.swift')
+
+# a feature importing a sibling feature (§2.1) — the manifest may not catch it yet
+printf '%s\n' "$CHANGED" | grep 'Packages/Features/' | while IFS= read -r f; do
+  [ -f "$f" ] && grep -nH '^import Feature' "$f"
+done
+
+# a note row that should have moved and did not (§5).
+# Written as an explicit if: `A && B || echo` also fires when A is false,
+# which reports a missing note row for a diff that touches no tracked code.
+FILES=$(git diff --name-only "$BASE"...HEAD)
+if printf '%s\n' "$FILES" | grep -qE '\.xcassets/|Route.*\.swift|/Views/'; then
+  printf '%s\n' "$FILES" | grep -q '^\.claude/notes/' \
+    || echo "FINDING: code changed that an inventory tracks, but no .claude/notes/ row moved"
+fi
+```
 
 What needs a human-shaped read:
 

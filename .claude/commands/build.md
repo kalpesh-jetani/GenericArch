@@ -16,24 +16,52 @@ Scheme → configuration mapping and what each stage is *for*: @.claude/notes/SC
 
 ## Steps
 
-1. **Resolve the arguments.** Map stage → configuration: `DEV`→`Debug`, `TEST`→`Test`,
-   `BETA`→`Beta`, `PROD`→`Release`. If the stage is ambiguous, ask rather than guessing — building
-   PROD when DEV was meant wastes minutes and can touch signing.
+1. **Resolve the arguments against what exists** — never against the mapping in your head. Scheme
+   names drift, and `xcodebuild` fails slowly and unhelpfully on a name that is close but wrong:
 
-2. **Packages first, they're the cheap signal.** Any package the diff touched:
+   ```bash
+   xcodebuild -list -workspace *.xcworkspace 2>/dev/null || xcodebuild -list -project *.xcodeproj
    ```
-   swift build --package-path Packages/<Name>
-   swift test  --package-path Packages/<Name>
+
+   Map stage → configuration: `DEV`→`Debug`, `TEST`→`Test`, `BETA`→`Beta`, `PROD`→`Release`. If the
+   printed list has no scheme matching the stage, **stop and ask** — building PROD when DEV was
+   meant wastes minutes and can touch signing.
+
+   Pick a simulator that is actually installed, rather than hardcoding a device name:
+
+   ```bash
+   xcrun simctl list devices available | grep -E "iPhone|iPad" | head -5
    ```
+
+2. **Packages first, they're the cheap signal.** Build only what the diff touched:
+
+   ```bash
+   BASE=$(git merge-base HEAD main 2>/dev/null || echo HEAD~1)
+   git diff --name-only "$BASE"...HEAD -- 'Packages/*' | cut -d/ -f2 | sort -u | while read -r pkg; do
+     echo "── $pkg"
+     swift build --package-path "Packages/$pkg" || break
+     swift test  --package-path "Packages/$pkg" || break
+   done
+   ```
+
    A package failure means the app build will fail slower and less clearly. Stop here if one fails.
 
-3. **Then the app:**
+3. **Then the app.** Substitute the scheme name from step 1 verbatim:
+
+   ```bash
+   xcodebuild -scheme "<SchemeFromStep1>" -configuration "<Config>" \
+     -destination 'platform=iOS Simulator,name=<DeviceFromStep1>' \
+     build 2>&1 | tail -40
    ```
-   xcodebuild -scheme GenericArch-<STAGE> -configuration <Config> \
-     -destination '<destination>' <action>
-   ```
+
    Destinations: iOS simulator `'platform=iOS Simulator,name=iPhone 17'` · iOS device/archive
    `'generic/platform=iOS'` · macOS `'platform=macOS'`.
+
+   Surface warnings as well as errors — [DONE.md](../../docs/DONE.md) requires zero:
+
+   ```bash
+   xcodebuild ... 2>&1 | grep -E "warning:|error:" | sort -u
+   ```
 
 4. **Report faithfully.** Warnings count — [DONE.md](../../docs/DONE.md) requires zero under strict concurrency, so
    surface them even when the build succeeds. Quote the actual compiler output for failures; don't

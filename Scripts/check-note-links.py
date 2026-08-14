@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""Every path in .claude/notes/ resolves. Read-only; exits non-zero on a miss.
+   python3 Scripts/check-note-links.py
+Skips fenced code and HTML comments: an illustrative path in an example is not a
+broken link, and flagging it trains you to ignore the checker."""
+import re, os, glob
+def prose(t):
+    t = re.sub(r'```.*?```', '', t, flags=re.S)
+    return re.sub(r'<!--.*?-->', '', t, flags=re.S)
+bad = tot = 0
+for f in sorted(glob.glob(".claude/notes/*.md")):
+    base = os.path.dirname(f)          # links are relative to the NOTE, not to cwd
+    t = prose(open(f).read())
+    for pat in (r'\[[^\]]+\]\(([^)#]+?)(?::\d+)?\)', r'click \w+ "([^"]+)"'):
+        for m in re.finditer(pat, t):
+            p = m.group(1)
+            if p.startswith(("http", "mailto")): continue
+            tot += 1
+            if not (os.path.exists(os.path.join(base, p)) or os.path.exists(p)):
+                bad += 1; print("MISSING  %-22s -> %s" % (os.path.basename(f), p))
+print("checked %d paths, %d missing" % (tot, bad))

@@ -147,3 +147,39 @@ Example pattern in a skill:
 2. Check CONVENTIONS.md — is the naming pattern documented? If yes, follow it.
 3. If not found in notes, grep for examples.
 ```
+
+---
+
+## The three rules this depends on
+
+The saving above is real only while notes stay **searchable artifacts**. Break any of these and the
+index becomes a document, which costs more than the grep it replaced.
+
+1. **Never read a note in full.** Grep it. A `grep -h "SmartLockHomeView" .claude/notes/*.md` costs a
+   line; opening `FEATURES.md` costs the file. If you find yourself reading one to answer a question,
+   the row was not self-contained — fix the row, don't keep reading.
+2. **Never promote a note to a skill.** A skill loads its whole body when it fires and its
+   `description:` loads every session; a note is hit once for one line. Size is not a reason to
+   convert — a 28 KB note that is only ever grepped costs no more than a 3 KB one, and converting it
+   inverts the trade this whole file exists to make.
+3. **Maintain by insertion and deletion, not rewriting.** A row appears when the thing appears and
+   goes when the thing goes, in the same change (CLAUDE.md §5). `/sync-app-notes` is the only
+   wholesale rewrite and only when the user types it.
+
+### What a searchable row looks like
+
+Because the file is never read, the row carries the whole answer:
+
+- **One fact, one line**, ending in `|`. A wrapped row is two grep hits, each meaningless alone.
+- **Keyed on the word someone would actually search** — the screen name, the route case, the token,
+  the endpoint path. Not a description of it.
+- **Path plus a clause saying what is there.** A bare path answers *where* and forces the reader to
+  open the file, which is the cost you were avoiding.
+
+```bash
+# rows that wrap, across every note
+awk '/^\| / && !/\|$/ {print FILENAME":"NR": row does not end in |"}' .claude/notes/*.md
+
+# the lookup a session actually makes — one line back, no file opened
+grep -h "<screen-or-route-or-path>" .claude/notes/*.md
+```

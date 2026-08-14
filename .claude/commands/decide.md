@@ -10,8 +10,15 @@ Record the decision described by: `$ARGUMENTS`
 
 ## Steps
 
-1. **Check it isn't already answered.** Read the file first. If a row covers this scope, say so and
-   stop — re-recording a decision under slightly different words is how a log stops being trusted.
+1. **Check it isn't already answered.** Search before reading, then read the section you hit:
+
+   ```bash
+   grep -niE "<scope-keyword>" docs/DECISIONS.md
+   grep -n "^## " docs/DECISIONS.md          # the four sections and where they start
+   ```
+
+   If a row covers this scope, say so and stop — re-recording a decision under slightly different
+   words is how a log stops being trusted.
 
 2. **Pick the right section.** They are not interchangeable:
 

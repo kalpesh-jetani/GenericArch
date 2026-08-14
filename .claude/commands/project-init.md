@@ -205,7 +205,10 @@ Run this. It is read-only.
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-for f in .claude/MAP.tsv .claude/INDEX.md .claude/memory/INDEX.md Scripts/check.sh; do
+for f in .claude/MAP.tsv .claude/INDEX.md .claude/memory/INDEX.md \
+         Scripts/check.sh Scripts/find.sh Scripts/scan-api-map.py \
+         Scripts/notes-staleness.sh Scripts/scan-colors.py \
+         Scripts/scan-unused-assets.py Scripts/scan-fonts.py; do
   [ -e "$f" ] || echo "MISSING-LOCAL  $f"
 done
 [ -d .claude/skills ]   || echo "MISSING-LOCAL  .claude/skills"
@@ -218,6 +221,15 @@ awk -F'\t' '!/^#/ && NF>1 {print $1}' .claude/MAP.tsv | while read -r p; do
   [ -n "$base" ] && echo "FETCHABLE      $p" || echo "UNRESOLVABLE   $p"
 done | sort | uniq -c | sort -rn
 echo "FETCH-BASE: ${base:-<none — every missing row is unresolvable>}"
+
+# A row that is not exactly 4 tab-separated columns is dropped by every awk/grep
+# recipe that reads this file — silently, with no error anywhere.
+awk -F'\t' 'NF!=4 && $0 !~ /^#/ && NF>0 {print "MALFORMED-ROW  line "NR": "NF" columns"}' .claude/MAP.tsv
+
+# Every note the map advertises must exist, or the row routes into a void.
+awk -F'\t' '$2=="note" {print $1}' .claude/MAP.tsv | while read -r n; do
+  [ -f "$n" ] || echo "MISSING-NOTE   $n"
+done
 ```
 
 Then act on what it printed:
@@ -367,17 +379,17 @@ why it was dropped so it doesn't get re-proposed next month.
 `/sync-app-notes` **only** when the user is ready to add the first feature or asset:
 
 > "Once you add features to `Packages/Features/` or image/color assets to the catalog, run
-> `/sync-app-notes` to populate the inventories. That command rewrites 8 files; it's best run
+> `/sync-app-notes` to populate the inventories. That command rewrites 9 files; it's best run
 > once after you have real content."
 
 **Do not run it here.** It is the user's command, and initialisation is not blanket consent to
-rewrite eight files. Running it on empty `Packages/` produces scaffold-only inventories that look
+rewrite nine files. Running it on empty `Packages/` produces scaffold-only inventories that look
 current but are mostly blank.
 
 **If the project already has code** (e.g. adopting into an existing codebase), ask:
 
 > "The project already has code. Run `/sync-app-notes` now to inventory features, screens, routes,
-> assets, and build config? (~X tokens, creates 8 `.claude/notes/*.md` files.)"
+> assets, and build config? (~X tokens, creates 9 `.claude/notes/*.md` files.)"
 
 Then fill by hand what no scan can know: the marketing version in `Base.xcconfig`, signing rows in
 [SCHEMES.md](../notes/SCHEMES.md), Team ID in [PROJECT.md](../notes/PROJECT.md).

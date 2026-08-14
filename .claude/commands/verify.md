@@ -17,27 +17,75 @@ Scope: `$ARGUMENTS` if given, otherwise the whole working diff.
 0. **Read `docs/DONE.md`.** Grep `.claude/MAP.tsv` for it if the path has moved (if running under
    GenericArch) or as `docs/DONE.md` directly. Use that checklist; no grep for "what is done?"
 
-1. **Get the diff first.** `git diff` and `git status` (or `git diff <base>...HEAD` on a branch).
-   Everything below is judged against what actually changed — not the repo at large.
+1. **Get the diff first.** Everything below is judged against what actually changed — not the repo
+   at large. Capture the changed-file list once and reuse it:
 
-2. **Grep the mechanical rules.** These are the ones that decay without a check, so do them by
-   search, not by reading:
+   ```bash
+   git status --porcelain=v1
+   BASE=$(git merge-base HEAD main 2>/dev/null || echo HEAD~1)
+   git diff --stat "$BASE"...HEAD
+   CHANGED=$(git diff --name-only "$BASE"...HEAD -- '*.swift' | grep -v Tests/)
+   echo "$CHANGED"
+   ```
 
-   | Rule | Search |
-   |---|---|
-   | Raw user-facing string | string literals inside `Views/` |
-   | `#if DEBUG` in a feature | `Packages/Features/` |
-   | `resolve` outside its allowed sites | feature types, excluding `DI/*Assembly.swift` |
-   | System alert | `.alert(`, `.confirmationDialog(` |
-   | Literal design value | `Color(`, `Font.system`, numeric padding/radius outside DesignSystem |
-   | Force-unwrap / `try?` / `fatalError` | changed Swift files, excluding tests |
-   | Unjustified `unchecked Sendable` escape hatch | changed Swift files — the marker with no adjacent comment |
+2. **Grep the mechanical rules.** These decay without a check, so do them by search, not by reading.
+   Run each against `$CHANGED`, not the whole repo — a pre-existing violation is not this diff's
+   finding.
+
+   Define the helper once. **Do not substitute `xargs -r`** — `-r` is a GNU extension and errors on
+   macOS, and `xargs` without it runs `grep` on an empty list, which then blocks reading stdin:
+
+   ```bash
+   scan() {   # scan <regex> [path-filter]
+     filter="${2:-.}"
+     printf '%s\n' "$CHANGED" | grep -v '^$' | grep -E "$filter" | while IFS= read -r f; do
+       [ -f "$f" ] && grep -nHE "$1" "$f"
+     done
+   }
+   ```
+
+   ```bash
+   scan '(Text|Label|Button)\(\s*"' '/Views/'          # raw user-facing string (§2.3)
+   scan '#if DEBUG' 'Packages/Features/'               # build-flag branch in a feature (§2.10)
+   scan '\.alert\(|\.confirmationDialog\(|UIAlertController'   # system alert (§2.4)
+   scan 'Color\(red:|Font\.system|cornerRadius: *[0-9]'        # literal design value (§2)
+   scan '\btry\?|\bfatalError\('                       # swallowed error / fatalError (§2.7)
+   scan '@unchecked Sendable'                          # then read each hit for its justification (§2.8)
+
+   # resolve() outside a DI assembly (§2.6) — an exclusion, so not expressible as a scan filter.
+   # grep -E has no negative lookahead; filter the file list instead.
+   printf '%s\n' "$CHANGED" | grep -v 'Assembly.swift' | while IFS= read -r f; do
+     [ -f "$f" ] && grep -nH 'resolve(' "$f"
+   done
+   ```
+
+   ⚠ **Bound short patterns with `\b`.** `try\?` unbounded also matches `regis`**`try?`**. Any
+   pattern that is a common substring needs a boundary
+   ([SCAN-TRAPS.md](../../docs/SCAN-TRAPS.md)).
+
+   A recipe that prints nothing is a pass. A recipe that errors is **not** a pass — say so.
 
 3. **Check the content states** for any screen in the diff — a screen missing `empty` or `offline`
-   is the single most common miss.
+   is the single most common miss:
 
-4. **Check documentation currency**: did a module `.md` need updating, and did it get updated in
-   this diff? Did a screen/route/asset/color/font change without its `.claude/notes/` row?
+   ```bash
+   for f in $(echo "$CHANGED" | grep -E 'View\.swift|Screen\.swift'); do
+     printf '%-60s %s\n' "$f" "$(grep -oE '\.(idle|loading|loaded|empty|offline|error)' "$f" | sort -u | tr '\n' ' ')"
+   done
+   ```
+
+   Signals, not proof — a case named is not a case rendered. Open any screen missing `empty` or
+   `offline` rather than reporting from the grep alone.
+
+4. **Check documentation currency.** Did a module doc need updating, and did it get updated in this
+   diff? Did a screen/route/asset/colour/font change without its `.claude/notes/` row?
+
+   ```bash
+   git diff --name-only "$BASE"...HEAD | grep -E '^docs/modules/|^\.claude/notes/'   # what moved
+   git diff --name-only "$BASE"...HEAD | grep -E '\.xcassets/|Route.*\.swift|/Views/' # what should have
+   ```
+
+   If the second prints and the first does not, that is a finding.
 
 5. **Build only if asked.** Use `/build` for that — this command reads and greps.
 

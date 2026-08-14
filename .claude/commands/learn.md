@@ -57,13 +57,33 @@ their next release and is worse than a link. Say what *we* do with it.
 
 ## 3. Index it
 
-Every resource, pattern, feature and skill gets a row in [INDEX.md](../INDEX.md). A note nobody
-indexed is a note nobody finds.
+Every resource, pattern, feature and skill gets a row in [INDEX.md](../INDEX.md) **and** a grep row
+in [MAP.tsv](../MAP.tsv). A note nobody indexed is a note nobody finds.
+
+```bash
+grep -n "<name>" .claude/INDEX.md .claude/MAP.tsv     # already indexed?
+awk -F'\t' '$2=="resource"' .claude/MAP.tsv          # the neighbours to match format against
+```
+
+The MAP row is tab-separated, four columns — `path`, `kind`, `topics`, `read it when`. Verify it
+parses, or the registry silently loses the row:
+
+```bash
+awk -F'\t' 'NF!=4 && $0 !~ /^#/ {print FILENAME":"NR": "NF" columns"}' .claude/MAP.tsv
+```
 
 ## 4. Promoting a pattern to a skill
 
 `docs/patterns/` holds six patterns that ship un-promoted because they cannot fire in an empty repo.
 `/learn <pattern>` promotes one.
+
+**Check the first condition before asking about the other two:**
+
+```bash
+ls .claude/skills/                                     # what is already promoted
+grep -c '^| `' .claude/notes/STYLE-GUIDE.md            # e.g. does style-guide govern any token yet
+./Scripts/check-skill-triggers.py 2>/dev/null || echo "(no trigger checker in this repo)"
+```
 
 **Promote only when all three are true:**
 

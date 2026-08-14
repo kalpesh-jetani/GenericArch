@@ -30,8 +30,10 @@ docs/DELIVERY.md	cross	ci signing version bump release rollback testflight archi
 docs/PERFORMANCE.md	cross	launch budget hitch rendering profile instruments memory	A launch budget, a SwiftUI redraw problem, or diagnosing a hitch
 docs/GAPS.md	cross	gap missing not covered scope backlog	Deciding what this architecture should cover for your product
 docs/PATTERN-SEARCH.md	cross	search grep find token efficiency lookup	Before grepping the codebase for an existing pattern
+docs/SCAN-TRAPS.md	cross	scan trap false positive evidence why recipe regex portability	Before changing a scan script or when a scan result surprises you
 .claude/notes/FEATURES.md	note	feature screen package route state inventory	Checking whether a feature exists, or where a screen belongs
 .claude/notes/NAVIGATION.md	note	route deeplink flow graph navigation inventory	Tracing a route, or adding one
+.claude/notes/API-MAP.md	note	api endpoint path url http request network screen controller inventory	Changing an endpoint, or tracing a screen's network surface
 .claude/notes/ASSETS-IMAGES.md	note	image asset icon symbol catalog inventory	Looking for an existing image before adding one
 .claude/notes/ASSETS-COLORS.md	note	color colorset hex appearance dark light inventory	Looking for an existing colour before adding one
 .claude/notes/FONTS.md	note	font typeface weight registration UIAppFonts inventory	Adding or debugging a custom font
@@ -54,5 +56,6 @@ docs/patterns/feature-complete.md	pattern	close out finish feature retrospective
 .claude/commands/gaps.md	command	/gaps missing coverage triage	Deciding what this architecture should cover
 .claude/commands/decide.md	command	/decide decision record settle	Recording a settled §0 decision
 .claude/commands/upgrade-stack.md	command	/upgrade-stack toolchain xcode swift version mismatch upgrade	Reconciling project settings with the machine
+.claude/commands/find.md	command	/find lookup where is screen route endpoint asset token search index	Looking up where something is, before grepping the codebase
 .claude/commands/sync-app-notes.md	command	/sync-app-notes rescan rebuild inventory scan	Rebuilding the inventories from a filesystem scan (user-typed only)
 .claude/commands/build.md	command	/build compile test archive scheme	Building, testing or archiving a stage (user-typed only)

@@ -11,6 +11,21 @@ Reconcile the project's stack settings with the machine.
 ./Scripts/detect-toolchain.sh --mismatches # SEVERITY|id|what|current|available|remediation
 ```
 
+If that script is missing (an adopted repo may not have it), say so and stop rather than
+substituting your own probe — the whole command is built on its output format:
+
+```bash
+[ -x ./Scripts/detect-toolchain.sh ] || echo "detect-toolchain.sh absent — cannot classify mismatches"
+```
+
+Read the project's own floors before judging anything, and never quote them from memory
+(CLAUDE.md §1.1):
+
+```bash
+grep -rn "platforms:" Packages/*/Package.swift
+grep -rn "IPHONEOS_DEPLOYMENT_TARGET\|MACOSX_DEPLOYMENT_TARGET" --include="*.xcconfig" .
+```
+
 Scope: `$ARGUMENTS` if a mismatch id is given, otherwise everything reported.
 
 ---
@@ -67,7 +82,19 @@ Lowering a target to match the SDK is the safe direction and usually the right f
 
 ## Step 3 — Compute the edits, show them, then Gate 2
 
-Produce the exact change set. Per file: path, the current line, the proposed line.
+Produce the exact change set. Per file: path, the current line, the proposed line. Gather the
+current lines by search, so the "before" is what is actually on disk and not what you expect:
+
+```bash
+grep -rn "IPHONEOS_DEPLOYMENT_TARGET\|MACOSX_DEPLOYMENT_TARGET\|swift-tools-version\|swiftLanguageMode" \
+  --include="*.xcconfig" --include="Package.swift" --include="*.pbxproj" . | grep -v /build/
+```
+
+Show the diff you intend before applying it, never after:
+
+```bash
+git diff --stat        # must be empty of your changes until Gate 2 passes
+```
 
 ```
 Packages/Core/Package.swift

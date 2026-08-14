@@ -34,27 +34,22 @@ evidence, set the Status, and report.
 
 ## A1. Detect
 
-| Item | Evidence to grep for |
-|---|---|
-| Feature flags / remote config | `RemoteConfig`, `LaunchDarkly`, `isEnabled`, a flag type in `Core` |
-| Analytics | `logEvent`, `Analytics`, `Amplitude`, `Mixpanel`, `Segment`, `PostHog` |
-| Crash reporting | `Crashlytics`, `Sentry`, `Bugsnag` — **and** a dSYM upload build phase or CI step |
-| StoreKit / IAP | `import StoreKit`, `Product.products`, `Transaction` |
-| Auth flows | `AuthenticationServices`, `ASWebAuthenticationSession`, `SignInWithAppleButton` |
-| CloudKit / sync | `import CloudKit`, `NSPersistentCloudKitContainer` |
-| Widgets / App Intents | `WidgetKit`, `AppIntent`, `ActivityKit`, an extension target |
-| Universal links | Associated Domains entitlement, `apple-app-site-association`, `onOpenURL` |
-| Handoff | `NSUserActivity` |
-| Keyboard & focus | `@FocusState`, `TextField` count, `Form` |
-| Haptics | `UIFeedbackGenerator`, `sensoryFeedback` |
-| Biometrics | `LocalAuthentication`, `LAContext` |
-| Onboarding | a feature or directory named onboarding/welcome |
-| Search | `.searchable`, a search feature |
-| Watch / tvOS / visionOS | targets or platform entries in `Package.swift` |
-| SwiftLint / SwiftFormat | `.swiftlint.yml`, `.swiftformat`, a lint CI step |
-| UI test strategy | a UITests target, `XCUIApplication` |
-| Supply chain | count of external deps in `Package.resolved` |
-| macOS minimum (E1) | `platforms:` in `Package.swift`, `MACOSX_DEPLOYMENT_TARGET` in `.xcconfig` |
+**Run the scan; do not hand-grep the table below.** It exists as a script so the patterns stay
+tightened — bare vendor words are wrong often enough to matter:
+
+```bash
+./Scripts/detect-capabilities.sh "${SRC:-.}"       # STATUS <tab> item <tab> evidence
+```
+
+Output is `FOUND` / `ABSENT` / `INFO`. Mapping those to ✅ ⛔ ▶ is A2's judgement and is deliberately
+**not** encoded in the script.
+
+⚠ **`FOUND` is a candidate, not a verdict — open the evidence file before you record it.** An
+earlier version of this scan matched `Segment` against a UI segmented control and `Transaction.`
+against a database call, and reported analytics and StoreKit in a product that has neither. The
+patterns are anchored on imports and call shapes now; the discipline still applies.
+
+To add an item, add a `scan` line to the script rather than a row to a table nobody executes.
 
 ## A2. Map evidence to Status — and mind the asymmetry
 

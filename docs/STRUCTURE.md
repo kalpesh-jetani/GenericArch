@@ -100,7 +100,7 @@ Two ways a note changes, and they are not interchangeable:
 
 | | Targeted edit | Full rescan |
 |---|---|---|
-| **What** | The rows your change touches | `/sync-app-notes` rewrites all eight from a filesystem scan |
+| **What** | The rows your change touches | `/sync-app-notes` rewrites all nine from a filesystem scan |
 | **When** | Every insertion or deletion, same change | First setup, or drift too large to fix by hand |
 | **Who starts it** | Claude, as part of the change | **The user, by typing the command** |
 
@@ -177,3 +177,29 @@ token that was never registered.
 - If a rule is stated in two places, one of them will go stale. Pick the home and link to it.
 - Always-on cost is real: CLAUDE.md plus every skill `description:` loads on every session. Before
   adding to CLAUDE.md, check whether a module doc, a skill, or a command would carry it instead.
+
+### A note is a grep index, never a document
+
+The `.claude/notes/` inventories exist to be **searched, not read**
+([PATTERN-SEARCH.md](PATTERN-SEARCH.md)). One `grep` returns the row, the row answers the question,
+and the file never enters context. That is the entire token argument for them.
+
+Three consequences, and they are rules:
+
+- **A note is never promoted to a skill.** A skill loads its whole body when it fires; a note is
+  grepped for one line. Converting one trades a cheap search for an expensive read, and adds a
+  `description:` that costs tokens in *every* session. **Size is not a reason to convert** — a 28 KB
+  note that is only ever grepped costs no more than a 3 KB one.
+- **A note is never read end to end**, by anyone, including the command that writes it. Read the
+  header for `Built from:`; the rows are written, not consulted.
+- **A note is maintained by inserting and deleting rows** — a row appears when the thing appears and
+  goes when the thing goes, in the same change (CLAUDE.md §5). `/sync-app-notes` is the single
+  wholesale rewrite, which is why it is user-typed and cannot fire by inference.
+
+Because the file is never read, **the row carries the whole answer**: one fact, one line, ending in
+`|`, with the name someone would actually search for and the path plus a clause saying what is
+there. A row that wraps is two grep hits, each meaningless alone.
+
+This is also what separates a note from a doc. `docs/` is prose meant to be read once and
+understood; `.claude/notes/` is an index meant to be hit and left. Material that needs reading does
+not belong in a note, however inventory-shaped it looks.
