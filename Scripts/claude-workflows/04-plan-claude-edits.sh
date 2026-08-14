@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    call
+#@purpose   PHASE 4 plan: validate each edit against the real document, flag cross-refs, normalise payloads.
+#@usage     04-plan-claude-edits.sh <project> <task-id> (--edit 'SECTION|ACTION|OLD|NEW|NOTE'... | --from TSV | --template)
+#@in        03-sections.tsv 01-task.env edit-specs:str  ACTION=replace|delete|append|insert-after|new-section  OLD/NEW=literal|@path
+#@out       04-plan.tsv:tsv(section,action,old_payload,new_payload,occurrences,note) 04-outline.md:md 04-plan.env:kv 04-payload-N.old/.new
+#@exit      0=ok 1=an edit was rejected 2=usage 3=missing-phase-3
+#@effects   writes plan + payloads only; never touches the target
 # PHASE 4 · PLAN — turn intent into a validated edit list: map each change to a
 # real section, pre-flight every match, and flag cross-references that the edit
 # would break.
@@ -21,7 +30,7 @@
 # str_replace lands in the wrong section, and it costs nothing to catch here.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -45,8 +54,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-TASK_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 01-task.env 1)"
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
+TASK_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 01-task.env 1)" || exit $?
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
 SECTIONS="$DIR/03-sections.tsv"

@@ -10,3 +10,8 @@ dist/
 
 # Package.resolved IS committed at the repo root — it records which versions of the
 # extracted packages ship (docs/REPO.md). Do not add it here.
+
+# Task artifacts from the CLAUDE.md pipeline (Scripts/claude-workflows/). Per-run
+# working state: phase outputs, extracted snippets, pre-edit backups. The scripts
+# are tracked; what a particular run produced is not.
+.claude/claude-tasks/

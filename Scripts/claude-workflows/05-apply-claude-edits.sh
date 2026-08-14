@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    needs-approval
+#@purpose   PHASE 5 edit: apply the plan as exact-literal replacements, backed up, all-or-nothing.
+#@usage     05-apply-claude-edits.sh <project> <task-id> [--approve] [--force]
+#@in        04-plan.tsv 02-file.env --approve:flag(REQUIRED to write) --force:flag(skip digest check)
+#@out       05-applied.tsv:tsv(n,section,action,result,delta,note) 05-apply.env:kv 05-backup/:dir
+#@exit      0=applied 1=apply failed and target restored 3=precondition|digest-drift 4=no --approve
+#@effects   WRITES THE TARGET. Refuses without --approve (docs/STRUCTURE.md)
 # PHASE 5 · EDIT — apply the planned edits as exact-literal replacements,
 # preserving formatting, tracking what changed, and backing up first.
 #
@@ -19,7 +28,7 @@
 # a match at the same offset is a coincidence, not the same edit.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -37,8 +46,8 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
-PLAN="$(need_artifact "$PROJECT" "$TASK_ID" 04-plan.tsv 4)"
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
+PLAN="$(need_artifact "$PROJECT" "$TASK_ID" 04-plan.tsv 4)" || exit $?
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
 WANT_DIGEST="$(kv_get "$FILE_ENV" DIGEST)"

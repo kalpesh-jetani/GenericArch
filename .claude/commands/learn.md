@@ -1,6 +1,6 @@
 ---
-description: Learn from a resource or from finished work, and record it — take a sample repo, Figma link, doc URL or a completed feature, write a usage note, index it, and promote a pattern to a skill when it has earned it
-argument-hint: [a URL, a path, a pattern name, or a feature that just shipped]
+description: Learn from a resource or from finished work, and record it — take a sample repo, Figma link, doc URL or a completed feature, write a usage note, index it, promote a pattern to a skill, or capture a twice-repeated manual operation as a registered script (--script)
+argument-hint: [a URL, a path, a pattern name, a feature that just shipped, or --script <what you keep doing by hand>]
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebFetch, AskUserQuestion
 ---
 
@@ -100,7 +100,56 @@ Two copies means one rots.
 Show the draft and **wait for approval** before writing it — a skill changes behaviour in every
 future session.
 
-## 5. Learning from finished work
+## 5. Promoting a repeated operation to a script
+
+`/learn --script` captures work you have now done by hand more than once as a **registered script**,
+so the next run is one call with a known output instead of a re-derivation.
+
+**Promote only when all three are true** — the same earned-it test as a skill:
+
+1. **It has been done by hand at least twice.** Once is an anecdote; a script written for one use is
+   a liability that still has to be maintained.
+2. **Its input and output can be stated exactly.** If you cannot write the `#@in` and `#@out` lines,
+   the operation is still being discovered and a script would freeze the wrong shape.
+3. **It is deterministic.** Judgement belongs in a skill, not a script. A script that needs a
+   decision mid-run is two scripts and a question.
+
+Then, **in this order**:
+
+```bash
+# 1. Does one already exist? Registry first — never write a duplicate.
+grep -i -e <verb> -e <noun> .claude/SCRIPTS.tsv
+
+# 2. Where does it belong?
+#    Scripts/claude-workflows/  a numbered phase of the CLAUDE.md pipeline
+#    Scripts/claude-utils/      cross-phase, reusable
+#    Scripts/                   a repo-wide tool
+
+# 3. Write it: #@ header FIRST, then the body. The header is the contract you
+#    just committed to; writing it first is what stops the body drifting from it.
+#    Required fields: kind platform claude purpose usage in out exit effects
+#    Source _common.sh for die/kv/count/md_sections — never reimplement them.
+
+# 4. Register and verify.
+./Scripts/claude-utils/register-scripts.sh
+./Scripts/claude-utils/register-scripts.sh --check     # must exit 0
+
+# 5. Reference it from the skill that needs it, in that skill's step-0 script list.
+#    A script nothing calls is a script nobody finds.
+
+# 6. Index it.
+grep -n "<name>" .claude/MAP.tsv
+```
+
+**Rely on its result, do not re-verify it.** A registered script has a declared output;
+re-reading the files it just summarised spends the tokens the script existed to save. If the
+output looks wrong, the script has a bug — read the body, fix it, re-run. That is the one
+time the body is worth opening.
+
+Show the `#@` header and wait for approval before writing the body — a registered script becomes
+something every future session is told to call.
+
+## 6. Learning from finished work
 
 When a feature ships, `docs/patterns/feature-complete.md` has the full close-out procedure. The
 short version: offer **save it as a skill · just close with a note · continue · decide later**, and

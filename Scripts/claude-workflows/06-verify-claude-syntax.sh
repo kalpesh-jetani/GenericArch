@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    call
+#@purpose   PHASE 6 verify: front matter, table columns, internal links, formatting lint.
+#@usage     06-verify-claude-syntax.sh <project> <task-id> [--fix] [--max-line N]
+#@in        02-file.env --fix:flag(mechanical lint only) --max-line:int(default 100)
+#@out       06-verify.txt:text 06-verify.env:kv(ERRORS,WARNINGS)
+#@exit      0=valid 1=errors found 2=usage 3=missing-phase-2
+#@effects   read-only unless --fix
 # PHASE 6 · VERIFY — validate the edited document: YAML front matter, markdown
 # structure, tables, internal links, formatting lint.
 #
@@ -17,7 +26,7 @@
 # to find out what is already wrong with it.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -36,7 +45,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
 [ -r "$TARGET" ] || die "cannot read target: $TARGET" "$EX_PRECOND"

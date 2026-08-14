@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Resolve the actual stack: min iOS/macOS, Xcode, Swift, language mode. Never quote these from memory.
+#@usage     detect-toolchain.sh [--markdown]
+#@in        --markdown:flag(emit PROJECT.md rows)
+#@out       stdout:resolved stack values
+#@exit      0=ok
+#@effects   read-only
 # Determine the tech stack this repo actually uses — never assume one.
 #
 #   ./Scripts/detect-toolchain.sh              # full report

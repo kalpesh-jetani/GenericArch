@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      tool
+#@platform  macos
+#@claude    never:compiles-the-iOS-floor-see-CLAUDE.md-2.12
+#@purpose   Enforce the CLAUDE.md section 2 rules a linter cannot express, plus the iOS floor and doc currency.
+#@usage     check.sh
+#@in        none
+#@out       stdout:pass/fail report per rule
+#@exit      0=clean 1=violations
+#@effects   read-only BUT COMPILES the iOS floor - Claude must never run it (CLAUDE.md 2.12); tell the user to
 # Enforces the CLAUDE.md §2 rules a linter can't express, plus the iOS 17 floor and doc currency.
 # Run before a PR; run in CI as a required check (docs/DELIVERY.md).
 #

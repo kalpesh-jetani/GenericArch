@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      util
+#@platform  macos
+#@claude    needs-approval
+#@purpose   Undo phase 5 by restoring the pre-edit backup (not git).
+#@usage     rollback-claude.sh <project> <task-id> [--yes] [--from-git] [--force]
+#@in        02-file.env 05-backup/latest --yes:flag(REQUIRED to write)
+#@out       restores the target; writes a pre-rollback backup
+#@exit      0=restored|nothing-to-do 1=restore failed 3=no-backup 4=no --yes
+#@effects   WRITES THE TARGET. Preview-only without --yes
 # Emergency: undo the last applied edit and restore the document.
 #
 #   ./Scripts/claude-utils/rollback-claude.sh <project> <task-id>          # preview
@@ -16,7 +25,7 @@
 # that it throws away work this task never touched.
 . "$(dirname "$0")/_common.sh"
 
-usage_text() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -37,7 +46,7 @@ done
 
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 [ -d "$DIR" ] || die "no such task: $PROJECT/$TASK_ID" "$EX_USAGE"
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
 GIT_TOP="$(kv_get "$FILE_ENV" GIT_TOPLEVEL)"
 WAS_DIRTY="$(kv_get "$FILE_ENV" GIT_DIRTY)"

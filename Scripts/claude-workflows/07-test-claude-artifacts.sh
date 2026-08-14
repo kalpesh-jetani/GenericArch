@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    emit-only
+#@purpose   PHASE 7 test: extract code snippets, EMIT the Xcode check commands, grep that documented symbols exist.
+#@usage     07-test-claude-artifacts.sh <project> <task-id> [--verbose]
+#@in        02-file.env project registry(root,test_cmd,source_glob)
+#@out       07-commands.sh:sh(NOT RUN) 07-snippets/:dir 07-symbols.tsv:tsv 07-api-check.tsv:tsv(symbol,kind,line,section,status,evidence) 07-test.env:kv
+#@exit      0=ok (reports, never fails) 2=usage 3=missing-phase-2
+#@effects   read-only. NEVER invokes a compiler (CLAUDE.md 2.12)
 # PHASE 7 · TEST — extract the document's code snippets, emit the exact command
 # that would check each one, and verify that documented symbols exist in the code.
 #
@@ -22,7 +31,7 @@
 # do not gate on the count.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -39,14 +48,17 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
 [ -r "$TARGET" ] || die "cannot read target: $TARGET" "$EX_PRECOND"
 
+require_project "$PROJECT"
 ROOT="$(project_field "$PROJECT" 2)"
 TEST_CMD="$(project_field "$PROJECT" 4)"
 GLOB="$(project_field "$PROJECT" 5)"
+XC_CONTAINER="$(project_field "$PROJECT" 6)"
+XC_SCHEMES="$(project_field "$PROJECT" 7)"
 [ -n "$GLOB" ] || GLOB='*'
 
 SNIP="$DIR/07-snippets"
@@ -123,7 +135,9 @@ N_SKIPPED=$((N_BLOCKS - N_CHECKABLE))
   printf '#   bash %s\n#\n' "$CMDS"
   printf '# A snippet is usually a fragment, not a compilable unit — expect "missing\n'
   printf '# main", unresolved imports, and undeclared identifiers. Read a failure before\n'
-  printf '# believing it: the question is whether the SYNTAX and the API names are right.\n\n'
+  printf '# believing it: the question is whether the SYNTAX and the API names are right.\n'
+  printf '#\n# Swift snippets are parsed with `xcrun swiftc`, which uses the ACTIVE Xcode\n'
+  printf '# (xcode-select -p). Switch Xcode and the result can change.\n\n'
   printf 'set -u\ncd %s\nfail=0\n\n' "$(printf '%q' "$SNIP")"
 
   awk -F'\t' '!/^#/ && $4 != "" {print $3 "\t" $4 "\t" $2}' "$MAN" | \
@@ -131,7 +145,10 @@ N_SKIPPED=$((N_BLOCKS - N_CHECKABLE))
     printf '# ── snippet %s (%s, document line %s)\n' "$file" "$lang" "$docline"
     case "$lang" in
       swift)
-        printf 'swiftc -parse %s || fail=$((fail+1))\n\n' "$file" ;;
+        # xcrun, not bare swiftc: on a Mac with several Xcodes the bare binary may
+        # be a different toolchain than the one Xcode builds with, so a snippet can
+        # pass here and fail in the IDE.
+        printf 'xcrun swiftc -parse %s || fail=$((fail+1))\n\n' "$file" ;;
       bash|sh|shell|zsh)
         printf 'bash -n %s || fail=$((fail+1))\n\n' "$file" ;;
       python|python3|py)
@@ -231,6 +248,9 @@ if [ "$N_MISSING" -gt 0 ]; then
     '$5=="NOT-FOUND" {printf "  %-28s %s(line %s · %s)%s\n", $1, d, $3, $4, o}' \
     "$APICHK" | head -20
   [ "$N_MISSING" -gt 20 ] && dim "… $((N_MISSING - 20)) more in $APICHK"
+  # Open the first one where it is written, rather than making the reader hunt.
+  FIRST_LINE=$(awk -F'\t' '$5=="NOT-FOUND" {print $3; exit}' "$APICHK")
+  [ -n "$FIRST_LINE" ] && dim "open the first: $(xed_hint "$TARGET" "$FIRST_LINE")"
   printf '\n'
   warn "These are grep misses, not proven absences. Macro-generated, codegen'd, or
     externally-declared symbols land here as false positives. Check a few before
@@ -238,11 +258,21 @@ if [ "$N_MISSING" -gt 0 ]; then
 fi
 
 hdr "run these yourself — the pipeline did not"
-printf '  %s# snippet syntax checks%s\n' "$DIM" "$OFF"
+printf '  %s# snippet syntax checks (xcrun swiftc -parse)%s\n' "$DIM" "$OFF"
 printf '  bash %s\n' "$CMDS"
 if [ -n "$TEST_CMD" ]; then
   printf '\n  %s# the project'"'"'s own tests%s\n' "$DIM" "$OFF"
   printf '  cd %s && %s\n' "$ROOT" "$TEST_CMD"
+fi
+if [ -n "$XC_CONTAINER" ]; then
+  printf '\n  %s# open the project in Xcode%s\n' "$DIM" "$OFF"
+  printf '  xed %s\n' "$XC_CONTAINER"
+  if [ -n "$XC_SCHEMES" ]; then
+    printf '  %sschemes: %s%s\n' "$DIM" "$XC_SCHEMES" "$OFF"
+  else
+    printf '  %sno shared scheme — tick Shared in Xcode ▸ Product ▸ Scheme ▸ Manage Schemes%s\n' "$DIM" "$OFF"
+  fi
+  printf '  %sactive Xcode: %s%s\n' "$DIM" "$(xcode-select -p 2>/dev/null || echo 'not set')" "$OFF"
 fi
 printf '\n'
 dim "CLAUDE.md §2.12 — this tooling never invokes the compiler. That is why the"

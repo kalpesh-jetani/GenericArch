@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    emit-only
+#@purpose   PHASE 9 commit: compose a tagged commit message and EMIT the command.
+#@usage     09-commit-claude-changes.sh <project> <task-id> [--type T] [--scope S] [--no-coauthor]
+#@in        05-applied.tsv 01-task.env 06-verify.env 07-test.env
+#@out       09-message.txt:text 09-commit.sh:sh(NOT RUN) 09-commit.env:kv
+#@exit      0=composed 2=usage 3=nothing-applied|not-a-git-repo
+#@effects   writes files only. NEVER commits or pushes (CLAUDE.md 2.11)
 # PHASE 9 · COMMIT — compose a tagged commit message from the task record and
 # emit the command that would apply it.
 #
@@ -18,7 +27,7 @@
 # .claude/claude-tasks/ can be found again from git log.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -39,7 +48,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
 GIT_TOP="$(kv_get "$FILE_ENV" GIT_TOPLEVEL)"
@@ -73,10 +82,14 @@ N_EDITS=$(count_rows "$APPLIED")
 # who wrote the request described the change better than a keyword map can.
 SUBJECT_BODY="$TASK_SCOPE"
 [ -n "$SUBJECT_BODY" ] || SUBJECT_BODY="$TASK_TYPE across $N_EDITS section(s)"
-# Trim to keep the whole subject under the 72-column convention.
+# Trim to keep the whole subject under the 72-column convention, at a word
+# boundary — a subject cut mid-word ("drop the Dispatc") reads as corruption.
 MAXBODY=$((68 - ${#TYPE} - ${#SCOPE} - ${#TASK_ID}))
 [ "$MAXBODY" -lt 20 ] && MAXBODY=20
-SUBJECT_BODY=$(printf '%s' "$SUBJECT_BODY" | cut -c1-"$MAXBODY" | sed 's/[ .,;:]*$//')
+if [ "${#SUBJECT_BODY}" -gt "$MAXBODY" ]; then
+  SUBJECT_BODY=$(printf '%s' "$SUBJECT_BODY" | cut -c1-"$MAXBODY" | sed 's/[^ ]*$//')
+fi
+SUBJECT_BODY=$(printf '%s' "$SUBJECT_BODY" | sed 's/[ .,;:]*$//')
 
 MSG="$DIR/09-message.txt"
 {

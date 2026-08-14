@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Route a corpus of prompts against skill descriptions to catch trigger-vocabulary collisions.
+#@usage     python3 Scripts/check-skill-triggers.py
+#@in        none
+#@out       stdout:N prompts route correctly across M skills
+#@exit      0=all route correctly 1=a mis-route
+#@effects   read-only. Run after ANY skill description edit
 """Detects trigger collisions between skill descriptions.
 
 Descriptions are always-on context and are what makes a skill fire. Two skills matching the same

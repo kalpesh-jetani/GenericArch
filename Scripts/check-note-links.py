@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Verify every path referenced by a note exists on disk.
+#@usage     python3 Scripts/check-note-links.py
+#@in        none
+#@out       stdout:checked N paths, M missing
+#@exit      0=all exist 1=missing paths
+#@effects   read-only
 """Every path in .claude/notes/ resolves. Read-only; exits non-zero on a miss.
    python3 Scripts/check-note-links.py
 Skips fenced code and HTML comments: an illustrative path in an example is not a

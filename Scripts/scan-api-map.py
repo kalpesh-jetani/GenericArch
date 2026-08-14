@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Scan sources for endpoints and emit the API-MAP.md inventory rows.
+#@usage     python3 Scripts/scan-api-map.py
+#@in        none
+#@out       stdout:API map rows
+#@exit      0=ok
+#@effects   read-only
 """
 Scan an app's API surface and join it to the screens that call it.
 

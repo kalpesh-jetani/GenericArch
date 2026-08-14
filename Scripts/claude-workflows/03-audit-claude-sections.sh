@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    call
+#@purpose   PHASE 3 audit: inventory sections, symbols, links; detect duplicate headings and anchors.
+#@usage     03-audit-claude-sections.sh <project> <task-id> [--verbose]
+#@in        02-file.env project:str task-id:str
+#@out       03-sections.tsv:tsv(level,start,end,slug,title) 03-symbols.tsv:tsv(kind,line,section,symbol) 03-issues.tsv:tsv(kind,detail,lines) 03-audit.env:kv
+#@exit      0=ok always when readable 2=usage 3=missing-phase-2
+#@effects   read-only
 # PHASE 3 · AUDIT — inventory the target document: sections, API references,
 # components, async patterns, links; detect duplicate headings and anchors.
 #
@@ -13,7 +22,7 @@
 # files.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -30,7 +39,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
 [ "$(kv_get "$FILE_ENV" EXISTS)" = 1 ] || die "target does not exist — nothing to audit:

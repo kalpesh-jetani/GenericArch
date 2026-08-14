@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      util
+#@platform  macos
+#@claude    call
+#@purpose   Bootstrap: register projects and detect per-project config (CLAUDE.md path, Xcode container, schemes, test command).
+#@usage     init-claude-env.sh [--add NAME PATH] [--scan DIR] [--remove NAME] [--list]
+#@in        name:str path:dir
+#@out       .claude/claude-tasks/projects.tsv:tsv(name,root,claude_md,test_cmd,source_glob,xcode_container,schemes)
+#@exit      0=ok 1=bad path 2=usage 3=no-registry
+#@effects   writes the registry only
 # Bootstrap the CLAUDE.md task pipeline: locate projects, record where each
 # one's CLAUDE.md lives, and detect the per-project config the later phases need
 # (source language, test command, component and API source roots).
@@ -15,16 +24,25 @@
 # fix and expensive to hide.
 . "$(dirname "$0")/_common.sh"
 
-usage_text() {
-  sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
-}
+usage_text() { usage_from "$0"; }
 
 # detect_test_cmd <root> — how this project runs its tests, or empty.
 detect_test_cmd() {
-  if [ -f "$1/Package.swift" ]; then
-    printf 'swift test --package-path .'
-  elif ls "$1"/*.xcodeproj "$1"/*.xcworkspace >/dev/null 2>&1; then
-    printf 'xcodebuild test -scheme <scheme> -destination "platform=iOS Simulator,name=iPhone 15"'
+  # An Xcode container wins over Package.swift: a repo with both is an app whose
+  # packages are built by the app target, and `swift test` there misses the app.
+  _c="$(xcode_container "$1")"
+  if [ -n "$_c" ]; then
+    _s="$(xcode_schemes "$_c" | head -1)"
+    case "$_c" in
+      *.xcworkspace) _flag="-workspace" ;;
+      *)             _flag="-project" ;;
+    esac
+    printf 'xcodebuild test %s %s -scheme %s -destination "platform=iOS Simulator,name=iPhone 16"' \
+      "$_flag" "$(basename "$_c")" "${_s:-<scheme>}"
+  elif [ -f "$1/Package.swift" ]; then
+    # xcrun, not bare swift: on a Mac with several Xcodes installed these are
+    # different toolchains, and the active one is what Xcode itself uses.
+    printf 'xcrun swift test --package-path .'
   elif [ -f "$1/package.json" ]; then
     printf 'npm test'
   elif [ -f "$1/pyproject.toml" ] || [ -f "$1/pytest.ini" ] || [ -f "$1/setup.cfg" ]; then
@@ -51,7 +69,7 @@ detect_source_glob() {
 registry_init() {
   mkdir -p "$TASKS_ROOT" || die "cannot create $TASKS_ROOT"
   [ -f "$REGISTRY" ] && return 0
-  printf '# name\troot\tclaude_md\ttest_cmd\tsource_glob\n' > "$REGISTRY"
+  printf '# name\troot\tclaude_md\ttest_cmd\tsource_glob\txcode_container\tschemes\n' > "$REGISTRY"
   dim "created $REGISTRY"
 }
 
@@ -71,11 +89,14 @@ add_project() {
 
   test_cmd="$(detect_test_cmd "$root")"
   glob="$(detect_source_glob "$root")"
+  container="$(xcode_container "$root")"
+  schemes="$(xcode_schemes "$container" | tr '\n' ',' | sed 's/,$//')"
 
   registry_init
   tmp="$REGISTRY.tmp.$$"
   grep -v "^$name	" "$REGISTRY" > "$tmp" 2>/dev/null || : > "$tmp"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$root" "$claude_md" "$test_cmd" "$glob" >> "$tmp"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$name" "$root" "$claude_md" "$test_cmd" "$glob" "$container" "$schemes" >> "$tmp"
   { grep '^#' "$tmp"; grep -v '^#' "$tmp" | sort -t'	' -k1,1; } > "$REGISTRY"
   rm -f "$tmp"
 
@@ -84,6 +105,14 @@ add_project() {
   info "CLAUDE.md  $claude_md$([ -f "$claude_md" ] || printf ' (absent)')"
   info "tests      ${test_cmd:-— none detected}"
   info "sources    $glob"
+  if [ -n "$container" ]; then
+    info "xcode      $(basename "$container")${schemes:+ · schemes: $schemes}"
+    [ -n "$schemes" ] || warn "no SHARED schemes in $(basename "$container") —
+    Xcode keeps a scheme user-local until you tick Shared in Manage Schemes, and an
+    unshared scheme cannot be named on an xcodebuild command line."
+  else
+    dim "no .xcworkspace or .xcodeproj at the project root"
+  fi
 }
 
 remove_project() {
@@ -119,7 +148,8 @@ list_projects() {
   awk -F'\t' '!/^#/ {
     printf "  %-16s %s\n", $1, $2
     printf "  %-16s CLAUDE.md: %s\n", "", ($3 == "" ? "—" : $3)
-    printf "  %-16s tests:     %s\n\n", "", ($4 == "" ? "—" : $4)
+    printf "  %-16s tests:     %s\n", "", ($4 == "" ? "—" : $4)
+    printf "  %-16s xcode:     %s\n\n", "", ($6 == "" ? "—" : $6)
   }' "$REGISTRY"
   n=$(count_rows "$REGISTRY")
   dim "$n project(s) · $REGISTRY"

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Copy the product-independent tooling layer into another repo.
+#@usage     adopt.sh <target-dir> [--apply]
+#@in        target:dir --apply:flag(without it, dry run)
+#@out       stdout:plan; with --apply, files written into the target
+#@exit      0=ok 1=unaccounted file|missing ref|bad target 2=usage
+#@effects   writes into the TARGET repo when --apply
 # Copy the REUSABLE BASE of GenericArch into another repo — and nothing else.
 #
 #   ./Scripts/adopt.sh /path/to/TargetRepo            # dry run (default)
@@ -51,6 +60,7 @@ BASE="
 .claude/commands
 .claude/INDEX.md
 .claude/MAP.tsv
+.claude/SCRIPTS.tsv
 .swiftlint.yml
 .swiftformat
 Scripts/check.sh
@@ -66,7 +76,8 @@ Scripts/scan-unused-assets.py
 Scripts/scan-api-map.py
 Scripts/check-note-links.py
 Scripts/detect-capabilities.sh
-Scripts/feature-workflow.py
+Scripts/claude-workflows
+Scripts/claude-utils
 Scripts/memory-add.py
 install.sh
 "
@@ -94,12 +105,12 @@ SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/
 # No count here on purpose — a literal number in a comment is what rotted last time.
 REFERENCED="docs/STRUCTURE.md docs/CONVENTIONS.md docs/DONE.md docs/REPO.md docs/DELIVERY.md
 docs/patterns docs/PERFORMANCE.md docs/ADOPTION.md docs/SHARING.md docs/PATTERN-SEARCH.md
-docs/SCAN-TRAPS.md docs/modules"
+docs/SCAN-TRAPS.md docs/CLAUDE-TASKS.md docs/modules"
 # BASE is newline-separated and EXCLUDED is "path|reason" — flatten both to a space-delimited
 # list of bare paths before matching, or every entry looks unaccounted for.
 KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|.*//' | tr '\n' ' ') $SCAFFOLDED "
 unaccounted=""
-for f in $(ls -d docs/*.md docs/modules docs/patterns docs/resources .claude/INDEX.md .claude/MAP.tsv \
+for f in $(ls -d docs/*.md docs/modules docs/patterns docs/resources .claude/INDEX.md .claude/*.tsv \
                  .claude/memory Scripts/* .swiftlint.yml .swiftformat .gitignore \
                  install.sh README.md CLAUDE.md .claude/skills .claude/commands .claude/notes \
                  Packages App 2>/dev/null); do

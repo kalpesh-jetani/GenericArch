@@ -24,6 +24,25 @@ is the mis-fire this table exists to catch.
 Creates a feature package that satisfies CLAUDE.md §3 *Scalable*: adding it edits **zero** other
 features, one line in the composition root, and one case in `Route`.
 
+## 0. Run the scripts first — in this order
+
+**Every step below has a script. Call it; do not re-derive its answer by reading files.**
+`.claude/SCRIPTS.tsv` is the contract — path, inputs, outputs, exit codes. Read a script's
+*body* only when a call fails, then fix it in the same change.
+
+```bash
+grep -i -e feature -e lint -e audit .claude/SCRIPTS.tsv   # 1. which script covers this
+./Scripts/find.sh <ScreenOrRoute>                         # 2. does it already exist?
+./Scripts/claude-utils/init-claude-env.sh --list          # 3. is the project registered?
+./Scripts/claude-workflows/run-task.sh <proj> <task> status  # 4. is a task already open?
+```
+
+Order matters: **2 before 3** (an existing screen means this is `change`, not scaffolding), and
+**4 before any phase** (resuming beats restarting — the artifacts are already on disk).
+
+If no script covers a step you end up doing by hand more than once, say so and offer
+`/learn --script` — it captures the sequence as a registered script for next time.
+
 ## 1. Search the notes first — token efficiency
 
 **Before grepping the codebase, grep `.claude/MAP.tsv`, then read the note it points at:**
@@ -66,20 +85,35 @@ Two cautions:
 
 ## 3. Ask before writing — do not skip
 
-**Walk it as stages, and let the script hold them:**
+**Walk it as nine phases, and let the scripts hold them:**
 
 ```bash
-python3 Scripts/feature-workflow.py start "<the feature>"
-python3 Scripts/feature-workflow.py status     # the stage, what to gather, which tools to use
+./Scripts/claude-utils/init-claude-env.sh --list                    # once, per project
+./Scripts/claude-workflows/run-task.sh <project> <task> 1 --text "<the request, verbatim>"
+./Scripts/claude-workflows/run-task.sh <project> <task> status      # what ran, what is next
 ```
 
-Input → Requirements → Resources *(skippable)* → Approaches → a bulleted action list → **Approve ·
-Improve · Auto**. Each `status` names the tools for that stage; `record`, `skip --reason` and
-`advance` move it on. The state file under `.claude/workflow/` shows what was decided versus what
-was defaulted — which is the point of `--auto`. Delete it when the feature ships.
+| Phase | Does | For a feature |
+|---|---|---|
+| 1 intake | classify, record the request verbatim | `--type feature --target <the doc you are writing>` |
+| 2 locate | resolve the target, record git state | `Feature<Name>.md` (step 8), or CLAUDE.md for a rule |
+| 3 audit | sections, symbols, links, duplicates | pair with `./Scripts/find.sh` and the notes (§1) |
+| 4 plan | validate every edit, flag cross-refs | `04-outline.md` **is** the action list you show |
+| 5 edit | apply — backed up, all-or-nothing | **refuses without `--approve`** |
+| 6 verify | front matter, tables, links, lint | |
+| 7 test | extract snippets, check symbols exist | prints `swift test …`, runs nothing (§2.12) |
+| 8 present | diff, summarised per section | |
+| 9 commit | compose a tagged message | emits a script; never commits (§2.11) |
 
-The stages live in the script, not here, so this file stays readable. Steps 3–9 below are what the
-`requirements` and `approaches` stages draw on.
+**Approve · Improve · Auto** are the phase 4→5 gate: approve is `5 --approve`, improve is re-running
+`4` with corrected `--edit` specs, auto is `all --approve`. Show `04-outline.md` before you ask.
+
+Artifacts live in `.claude/claude-tasks/<project>/<task>/` — untracked working state, one
+file per phase, deleted by `clean --yes` when the feature ships. Full reference:
+[CLAUDE-TASKS.md](../../../docs/CLAUDE-TASKS.md).
+
+The phases live in the scripts, not here. Steps 4–9 below are the Swift substance those phases
+carry — the pipeline sequences the work, it does not replace it.
 
 CLAUDE.md §0. Check `docs/DECISIONS.md` first; if the feature already has a row, follow it and
 don't re-ask.

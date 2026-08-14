@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Scan asset catalogs and code for colour tokens; emit inventory rows.
+#@usage     python3 Scripts/scan-colors.py
+#@in        none
+#@out       stdout:colour rows
+#@exit      0=ok
+#@effects   read-only
 """Colour tokens -> NAME<tab>ANY/LIGHT<tab>DARK. Read-only.
    python3 Scripts/scan-colors.py [root]
 Colorsets store components as float strings or 0x hex; both normalise to #RRGGBB."""

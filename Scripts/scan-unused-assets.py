@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Report asset-catalog entries no source file references.
+#@usage     python3 Scripts/scan-unused-assets.py
+#@in        none
+#@out       stdout:unused asset list
+#@exit      0=ok
+#@effects   read-only
 """Imagesets with no reference anywhere. Read-only.
    python3 Scripts/scan-unused-assets.py [root]
 Output is a list of CANDIDATES, never a verdict - runtime-composed names are

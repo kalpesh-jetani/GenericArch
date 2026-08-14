@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    call
+#@purpose   PHASE 2 locate: resolve the target document, verify access, record git state.
+#@usage     02-find-claude-file.sh <project> <task-id> [--path PATH] [--allow-missing]
+#@in        01-task.env project:str task-id:str
+#@out       02-file.env:kv(TARGET,EXISTS,WRITABLE,LINES,DIGEST,GIT_*)
+#@exit      0=ok 2=usage 3=missing-phase-1|target-unreadable
+#@effects   read-only on the target
 # PHASE 2 · LOCATE — resolve the target document, verify it is readable and
 # writable, and record its git state before anything edits it.
 #
@@ -13,7 +22,7 @@
 # rollback-claude.sh prefer that backup.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -32,7 +41,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-TASK_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 01-task.env 1)"
+TASK_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 01-task.env 1)" || exit $?
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 
 TARGET="$(kv_get "$TASK_ENV" TARGET)"

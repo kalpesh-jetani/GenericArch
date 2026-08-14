@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      util
+#@platform  macos
+#@claude    call
+#@purpose   Markdown formatting standards; --fix applies only the mechanical subset.
+#@usage     claude-lint.sh <file> [--fix] [--max-line N] [--quiet]
+#@in        file:path --fix:flag --max-line:int(default 100)
+#@out       stdout:report(line,rule,detail) + per-rule tally
+#@exit      0=clean 1=problems found 2=usage
+#@effects   read-only unless --fix
 # Cross-phase: enforce markdown formatting standards on a CLAUDE.md-style doc.
 #
 #   ./Scripts/claude-utils/claude-lint.sh <file>
@@ -26,7 +35,7 @@
 # Exit 0 clean · 1 problems found (or fixed) · 2 usage.
 . "$(dirname "$0")/_common.sh"
 
-usage_text() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 FIX=0; QUIET=0; MAXLINE=100; FILE=''
 while [ $# -gt 0 ]; do
@@ -54,15 +63,29 @@ trap 'rm -f "$TMP" "$TMP.f"' EXIT INT TERM
 awk -v maxline="$MAXLINE" '
   function flag(line, rule, detail) { printf "%d\t%s\t%s\n", line, rule, detail }
 
+  # Line length in CHARACTERS. macOS awk counts bytes in the C locale, and setting
+  # LC_ALL does not change it — so every em-dash inflated a line by two and these
+  # docs (full of — · → §) got a page of false positives. Subtracting UTF-8
+  # continuation bytes (0x80–0xBF) gives the character count, and stays correct on
+  # a character-aware awk, where the class matches nothing and n is 0.
+  function dlen(s,   t, n) { t = s; n = gsub(/[\200-\277]/, "", t); return length(s) - n }
+
+  # YAML front matter. Its lines are structural: a skill `description:` is one
+  # long line BY REQUIREMENT, so measuring it against a prose width is noise.
+  FNR == 1 && /^---[ \t]*$/ { fm = 1; next }
+  fm && /^---[ \t]*$/       { fm = 0; next }
+
   /^[ \t]*(```|~~~)/ { fence = !fence; fences++; prev_blank = 0; next }
 
   {
     if ($0 ~ /[ \t]+$/)                  flag(FNR, "trailing-space", "line ends in whitespace")
-    if (!fence && $0 ~ /\t/)             flag(FNR, "hard-tab", "tab outside a code fence")
-    if (length($0) > maxline && !fence) {
-      # A long line that is one unbreakable token (a URL, a path) cannot be
-      # wrapped, so reporting it is noise.
-      if ($0 ~ / /) flag(FNR, "long-line", length($0) " chars (max " maxline ")")
+    if (!fence && !fm && $0 ~ /\t/)      flag(FNR, "hard-tab", "tab outside a code fence")
+    if (dlen($0) > maxline && !fence && !fm) {
+      # Two kinds of long line cannot be wrapped, so reporting them is noise:
+      # a single unbreakable token (a URL or path), and a pipe-table row — markdown
+      # has no continuation syntax for either.
+      if ($0 ~ / / && $0 !~ /^[ \t]*\|/)
+        flag(FNR, "long-line", dlen($0) " chars (max " maxline ")")
     }
 
     if ($0 ~ /^[ \t]*$/) { blanks++; prev_blank = 1 }
@@ -116,6 +139,8 @@ if [ "$QUIET" -eq 0 ]; then
   # different job from ten rules four times each.
   cut -f2 "$TMP" | sort | uniq -c | sort -rn | \
     awk '{printf "  %3d  %s\n", $1, $2}'
+  printf '\n'
+  dim "$(xed_hint "$FILE" "$(sort -t'	' -k1,1n "$TMP" | head -1 | cut -f1)")"
   printf '\n'
 fi
 

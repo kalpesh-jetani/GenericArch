@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    call
+#@purpose   Entry point: run one phase, a range, or a utility of the CLAUDE.md task pipeline.
+#@usage     run-task.sh <project> <task-id> <action> [args...]
+#@in        project:str task-id:str action:1-9|all|next|status|rollback|lint|links|sync|clean|list
+#@out       stdout:report + the artifacts of whichever phase ran
+#@exit      0=ok 1=a phase failed 2=usage 3=precondition 4=needs-approve
+#@effects   delegates; writes only what the invoked phase writes
 # Entry point for the CLAUDE.md task pipeline.
 #
 #   ./Scripts/claude-workflows/run-task.sh <project> <task-id> <action> [args…]
@@ -29,7 +38,7 @@
 # never runs git at all. Both are deliberate (CLAUDE.md §2.11, docs/STRUCTURE.md).
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 UTILS="$HERE/../claude-utils"
@@ -244,9 +253,14 @@ if [ "$ACTION" = all ]; then
   APPROVED=0
   has_flag --approve "$@" && APPROVED=1
 
+  # Capture the status on its own line. Inside `if ! cmd; then rc=$?`, `$?` is the
+  # status of the NEGATION — always 0 — so the pipeline would report every failure
+  # and still exit successfully.
   for n in 1 2 3 4; do
-    run_phase "$n" "$@" || die "phase $n ($(phase_title "$n")) failed — stopping.
-    Fix it, then continue with: run-task.sh $PROJECT $TASK_ID $n" "$?"
+    run_phase "$n" "$@"
+    rc=$?
+    [ "$rc" -eq 0 ] || die "phase $n ($(phase_title "$n")) failed — stopping.
+    Fix it, then continue with: run-task.sh $PROJECT $TASK_ID $n" "$rc"
   done
 
   if [ "$APPROVED" -eq 0 ]; then
@@ -263,12 +277,11 @@ if [ "$ACTION" = all ]; then
   for n in 5 6 7 8 9; do
     # Verify findings are worth stopping for; a lint warning is not, and phase 6
     # already separates the two by exit code.
-    if ! run_phase "$n" "$@"; then
-      rc=$?
-      die "phase $n ($(phase_title "$n")) failed — stopping.
+    run_phase "$n" "$@"
+    rc=$?
+    [ "$rc" -eq 0 ] || die "phase $n ($(phase_title "$n")) failed — stopping.
     Continue with: run-task.sh $PROJECT $TASK_ID $n
     Undo phase 5:  run-task.sh $PROJECT $TASK_ID rollback" "$rc"
-    fi
   done
 
   printf '\n'

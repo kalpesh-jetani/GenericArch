@@ -211,6 +211,17 @@ awk -F'\t' '$2=="module"' .claude/MAP.tsv   # every module doc
 ./Scripts/find.sh SmartLockHomeView         # where is this screen/route/endpoint/asset?
 ```
 
+**Call the script before writing the code** — [`.claude/SCRIPTS.tsv`](.claude/SCRIPTS.tsv)
+registers every script with its inputs, outputs, exit codes and side effects. Grep it,
+call the script, rely on the result. **Never read a script's body to learn what it
+does** — the row is the contract, and the body costs tokens the row already spent.
+Read the body only when a call fails; then fix it, in the same change.
+
+```bash
+grep -i lint .claude/SCRIPTS.tsv              # which script covers this
+awk -F'\t' '$3=="macos"' .claude/SCRIPTS.tsv  # what needs a Mac
+```
+
 **Read the module doc before touching a module.** It holds that module's rules and code shapes.
 
 **Look it up before you search for it** — `./Scripts/find.sh <thing>` greps all nine inventories in

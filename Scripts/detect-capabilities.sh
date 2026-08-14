@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Report which app capabilities and entitlements the project declares.
+#@usage     detect-capabilities.sh
+#@in        none
+#@out       stdout:capability list
+#@exit      0=ok
+#@effects   read-only
 # Evidence scan for the /gaps Path A triage. Read-only: greps, never builds.
 #   ./Scripts/detect-capabilities.sh [source-root]
 # Prints:  STATUS <tab> item <tab> evidence

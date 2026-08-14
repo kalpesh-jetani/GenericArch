@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      util
+#@platform  macos
+#@claude    call
+#@purpose   Resolve every internal link and anchor in a markdown file. Never touches the network.
+#@usage     validate-claude-links.sh <file> [--quiet]
+#@in        file:path
+#@out       stdout:tsv-ish(line,kind,dest,reason) + xed hints
+#@exit      0=all resolve 1=broken links 2=usage
+#@effects   read-only
 # Cross-phase: resolve every internal link in a markdown document.
 #
 #   ./Scripts/claude-utils/validate-claude-links.sh <file> [--quiet]
@@ -19,7 +28,7 @@
 # place — md_sections() in _common.sh — and shared with the audit phase.
 . "$(dirname "$0")/_common.sh"
 
-usage_text() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 QUIET=0; FILE=''
 while [ $# -gt 0 ]; do
@@ -123,6 +132,9 @@ if [ "$BROKEN" -gt 0 ]; then
   printf '\n'
   awk -F'\t' -v r="$RED" -v o="$OFF" \
     '{printf "  %sline %-5s%s %-34s %s\n", r, $1, o, $3, $4}' "$TMP/broken"
+  printf '\n'
+  # Open the first one at its line, so a fix starts in the right place.
+  dim "$(xed_hint "$FILE" "$(head -1 "$TMP/broken" | cut -f1)")"
   printf '\n'
   die "$BROKEN broken link(s)" "$EX_ERR"
 fi

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Generate the publishable Claude Code plugin from .claude/skills and .claude/commands.
+#@usage     build-plugin.sh [version]
+#@in        version:semver(default 0.1.0)
+#@out       dist/genericarch/:dir(plugin.json,marketplace.json,skills,commands,README.md)
+#@exit      0=built
+#@effects   writes dist/ (gitignored)
 # Generate a publishable Claude Code plugin from the canonical .claude/ sources.
 #
 #   ./Scripts/build-plugin.sh            # writes dist/genericarch/

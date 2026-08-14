@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      util
+#@platform  macos
+#@claude    call
+#@purpose   Find skills, commands and docs that quote what a task changed.
+#@usage     sync-claude-skill.sh <project> <task-id> [--write]
+#@in        05-applied.tsv 04-payload-*.old --write:flag(appends a dated marker)
+#@out       sync-report.md:md + stdout file list
+#@exit      0=ok 2=usage 3=nothing-applied
+#@effects   read-only unless --write (then backs each file up first)
 # Post-task: find the skills and commands that quote what this task just changed,
 # so a rule edited in one place does not survive uncorrected in three others.
 #
@@ -16,7 +25,7 @@
 # moved. It backs each one up first. It never edits prose in place.
 . "$(dirname "$0")/_common.sh"
 
-usage_text() { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -34,9 +43,10 @@ while [ $# -gt 0 ]; do
 done
 
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
-APPLIED="$(need_artifact "$PROJECT" "$TASK_ID" 05-applied.tsv 5)"
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
+APPLIED="$(need_artifact "$PROJECT" "$TASK_ID" 05-applied.tsv 5)" || exit $?
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
+require_project "$PROJECT"
 ROOT="$(project_field "$PROJECT" 2)"
 REPORT="$DIR/sync-report.md"
 

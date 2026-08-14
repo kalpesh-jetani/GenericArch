@@ -59,3 +59,8 @@ docs/patterns/feature-complete.md	pattern	close out finish feature retrospective
 .claude/commands/find.md	command	/find lookup where is screen route endpoint asset token search index	Looking up where something is, before grepping the codebase
 .claude/commands/sync-app-notes.md	command	/sync-app-notes rescan rebuild inventory scan	Rebuilding the inventories from a filesystem scan (user-typed only)
 .claude/commands/build.md	command	/build compile test archive scheme	Building, testing or archiving a stage (user-typed only)
+docs/CLAUDE-TASKS.md	cross	claude-tasks pipeline phase intake audit plan apply verify present commit run-task	Driving or debugging the nine-phase CLAUDE.md task pipeline
+Scripts/claude-workflows/run-task.sh	tool	run-task pipeline entry point phase task project workflow	Running any phase of the CLAUDE.md task pipeline
+Scripts/claude-utils/_common.sh	tool	common helpers exit codes kv artifact md_sections md_symbols count	Changing any pipeline script — the shared contract lives here
+.claude/SCRIPTS.tsv	registry	script registry contract input output exit effects which script call	BEFORE writing code that a script already does — grep here first
+Scripts/claude-utils/register-scripts.sh	tool	register regenerate script metadata header sync registry	After adding or changing any script's #@ header

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      lib
+#@platform  macos
+#@claude    call
+#@purpose   Shared library: exit codes, artifact layout, markdown parsing, Xcode helpers. Sourced, never executed.
+#@usage     . Scripts/claude-utils/_common.sh
+#@in        n/a (sourced)
+#@out       functions: die warn ok info dim hdr usage_from kv_set kv_get count_rows count_match md_sections md_symbols xed_hint xcode_container xcode_schemes state_set need_artifact require_project
+#@exit      78=not macOS
+#@effects   none; enforces the macOS guard for every caller
 # Shared helpers for the CLAUDE.md task pipeline. SOURCED, never executed.
 #
 #   . "$(dirname "$0")/../claude-utils/_common.sh"
@@ -8,8 +17,10 @@
 # and a pipeline whose phases disagree about what "failed" means cannot be run
 # unattended.
 #
-# Portable to bash 3.2 (macOS system bash) — no associative arrays, no mapfile,
-# no ${var^^}, no `&>>`. Same constraint as Scripts/check.sh.
+# macOS ONLY, and written to that assumption: bash 3.2 (no associative arrays, no
+# mapfile, no ${var^^}), BSD sed (`sed -i ''`), BSD awk (byte-counting length()),
+# `shasum`, `xed`, `xcrun`. None of this is hedged for GNU userland — the guard
+# below stops the scripts rather than letting them half-work.
 
 # Guard against double-sourcing: run-task.sh sources this, then invokes phases
 # that source it again as children. Harmless, but re-running the tty probe per
@@ -18,6 +29,17 @@
 GA_COMMON_LOADED=1
 
 set -u
+
+# ── macOS only ─────────────────────────────────────────────────────────────
+# This pipeline targets Apple-platform development from Xcode, and its text
+# handling assumes BSD tools. On GNU userland `sed -i ''` corrupts arguments and
+# BSD/GNU awk disagree on length() — failures that look like bad data rather than
+# a wrong platform. Refuse up front instead.
+if [ "$(uname -s)" != Darwin ]; then
+  printf 'These scripts are macOS-only (found: %s).\n' "$(uname -s)" >&2
+  printf 'They assume bash 3.2, BSD sed/awk, shasum, and the Xcode command-line tools.\n' >&2
+  exit 78                                   # EX_CONFIG — wrong platform, not a bug
+fi
 
 # ── Exit codes ─────────────────────────────────────────────────────────────
 # A caller must be able to tell "this phase found problems" from "this phase
@@ -40,7 +62,16 @@ fi
 # die <message> [exit-code]
 # Every failure path goes through here so no script exits silently on a
 # condition another script would have reported.
-die()  { printf '%s✗ %s%s\n' "$RED" "$1" "$OFF" >&2; exit "${2:-$EX_ERR}"; }
+#
+# A code of 0 (or a non-number) is coerced to EX_ERR: `die "…" "$?"` where $? has
+# already been clobbered would otherwise print an error and exit SUCCESSFULLY,
+# which is the one outcome worse than either.
+die() {
+  printf '%s✗ %s%s\n' "$RED" "$1" "$OFF" >&2
+  _dc="${2:-$EX_ERR}"
+  case "$_dc" in ''|*[!0-9]*|0) _dc="$EX_ERR" ;; esac
+  exit "$_dc"
+}
 warn() { printf '%s⚠ %s%s\n' "$YEL" "$1" "$OFF" >&2; }
 ok()   { printf '%s✓ %s%s\n' "$GRN" "$1" "$OFF"; }
 info() { printf '  %s\n' "$1"; }
@@ -49,6 +80,57 @@ hdr()  { printf '\n%s── %s%s\n' "$BLD" "$1" "$OFF"; }
 
 # usage <exit-code> — scripts define usage_text(); this prints and exits.
 usage() { usage_text >&2; exit "${1:-$EX_USAGE}"; }
+
+# usage_from <script> — the leading comment block as help text: shebang dropped,
+# `#@` metadata rows dropped, comment markers stripped, stopping at the first line
+# that is not a comment.
+#
+# Replaces the hardcoded `sed -n '2,17p'` each script used to carry. Those ranges
+# silently truncated the moment a line was added above them, and a help text that
+# quietly loses its last three lines is worse than one that is missing.
+usage_from() {
+  awk '
+    NR == 1 && /^#!/ { next }
+    /^#@/            { next }
+    /^#/             { sub(/^#[ ]?/, ""); print; next }
+    { exit }
+  ' "$1"
+}
+
+# ── Xcode ──────────────────────────────────────────────────────────────────
+# xed_hint <file> [line] — the command that opens a finding where it lives.
+# Printed, never run: a script that took over the user's editor would be a
+# surprise, and §2.12 keeps this tooling out of the IDE's way.
+xed_hint() {
+  if [ -n "${2:-}" ]; then
+    printf 'xed -l %s %s\n' "$2" "$1"
+  else
+    printf 'xed %s\n' "$1"
+  fi
+}
+
+# xcode_container <root> — the .xcworkspace, else the .xcodeproj, else empty.
+# Read off the filesystem; never shells out to xcodebuild, which would be a build
+# invocation (§2.12).
+xcode_container() {
+  for _x in "$1"/*.xcworkspace; do
+    [ -d "$_x" ] && { printf '%s\n' "$_x"; return 0; }
+  done
+  for _x in "$1"/*.xcodeproj; do
+    [ -d "$_x" ] && { printf '%s\n' "$_x"; return 0; }
+  done
+  return 0
+}
+
+# xcode_schemes <container> — shared scheme names, from the filenames on disk.
+# `xcodebuild -list` would be authoritative and would also be a build invocation.
+xcode_schemes() {
+  [ -n "${1:-}" ] || return 0
+  for _s in "$1"/xcshareddata/xcschemes/*.xcscheme; do
+    [ -f "$_s" ] || continue
+    printf '%s\n' "$(basename "$_s" .xcscheme)"
+  done
+}
 
 now()   { date +%Y-%m-%dT%H:%M:%S; }
 today() { date +%Y-%m-%d; }
@@ -167,13 +249,28 @@ state_get() {
 # ── Preconditions ──────────────────────────────────────────────────────────
 # need_artifact <project> <task> <artifact-name> <producing-phase-hint>
 # A phase that reads a missing artifact must say which phase to run, not just
-# "file not found". Exit 3 so run-task.sh can distinguish it from a real fault.
+# "file not found".
+#
+# RETURNS rather than dies, and callers must write:
+#     FOO="$(need_artifact … )" || exit $?
+# because this is always used inside a command substitution, and `exit` there
+# terminates only the subshell — the script would print the error and carry on
+# with an empty variable. Returning EX_PRECOND makes the assignment carry the
+# status, so `|| exit $?` stops the phase with the right code.
 need_artifact() {
   _f="$(task_dir "$1" "$2")/$3"
-  [ -f "$_f" ] || die "missing $3 — run phase $4 first:
-    ./Scripts/claude-workflows/run-task.sh $1 $2 $4" "$EX_PRECOND"
+  if [ ! -f "$_f" ]; then
+    printf '%s✗ missing %s — run phase %s first:\n    ./Scripts/claude-workflows/run-task.sh %s %s %s%s\n' \
+      "$RED" "$3" "$4" "$1" "$2" "$4" "$OFF" >&2
+    return "$EX_PRECOND"
+  fi
   printf '%s\n' "$_f"
 }
+
+# require_project <name> — die (in the CALLER, not a subshell) if unregistered.
+# Call this before the first project_field use: that one is a substitution too,
+# so its own die cannot stop the script.
+require_project() { registry_row "$1" >/dev/null; }
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "required command not found: $1" "$EX_PRECOND"

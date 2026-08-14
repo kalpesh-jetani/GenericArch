@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    call
+#@purpose   PHASE 1 intake: classify a request and record it verbatim.
+#@usage     01-parse-claude-task.sh <project> <task-id> (--text STR|--file PATH|-) [--type T] [--target PATH] [--sections CSV]
+#@in        project:str task-id:str request:str|path|stdin
+#@out       01-task.env:kv(TASK_TYPE,TARGET,SECTION_HINTS,TASK_SCOPE) 01-request.txt:text
+#@exit      0=ok 2=usage
+#@effects   writes task dir
 # PHASE 1 · INTAKE — extract task type, scope, target document, affected sections
 # from a request in the user's own words.
 #
@@ -17,7 +26,7 @@
 # document's real headings and is where a wrong guess gets caught.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -52,6 +61,7 @@ done
 # The project must be registered before a task can target it: the registry is
 # what supplies the CLAUDE.md path, and inventing one here would let a typo
 # create a task pointed at a file that does not exist.
+require_project "$PROJECT"
 ROOT="$(project_field "$PROJECT" 2)"
 TARGET="$(project_field "$PROJECT" 3)"
 [ -n "$TARGET_OVERRIDE" ] && TARGET="$TARGET_OVERRIDE"

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      workflow
+#@platform  macos
+#@claude    call
+#@purpose   PHASE 8 present: produce the diff and summarise it per section.
+#@usage     08-present-claude-diff.sh <project> <task-id> [--full] [--stage]
+#@in        02-file.env 05-backup/latest --full:flag --stage:flag(runs git add)
+#@out       08-diff.patch:patch 08-summary.md:md 08-present.env:kv(ADDED,REMOVED)
+#@exit      0=ok 2=usage 3=missing-phase-2
+#@effects   read-only unless --stage (git add only; never commits)
 # PHASE 8 · PRESENT — produce the diff, summarise it per section, and stage it
 # for review.
 #
@@ -19,7 +28,7 @@
 # runs anything at all.
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
-usage_text() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; }
+usage_text() { usage_from "$0"; }
 
 [ $# -ge 2 ] || usage
 case "$1" in -h|--help) usage "$EX_OK" ;; esac
@@ -37,7 +46,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)"
+FILE_ENV="$(need_artifact "$PROJECT" "$TASK_ID" 02-file.env 2)" || exit $?
 DIR="$(task_dir "$PROJECT" "$TASK_ID")"
 TARGET="$(kv_get "$FILE_ENV" TARGET)"
 GIT_TOP="$(kv_get "$FILE_ENV" GIT_TOPLEVEL)"

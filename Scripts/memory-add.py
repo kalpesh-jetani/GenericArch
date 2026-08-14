@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Append a memory to .claude/memory/ with frontmatter and index it.
+#@usage     python3 Scripts/memory-add.py --type T --name N --description D [body]
+#@in        type:project|feedback|reference name:slug description:str body:text
+#@out       .claude/memory/<name>.md + an INDEX.md row
+#@exit      0=written 2=usage
+#@effects   writes .claude/memory/
 """Write one repo memory and its index row, atomically.
 
     python3 Scripts/memory-add.py --name <slug> --type project|reference|feedback \\

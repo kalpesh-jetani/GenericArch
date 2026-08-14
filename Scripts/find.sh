@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   One-call lookup across the .claude/notes/ inventories.
+#@usage     find.sh <term> [more terms...]
+#@in        term:str
+#@out       stdout:matching note rows; miss prints the MAP.tsv route and a code-search fallback
+#@exit      0=hits 1=no row found 2=usage
+#@effects   read-only
 # One-call lookup across the .claude/notes/ index.
 #   ./Scripts/find.sh <term> [more terms…]
 #

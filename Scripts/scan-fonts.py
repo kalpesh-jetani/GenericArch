@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#@kind      tool
+#@platform  macos
+#@claude    call
+#@purpose   Scan for font files and registration; emit inventory rows.
+#@usage     python3 Scripts/scan-fonts.py
+#@in        none
+#@out       stdout:font rows
+#@exit      0=ok
+#@effects   read-only
 """PostScript + family names read from each font's `name` table. Read-only.
    python3 Scripts/scan-fonts.py [root]
 Never infer these from the filename - a mismatch fails silently at runtime."""

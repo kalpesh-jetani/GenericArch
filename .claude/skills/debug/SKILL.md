@@ -12,6 +12,32 @@ file instead of improvising, and offer `/learn <pattern>` if it is now worth pro
 **Narrow to a layer before opening a file.** The symptom usually names the layer; reading code first
 means reading the wrong file.
 
+## 0. Run the scripts first — in this order
+
+**A script answers most of step 2 without reading any code.** `.claude/SCRIPTS.tsv` gives each one's
+inputs, outputs and exit codes; call it and rely on the result rather than reading its body.
+
+```bash
+./Scripts/find.sh <ScreenOrRouteOrKey>          # 1. where does this thing live?
+grep -i <symptom-word> .claude/SCRIPTS.tsv      # 2. is there a script for this symptom?
+./Scripts/notes-staleness.sh                    # 3. are the notes lying to you?
+```
+
+Then the symptom-specific ones, only the one that matches:
+
+| Symptom is about | Call | Reads |
+|---|---|---|
+| A raw localization key on screen | `python3 Scripts/scan-api-map.py` neighbours, then [LocalizationKit.md](../../../docs/modules/LocalizationKit.md) | — |
+| A colour wrong in dark mode | `python3 Scripts/scan-colors.py` | asset catalogs |
+| A font rendering as system | `python3 Scripts/scan-fonts.py` | font files + registration |
+| An asset that never appears | `python3 Scripts/scan-unused-assets.py` | catalog vs source refs |
+| A doc or link that misleads | `./Scripts/claude-utils/validate-claude-links.sh <file>` | that file |
+
+**Never run `./Scripts/check.sh`** — it compiles the iOS floor (CLAUDE.md §2.12). Tell the user to
+run it; its registry row records this.
+
+Findings print an `xed -l <line> <file>` hint — open it there rather than hunting for the line.
+
 ## 1. Symptom index — check here first
 
 Most reported symptoms in this architecture have one likely cause, and it is rarely where the
