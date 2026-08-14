@@ -1,6 +1,6 @@
 # GenericArch
 
-Reference architecture for building **iPhone / iPad / Mac** apps from one shared codebase.
+Reference architecture for building **iPhone / iPad / Mac** apps usoing CLAUDE from one shared codebase.
 
 This repo is the blueprint. Every package in it is meant to be reusable, replaceable, and droppable
 into a new product with minimal change.
