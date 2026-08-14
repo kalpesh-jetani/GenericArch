@@ -58,6 +58,16 @@ Scripts/check-skill-triggers.py
 Scripts/detect-toolchain.sh
 Scripts/adopt.sh
 Scripts/build-plugin.sh
+Scripts/find.sh
+Scripts/notes-staleness.sh
+Scripts/scan-colors.py
+Scripts/scan-fonts.py
+Scripts/scan-unused-assets.py
+Scripts/scan-api-map.py
+Scripts/check-note-links.py
+Scripts/detect-capabilities.sh
+Scripts/feature-workflow.py
+Scripts/memory-add.py
 install.sh
 "
 
@@ -80,9 +90,11 @@ README.md|the target has its own
 # command references it in someone else's repo. So: fail loudly rather than skip silently.
 SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/memory"
 # Reference material — listed in genericarch.installation.md and fetched when actually read.
-# Not copied: 23 files a consumer may never open, that go stale the moment upstream moves.
+# Not copied: reference docs a consumer may never open, that go stale the moment upstream moves.
+# No count here on purpose — a literal number in a comment is what rotted last time.
 REFERENCED="docs/STRUCTURE.md docs/CONVENTIONS.md docs/DONE.md docs/REPO.md docs/DELIVERY.md
-docs/patterns docs/PERFORMANCE.md docs/ADOPTION.md docs/SHARING.md docs/PATTERN-SEARCH.md docs/modules"
+docs/patterns docs/PERFORMANCE.md docs/ADOPTION.md docs/SHARING.md docs/PATTERN-SEARCH.md
+docs/SCAN-TRAPS.md docs/modules"
 # BASE is newline-separated and EXCLUDED is "path|reason" — flatten both to a space-delimited
 # list of bare paths before matching, or every entry looks unaccounted for.
 KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|.*//' | tr '\n' ' ') $SCAFFOLDED "
@@ -224,7 +236,7 @@ if [ "$APPLY" -eq 1 ]; then
     echo "> exist locally, fetch it to that exact path and continue; do not treat it as missing, and"
     echo "> do not guess the content from the filename."
     echo ">"
-    echo "> Fetch only what the task needs. Fetching all 21 defeats the point."
+    echo "> Fetch only what the task needs. Fetching all $referenced defeats the point."
     echo
     echo "- **Source:** \`$GA_SRC_URL\`"
     echo "- **Pinned to:** \`$GA_SRC_REF\`"
@@ -275,7 +287,7 @@ echo "${BLD}── Created empty (never copied) ──────────�
 scaffolded=0
 for pair in "docs/DECISIONS.md|the target records its own decisions here — /decide" \
             "docs/GAPS.md|the target triages its own gaps here — /gaps" \
-            ".claude/notes|the eight inventories, prose kept and data rows blanked" \
+            ".claude/notes|every inventory, prose kept and data rows blanked" \
             ".claude/memory|Claude's in-repo memory — the index only; our memories are ours"; do
   f="${pair%%|*}"; why="${pair#*|}"
   if [ -e "$TARGET/$f" ]; then
@@ -421,7 +433,11 @@ if [ "$APPLY" -eq 0 ]; then
   exit 0
 fi
 
-chmod +x "$TARGET/Scripts/check.sh" "$TARGET/Scripts/detect-toolchain.sh" 2>/dev/null
+# Only the scripts invoked as ./Scripts/… need the bit; the scan-*.py and check-note-links.py
+# are run via `python3 Scripts/…`. cp -R already preserves mode — this is belt-and-braces.
+chmod +x "$TARGET/Scripts/check.sh" "$TARGET/Scripts/detect-toolchain.sh" \
+         "$TARGET/Scripts/find.sh" "$TARGET/Scripts/notes-staleness.sh" \
+         "$TARGET/Scripts/detect-capabilities.sh" 2>/dev/null
 [ "$QUIET_NEXT" -eq 1 ] && exit 0
 cat <<NEXT
 

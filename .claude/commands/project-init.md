@@ -398,6 +398,35 @@ Then fill by hand what no scan can know: the marketing version in `Base.xcconfig
 can find the authoritative rules: "Grep .claude/MAP.tsv for the module doc" or "See CLAUDE.md §2.3
 on localization keys" or "See CLAUDE.md §8 on accessibility."
 
+## S3c. Seed memory from what init learned
+
+Setup discovers things no file records afterwards, and the next session starts blind without them.
+Seed them now, while they are still in front of you:
+
+```bash
+python3 Scripts/memory-add.py --name <slug> --type project|reference|feedback \
+        --description "<one line>" --body "<the fact>"
+```
+
+It writes the memory **and** its index row together — the row is the half that gets forgotten, and
+`.claude/memory/INDEX.md` is explicit that a memory without one is a memory nobody finds.
+
+**Seed only what the repo does not already record.** The stack is in
+[PROJECT.md](../notes/PROJECT.md); settled choices are in `docs/DECISIONS.md`. Duplicating either
+creates two sources that drift. What qualifies is the *how to apply* — the thing a reader of
+DECISIONS.md still would not know:
+
+| Worth a memory | Not worth one |
+|---|---|
+| "Repo ships CocoaPods; the SPM rule was adopted new-code-only — do not propose migrating existing pods" | "This project uses CocoaPods" *(detectable)* |
+| "Storyboard-heavy; the SwiftUI rule applies to new screens only" | "Minimum iOS is 16.6" *(PROJECT.md)* |
+| A rule the user overrode during S0, and the reason they gave | The decision itself *(DECISIONS.md)* |
+
+Two or three is a good seed. `type: user` is refused by the script — who a developer is stays
+machine-local and is never committed.
+
+**Do this after S3**, so anything the inventories now answer does not get written twice.
+
 ## S3b. Establish the pattern-search pattern
 
 **The `.claude/notes/` files are your searchable index.** Claude does *not* load them automatically —

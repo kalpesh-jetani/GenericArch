@@ -66,6 +66,21 @@ Two cautions:
 
 ## 3. Ask before writing — do not skip
 
+**Walk it as stages, and let the script hold them:**
+
+```bash
+python3 Scripts/feature-workflow.py start "<the feature>"
+python3 Scripts/feature-workflow.py status     # the stage, what to gather, which tools to use
+```
+
+Input → Requirements → Resources *(skippable)* → Approaches → a bulleted action list → **Approve ·
+Improve · Auto**. Each `status` names the tools for that stage; `record`, `skip --reason` and
+`advance` move it on. The state file under `.claude/workflow/` shows what was decided versus what
+was defaulted — which is the point of `--auto`. Delete it when the feature ships.
+
+The stages live in the script, not here, so this file stays readable. Steps 3–9 below are what the
+`requirements` and `approaches` stages draw on.
+
 CLAUDE.md §0. Check `docs/DECISIONS.md` first; if the feature already has a row, follow it and
 don't re-ask.
 
