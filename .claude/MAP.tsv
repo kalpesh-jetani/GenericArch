@@ -64,3 +64,5 @@ Scripts/claude-workflows/run-task.sh	tool	run-task pipeline entry point phase ta
 Scripts/claude-utils/_common.sh	tool	common helpers exit codes kv artifact md_sections md_symbols count	Changing any pipeline script — the shared contract lives here
 .claude/SCRIPTS.tsv	registry	script registry contract input output exit effects which script call	BEFORE writing code that a script already does — grep here first
 Scripts/claude-utils/register-scripts.sh	tool	register regenerate script metadata header sync registry	After adding or changing any script's #@ header
+Scripts/claude-utils/survey-repo.sh	tool	survey migrate migration revise existing repo score match adopt legacy	Before adopting into an existing repo — is this a revision or a migration?
+Scripts/claude-utils/audit-feature.sh	tool	audit feature package existing recommendations rules conformance	Reviewing a feature package that already exists
