@@ -144,10 +144,15 @@ header and the registry is **generated** from those headers — so it cannot dri
 describes.
 
 ```bash
-grep -i lint .claude/SCRIPTS.tsv                # which script covers this
+./Scripts/find-script.sh "are the notes stale"  # which script answers this question
+grep -i lint .claude/SCRIPTS.tsv                # which script covers this word
 awk -F'\t' '$4!="call"' .claude/SCRIPTS.tsv     # what the agent must not simply run
 ./Scripts/claude-utils/register-scripts.sh --check   # CI: fail if a header changed
 ```
+
+`grep` only works if you guess the word the author used. The optional `#@when` field carries the
+trigger phrases someone would actually *ask*, and `find-script.sh` scores against those first —
+which is why "is the memory store consistent" reaches `verify-memory.sh` without knowing its name.
 
 The point is what the agent *stops* doing. **It never reads a script's body to find out what the
 script does** — the row says, and the body would cost tokens the row already spent. It calls the
@@ -191,6 +196,12 @@ three times. On a real app that is **−21% across the nine notes, −47% on `FE
 ### Skills — these fire on their own when the situation matches
 
 You never type these. They activate from their description when what you're doing matches.
+
+There are deliberately few, because **anything expressible as a script is a script.** A skill costs
+context every session through its description; a script costs nothing until it is called, and its
+registry row is generated from its own header rather than written twice. A skill earns its place
+only when it encodes judgement a script cannot — an order of operations, a decision about what to
+do next — never when it is really a lookup table of which tool to reach for.
 
 | Skill | Fires when | What it stops you doing |
 |---|---|---|
@@ -338,7 +349,7 @@ several Xcodes those are different toolchains and a snippet can pass with one an
 it names the active `xcode-select -p` for that reason. Findings print `xed -l <line> <file>`, so a
 reported line opens in Xcode where it lives.
 
-### Five rules the agent follows without being asked
+### Six rules the agent follows without being asked
 
 - **`CLAUDE.md` is never edited without your explicit approval** — it loads into every session, so a
   change there alters every future response.
@@ -350,6 +361,10 @@ reported line opens in Xcode where it lives.
 - **It calls a script rather than reading it.** `.claude/SCRIPTS.tsv` states each script's inputs
   and outputs, so the agent relies on the result instead of opening the body or re-deriving the
   answer. It reads a script only when a call fails — and then it fixes it.
+- **It looks for a script before writing one.** `find-script.sh` runs first; only on a miss does it
+  improvise, and then the pipeline is staged for that session alone. A second session needing the
+  same thing is what promotes it into `Scripts/` — one session repeating itself is a one-off, not a
+  capability.
 
 ---
 
@@ -359,7 +374,7 @@ reported line opens in Xcode where it lives.
 |---|---|
 | Know the rules before writing code | [CLAUDE.md](CLAUDE.md) |
 | Find the doc for a topic | `grep -i <topic> .claude/MAP.tsv` |
-| Find *which script already does this* | `grep -i <verb> .claude/SCRIPTS.tsv` |
+| Find *which script already does this* | `./Scripts/find-script.sh "<what you want>"` |
 | Find *where something is* — a screen, route, endpoint, asset | `/find <name>` |
 | Edit a `CLAUDE.md` under a record | [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md) |
 | Know why a scan is written the way it is | [docs/SCAN-TRAPS.md](docs/SCAN-TRAPS.md) |
@@ -384,7 +399,9 @@ docs/patterns/       procedures not yet skills — /learn promotes one when it e
 docs/SCAN-TRAPS.md   why each scan is shaped as it is — read only to change one
 docs/CLAUDE-TASKS.md the nine-phase pipeline: contracts, gates, and how to add a phase
 .claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable
-.claude/SCRIPTS.tsv  the script registry: inputs, outputs, exit codes — GENERATED, never hand-edited
+.claude/SCRIPTS.tsv  the script registry: inputs, outputs, exit codes, trigger phrases — GENERATED
+.claude/CANDIDATES.tsv  cross-session recurrence ledger — tracked, because it is what observes that
+                     a SECOND session needed the same thing. Staged scripts themselves are not
 .claude/notes/       nine inventories generated from the code (features, routes, API map, images,
                      colours, fonts, tokens, schemes, targets) — grepped, never read
 .claude/memory/      what earlier sessions learned — in-repo and tracked, so it survives a clone
