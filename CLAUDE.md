@@ -306,7 +306,9 @@ the diff. Do not declare completion from memory of the checklist — the items m
 the ones that feel already handled.
 
 If something can't be checked here (device, VoiceOver, Mac resize), **say what was skipped**.
-Build and test: `/build`.
+Build and test: `/build` — the sanctioned §2.12 exception; it resolves scheme and destination. A
+package has no scheme: `swift build|test --package-path Packages/<Name>`, plus `--filter <Pattern>`
+for a single test.
 
 ---
 
