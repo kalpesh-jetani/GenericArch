@@ -28,3 +28,7 @@ for f in sorted(glob.glob(".claude/notes/*.md")):
             if not (os.path.exists(os.path.join(base, p)) or os.path.exists(p)):
                 bad += 1; print("MISSING  %-22s -> %s" % (os.path.basename(f), p))
 print("checked %d paths, %d missing" % (tot, bad))
+# The #@exit header and this file's own docstring both promise non-zero on a miss. Without this
+# the promise was cosmetic: a CI job or a caller branching on $? passed while notes pointed at
+# files that no longer existed.
+raise SystemExit(1 if bad else 0)

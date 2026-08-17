@@ -75,4 +75,7 @@ if [ "$any_stale" -eq 1 ]; then
 else
   echo "Every note is current - nothing to rescan."
 fi
-exit 0
+
+# The #@exit header declares 0=fresh 1=stale. This was an unconditional `exit 0`, so any gate
+# branching on $? reported fresh while notes were stale.
+exit "$any_stale"

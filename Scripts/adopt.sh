@@ -79,6 +79,7 @@ Scripts/detect-capabilities.sh
 Scripts/claude-workflows
 Scripts/claude-utils
 Scripts/memory-add.py
+Scripts/verify-memory.sh
 install.sh
 "
 
@@ -342,9 +343,26 @@ PY
   done
 fi
 
+# Scaffolded, not copied — docs/SHARING.md §3: "our memories are ours". The contract prose (the
+# format, the type table, what may not be stored) is what travels; the index ROWS are this
+# product's facts and must not. A verbatim copy leaves the target with rows pointing at memory
+# files that were deliberately not copied, which Scripts/verify-memory.sh reports as orphan-row
+# on the target's very first run.
 if [ "$APPLY" -eq 1 ] && [ ! -e "$TARGET/.claude/memory" ]; then
   mkdir -p "$TARGET/.claude/memory"
-  cp "$SRC/.claude/memory/INDEX.md" "$TARGET/.claude/memory/INDEX.md"
+  awk '
+    /^## Index/      { inindex = 1 }
+    inindex && /^\|/ {
+      if (!seeded) {
+        print "| Memory | What it holds |"
+        print "|---|---|"
+        print "| — | — |"
+        seeded = 1
+      }
+      next
+    }
+    { print }
+  ' "$SRC/.claude/memory/INDEX.md" > "$TARGET/.claude/memory/INDEX.md"
 fi
 
 if [ "$APPLY" -eq 1 ]; then

@@ -53,7 +53,16 @@ structure, and they are not yours:
 - `docs/DECISIONS.md` — delete the per-product rows, keep the toolchain ones
 - `docs/GAPS.md` — reset statuses to ▶ Open, then run `/gaps`
 - `.claude/notes/*` — clear the table bodies; they describe *this* app's screens and assets
-- `.claude/memory/` — delete every file except `INDEX.md`; those memories are about this repo
+- `.claude/memory/` — delete every file except `INDEX.md`, **and empty its `## Index` table**;
+  those memories are about this repo. Deleting the files while leaving their rows behind is the
+  common mistake — `./Scripts/verify-memory.sh` reports it as `orphan-row` and exits 1
+
+```bash
+./Scripts/verify-memory.sh   # 0 once the store is yours; 1 lists exactly what is still inherited
+```
+
+`./Scripts/adopt.sh` (path C) does this reset for you — it scaffolds an empty index rather than
+copying ours. Only the template path above needs the manual step.
 
 ### B. Existing project — from inside your repo
 
@@ -245,6 +254,17 @@ argument, so `sed -i ''` silently eats the next one; BSD and GNU `awk` disagree 
 a line-length rule reports different numbers on each. Both read as bad data rather than the wrong
 machine.
 
+**The exit code is the contract.** Every `#@exit` header in the registry is what a gate branches
+on, so these four compose into a check that needs no Xcode and no network — unlike
+`check.sh`, which compiles:
+
+```bash
+./Scripts/claude-utils/register-scripts.sh --check   # a #@ header drifted from the registry
+./Scripts/verify-memory.sh                           # the memory store lost its bijection
+python3 Scripts/check-note-links.py                  # a note points at a file that is gone
+./Scripts/notes-staleness.sh                         # an inventory is older than its code
+```
+
 **Don't memorise this table — grep the registry.** It is here for orientation.
 
 | Script | Does |
@@ -259,6 +279,8 @@ machine.
 | `./Scripts/scan-api-map.py` | API surface → screen. Finds the router **from the call sites**, not by filename |
 | `./Scripts/scan-colors.py`, `scan-fonts.py`, `scan-unused-assets.py` | The scans behind `/sync-app-notes`; run standalone to check one inventory |
 | `./Scripts/check-note-links.py` | Every path in every note resolves |
+| `./Scripts/memory-add.py` | Writes a memory **and** its index row — the row is the half that gets forgotten |
+| `./Scripts/verify-memory.sh` | The other half: every memory has a row, every row has a file, frontmatter is valid, no `type: user` was committed |
 | `./Scripts/detect-capabilities.sh` | Evidence scan behind `/gaps` — analytics, crash reporting, StoreKit, biometrics… |
 | `./Scripts/claude-utils/register-scripts.sh` | Regenerates `.claude/SCRIPTS.tsv` from every `#@` header; `--check` fails when one drifted |
 
