@@ -86,7 +86,7 @@ never a fixed point size, or Dynamic Type stops working.
 // ✅ scales with Dynamic Type to XXXL
 static let appTitle = Font.custom("Inter-SemiBold", size: 22, relativeTo: .title2)
 
-// ❌ frozen — Dynamic Type stops working (CLAUDE.md §8)
+// ❌ frozen — Dynamic Type stops working (docs/DONE.md)
 static let appTitle = Font.custom("Inter-SemiBold", size: 22)
 ```
 

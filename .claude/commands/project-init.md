@@ -437,8 +437,10 @@ turn — they live in context. Teach Claude to search them first before calling 
 1. When Claude adds a feature, screen, route, component, or asset, the `.claude/notes/` row goes in the
    **same change** as the code (not a separate rescan).
 2. Each row is complete: name · file path · description · status. Paths must be exact and verified.
-3. Back-link to CLAUDE.md: "See CLAUDE.md §2.1 — features never import each other" or "See CLAUDE.md
-   §8 on accessibility for every interactive element ≥44×44pt."
+3. Back-link to the file that STATES the rule — CLAUDE.md for a §2 rule, `docs/DONE.md` for a
+   checklist item: "See CLAUDE.md §2.1 — features never import each other" or "See DONE.md —
+   ≥44×44pt on every interactive element". Cite where the text actually lives, or the note ages
+   into a pointer that resolves and misleads.
 
 **Token-efficient workflow:**
 1. **Search the notes first** — "Is FooFeature in FEATURES.md? Does NAVIGATION.md list the FooScreen

@@ -41,8 +41,9 @@ other — a colorset with only an "Any" appearance is a bug this table makes vis
 
 ## Contrast
 
-Body text must be ≥ **4.5:1** against the surface it sits on (CLAUDE.md §8), in **both**
-appearances — a token that passes in light and fails in dark is the common failure.
+Body text must be ≥ **4.5:1** against the surface it sits on
+([DONE.md](../../docs/DONE.md)), in **both** appearances — a token that passes in light and
+fails in dark is the common failure.
 
 **There is deliberately no contrast column here.** The ratio is asserted by a token test, and a
 hand-maintained column duplicating a test result drifts and then gets believed. The test is the
