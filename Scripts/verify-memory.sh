@@ -8,6 +8,7 @@
 #@out       stdout:tsv(file,rule,detail) one violation per line, then a per-rule tally
 #@exit      0=consistent 1=violations found 2=usage 3=tool missing
 #@effects   read-only. Never touches the network and never invokes a compiler.
+#@when      memory consistent|check memory|memory index broken|orphan memory|is the memory store ok|verify memory
 
 # Why this exists: Scripts/memory-add.py validates a memory as it is WRITTEN, but nothing
 # re-checks the store afterwards. Hand edits, merge conflicts and a fresh adopt.sh install are

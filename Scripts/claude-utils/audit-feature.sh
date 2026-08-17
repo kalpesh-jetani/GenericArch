@@ -8,6 +8,7 @@
 #@out       stdout:findings grouped by severity, each with a recommendation + xed hint; --tsv emits severity,rule,file,line,finding,fix
 #@exit      0=clean 1=findings 2=usage 3=not a feature package
 #@effects   read-only. Never compiles (CLAUDE.md 2.12) and never edits the feature
+#@when      audit a feature|does this feature follow the rules|feature violations
 # Audit an existing feature package and say what to change.
 #
 #   ./Scripts/claude-utils/audit-feature.sh FeatureSettings

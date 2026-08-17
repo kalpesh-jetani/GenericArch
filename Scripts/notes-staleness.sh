@@ -8,6 +8,7 @@
 #@out       stdout:per-note staleness
 #@exit      0=fresh 1=stale notes found
 #@effects   read-only
+#@when      are the notes stale|do the notes lie|which inventory is out of date|notes current
 # Which notes are stale, and why. Read-only.
 #   ./Scripts/notes-staleness.sh [source-root]
 #

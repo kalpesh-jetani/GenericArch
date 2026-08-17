@@ -8,6 +8,7 @@
 #@out       stdout:resolved stack values
 #@exit      0=ok
 #@effects   read-only
+#@when      what is the stack|min ios version|which xcode|swift version|toolchain
 # Determine the tech stack this repo actually uses — never assume one.
 #
 #   ./Scripts/detect-toolchain.sh              # full report

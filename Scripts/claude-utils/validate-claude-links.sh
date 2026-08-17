@@ -8,6 +8,7 @@
 #@out       stdout:tsv-ish(line,kind,dest,reason) + xed hints
 #@exit      0=all resolve 1=broken links 2=usage
 #@effects   read-only
+#@when      broken links in a doc|do the links resolve|check anchors
 # Cross-phase: resolve every internal link in a markdown document.
 #
 #   ./Scripts/claude-utils/validate-claude-links.sh <file> [--quiet]

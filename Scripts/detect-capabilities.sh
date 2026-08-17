@@ -8,6 +8,7 @@
 #@out       stdout:capability list
 #@exit      0=ok
 #@effects   read-only
+#@when      which capabilities|entitlements declared|does it use analytics|push enabled
 # Evidence scan for the /gaps Path A triage. Read-only: greps, never builds.
 #   ./Scripts/detect-capabilities.sh [source-root]
 # Prints:  STATUS <tab> item <tab> evidence

@@ -80,6 +80,8 @@ Scripts/claude-workflows
 Scripts/claude-utils
 Scripts/memory-add.py
 Scripts/verify-memory.sh
+Scripts/find-script.sh
+Scripts/session-script.sh
 install.sh
 "
 
@@ -100,7 +102,10 @@ README.md|the target has its own
 # ── Nothing may fall through the lists ─────────────────────────────────────
 # A file added later and not listed here is invisible at adopt time — it only surfaces when a
 # command references it in someone else's repo. So: fail loudly rather than skip silently.
-SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/memory"
+# .claude/CANDIDATES.tsv is scaffolded for the same reason as .claude/memory: the recurrence
+# history is THIS repo's, and a target that inherits our candidate rows would see promotions it
+# never earned. The target gets the header and an empty ledger.
+SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/memory .claude/CANDIDATES.tsv"
 # Reference material — listed in genericarch.installation.md and fetched when actually read.
 # Not copied: reference docs a consumer may never open, that go stale the moment upstream moves.
 # No count here on purpose — a literal number in a comment is what rotted last time.
@@ -363,6 +368,13 @@ if [ "$APPLY" -eq 1 ] && [ ! -e "$TARGET/.claude/memory" ]; then
     }
     { print }
   ' "$SRC/.claude/memory/INDEX.md" > "$TARGET/.claude/memory/INDEX.md"
+fi
+
+# Same rule for the candidate ledger: header travels, rows do not. Copying our rows would hand
+# the target a promotable candidate it never used in a single session of its own.
+if [ "$APPLY" -eq 1 ] && [ ! -e "$TARGET/.claude/CANDIDATES.tsv" ]; then
+  mkdir -p "$TARGET/.claude"
+  grep '^#' "$SRC/.claude/CANDIDATES.tsv" > "$TARGET/.claude/CANDIDATES.tsv"
 fi
 
 if [ "$APPLY" -eq 1 ]; then

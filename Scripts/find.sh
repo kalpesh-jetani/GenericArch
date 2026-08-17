@@ -8,6 +8,7 @@
 #@out       stdout:matching note rows; miss prints the MAP.tsv route and a code-search fallback
 #@exit      0=hits 1=no row found 2=usage
 #@effects   read-only
+#@when      where is this screen|find a route|which endpoint|locate an asset|find a colour token|which target|look it up
 # One-call lookup across the .claude/notes/ index.
 #   ./Scripts/find.sh <term> [more terms…]
 #

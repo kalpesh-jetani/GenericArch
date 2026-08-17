@@ -1,0 +1,4 @@
+#	GenericArch candidate ledger — cross-session recurrence. TRACKED on purpose.
+#	A staged script is promoted only after a SECOND distinct session needs it.
+#	  ./Scripts/session-script.sh list --promotable
+#	Columns: id	intent	first_session	last_session	sessions	uses	cmd_sha	status	promoted_path

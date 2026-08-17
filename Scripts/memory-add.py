@@ -8,6 +8,7 @@
 #@out       .claude/memory/<name>.md + an INDEX.md row
 #@exit      0=written 2=usage
 #@effects   writes .claude/memory/
+#@when      remember this|save a memory|record what i learned|add a memory
 """Write one repo memory and its index row, atomically.
 
     python3 Scripts/memory-add.py --name <slug> --type project|reference|feedback \\

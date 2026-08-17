@@ -5,9 +5,10 @@
 #@purpose   Generate .claude/SCRIPTS.tsv from the #@ metadata header of every script; fail on any script missing one.
 #@usage     register-scripts.sh [--check]
 #@in        --check:flag(verify only, write nothing)
-#@out       .claude/SCRIPTS.tsv:tsv(path,kind,platform,claude,purpose,usage,in,out,exit,effects)
+#@out       .claude/SCRIPTS.tsv:tsv(path,kind,platform,claude,purpose,usage,in,out,exit,effects,when)
 #@exit      0=in sync 1=missing or stale metadata 2=usage
 #@effects   writes .claude/SCRIPTS.tsv unless --check
+#@when      registry stale|regenerate the script registry|register a new script|script headers drifted
 # Generate the script registry from the scripts themselves.
 #
 #   ./Scripts/claude-utils/register-scripts.sh            # write .claude/SCRIPTS.tsv
@@ -21,7 +22,9 @@
 # Fails loudly when a script has no header. A script missing from the registry is
 # one Claude will never call, so silence here would quietly shrink the toolset.
 #
-# Header fields, all required, one per line, `#@<field><spaces><value>`:
+# Header fields, one per line, `#@<field><spaces><value>`.
+#
+# Required — a script missing any of these is not registrable:
 #   kind      workflow | util | tool | lib
 #   platform  macos
 #   claude    call | emit-only | needs-approval | never:<reason>
@@ -31,6 +34,14 @@
 #   out       outputs: files with their format, and what goes to stdout
 #   exit      every exit code and what it means
 #   effects   read-only | what it writes | which rule gates it
+#
+# Optional:
+#   when      pipe-separated trigger phrases, phrased the way someone would ask
+#
+# `when` is the routing surface Scripts/find-script.sh scores against, so a script
+# without one is findable only by grepping `purpose`. It is optional rather than
+# required because making it required would fail every script written before it
+# existed, and a registry that cannot regenerate is worse than one missing a column.
 . "$(dirname "$0")/_common.sh"
 
 usage_text() { usage_from "$0"; }
@@ -55,6 +66,7 @@ TMP="${TMPDIR:-/tmp}/ga-registry.$$"
 trap 'rm -f "$TMP" "$TMP.missing"' EXIT INT TERM
 
 FIELDS="kind platform claude purpose usage in out exit effects"
+OPTIONAL="when"
 
 # Every executable-ish thing under Scripts/, in a stable order so the registry
 # diff is meaningful rather than filesystem-ordered.
@@ -66,7 +78,8 @@ SCRIPTS=$(ls Scripts/*.sh Scripts/*.py Scripts/claude-workflows/*.sh Scripts/cla
   printf '#\tDo not hand-edit. Change the #@ header in the script, then re-run.\n'
   printf '#\t  grep -i lint .claude/SCRIPTS.tsv                 which script covers this\n'
   printf '#\t  awk -F"\\t" \x27$4!="call"\x27 .claude/SCRIPTS.tsv    what Claude must not just run\n'
-  printf '#\tColumns: path\tkind\tplatform\tclaude\tpurpose\tusage\tin\tout\texit\teffects\n'
+  printf '#\t  ./Scripts/find-script.sh "<intent>"              which script answers this\n'
+  printf '#\tColumns: path\tkind\tplatform\tclaude\tpurpose\tusage\tin\tout\texit\teffects\twhen\n'
 } > "$TMP"
 
 : > "$TMP.missing"
@@ -78,6 +91,12 @@ for f in $SCRIPTS; do
   for field in $FIELDS; do
     v=$(sed -n "s/^#@$field[[:space:]]\{1,\}//p" "$f" | head -1 | tr '\t' ' ' | sed 's/[[:space:]]*$//')
     [ -n "$v" ] || incomplete="$incomplete $field"
+    row="$row	$v"
+  done
+  # Optional fields never contribute to $incomplete: absent means an empty column,
+  # not an unregistrable script.
+  for field in $OPTIONAL; do
+    v=$(sed -n "s/^#@$field[[:space:]]\{1,\}//p" "$f" | head -1 | tr '\t' ' ' | sed 's/[[:space:]]*$//')
     row="$row	$v"
   done
   if [ -n "$incomplete" ]; then
@@ -97,8 +116,8 @@ if [ -s "$TMP.missing" ]; then
     A script with no row is a script Claude will never call." "$EX_ERR"
 fi
 
-# Column count must be exactly 10, or a grep of the registry silently loses rows.
-BAD=$(awk -F'\t' '!/^#/ && NF != 10 {printf "%s (%d columns)\n", $1, NF}' "$TMP")
+# Column count must be exactly 11, or a grep of the registry silently loses rows.
+BAD=$(awk -F'\t' '!/^#/ && NF != 11 {printf "%s (%d columns)\n", $1, NF}' "$TMP")
 if [ -n "$BAD" ]; then
   hdr "malformed rows"
   printf '%s\n' "$BAD" | sed 's/^/  /'

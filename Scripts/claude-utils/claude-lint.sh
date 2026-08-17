@@ -8,6 +8,7 @@
 #@out       stdout:report(line,rule,detail) + per-rule tally
 #@exit      0=clean 1=problems found 2=usage
 #@effects   read-only unless --fix
+#@when      markdown formatting|line too long|lint a doc|doc formatting
 # Cross-phase: enforce markdown formatting standards on a CLAUDE.md-style doc.
 #
 #   ./Scripts/claude-utils/claude-lint.sh <file>

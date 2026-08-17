@@ -8,6 +8,7 @@
 #@out       stdout:profile + structure-match score + verdict + ordered plan + conformance counts; --tsv emits kind,key,value,weight,state
 #@exit      0=at or above threshold (revise) 1=below threshold (migrate) 2=usage 3=not a repo
 #@effects   read-only. Never compiles, never writes to the surveyed repo
+#@when      how close is this repo|score an existing repo|migration plan|adopt an existing project
 # Survey an existing repo and say whether to revise it or migrate it.
 #
 #   ./Scripts/claude-utils/survey-repo.sh ~/code/TheirApp

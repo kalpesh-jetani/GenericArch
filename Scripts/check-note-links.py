@@ -8,6 +8,7 @@
 #@out       stdout:checked N paths, M missing
 #@exit      0=all exist 1=missing paths
 #@effects   read-only
+#@when      do note links resolve|broken link in a note|missing path in notes
 """Every path in .claude/notes/ resolves. Read-only; exits non-zero on a miss.
    python3 Scripts/check-note-links.py
 Skips fenced code and HTML comments: an illustrative path in an example is not a

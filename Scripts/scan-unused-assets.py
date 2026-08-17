@@ -8,6 +8,7 @@
 #@out       stdout:unused asset list
 #@exit      0=ok
 #@effects   read-only
+#@when      unused assets|assets nobody references|dead images
 """Imagesets with no reference anywhere. Read-only.
    python3 Scripts/scan-unused-assets.py [root]
 Output is a list of CANDIDATES, never a verdict - runtime-composed names are

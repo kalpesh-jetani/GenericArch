@@ -254,6 +254,22 @@ argument, so `sed -i ''` silently eats the next one; BSD and GNU `awk` disagree 
 a line-length rule reports different numbers on each. Both read as bad data rather than the wrong
 machine.
 
+**Reuse before you write.** `find-script.sh` scores an intent against every script's `#@when`
+trigger phrases, so "is the memory store consistent" finds `verify-memory.sh` without you knowing
+its name. A registry hit costs about 20 tokens; re-deriving the same pipeline costs thousands and
+comes out slightly different each time.
+
+```bash
+./Scripts/find-script.sh "are the notes out of date"    # 0 = a script already does this
+./Scripts/session-script.sh add --intent "..." --cmd '...'   # only when that exits 1
+```
+
+A staged script is **session-local and gitignored**. It is promoted into `Scripts/` only when a
+*second, distinct session* needs the same intent — one session repeating itself is a one-off, not
+a capability. Promotion runs seven gates, refuses anything that invokes a compiler (§2.12) or
+touches the network, then writes a real `#@` header and regenerates the registry. The registry row
+is what puts it in front of the agent, so no skill prose is ever hand-written.
+
 **The exit code is the contract.** Every `#@exit` header in the registry is what a gate branches
 on, so these four compose into a check that needs no Xcode and no network — unlike
 `check.sh`, which compiles:
@@ -281,6 +297,8 @@ python3 Scripts/check-note-links.py                  # a note points at a file t
 | `./Scripts/check-note-links.py` | Every path in every note resolves |
 | `./Scripts/memory-add.py` | Writes a memory **and** its index row — the row is the half that gets forgotten |
 | `./Scripts/verify-memory.sh` | The other half: every memory has a row, every row has a file, frontmatter is valid, no `type: user` was committed |
+| `./Scripts/find-script.sh` | Intent phrase → the script that answers it, scored against `#@when`. Run it **before** writing a pipeline |
+| `./Scripts/session-script.sh` | Stages an improvised pipeline per session; promotes to `Scripts/` only once a **second** session needs it |
 | `./Scripts/detect-capabilities.sh` | Evidence scan behind `/gaps` — analytics, crash reporting, StoreKit, biometrics… |
 | `./Scripts/claude-utils/register-scripts.sh` | Regenerates `.claude/SCRIPTS.tsv` from every `#@` header; `--check` fails when one drifted |
 
