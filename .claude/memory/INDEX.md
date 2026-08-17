@@ -45,8 +45,4 @@ Convert relative dates to absolute — "last week" is unreadable in six months.
 
 | Memory | What it holds |
 |---|---|
-| — | — |
-
-<!-- Example, delete when the first memory lands:
-| `api-staging-is-flaky.md` | Staging 502s under load; not our bug — do not chase it |
--->
+| [`claude-md-section-numbers-are-load-bearing.md`](claude-md-section-numbers-are-load-bearing.md) | ~380 repo-wide §N citations — shrink CLAUDE.md bodies, never move a heading |
