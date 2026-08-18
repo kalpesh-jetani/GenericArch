@@ -22,7 +22,7 @@ Three ways in. Pick the row that matches what you have — all of them are non-d
 | You have | Use | You get |
 |---|---|---|
 | Nothing yet | **Template repo** | Everything: rules, docs, tooling, starter packages |
-| An existing app | **`install.sh`** | Rules, docs and tooling — your code and your rules untouched |
+| An existing app | **`bootstrap.sh`** → `install.sh` | Rules, docs and tooling — your code and your rules untouched, reversible with `uninstall.sh` |
 | Several repos | **Plugin** | Only the skills and commands, updated centrally |
 
 ---
@@ -67,17 +67,26 @@ copying ours. Only the template path above needs the manual step.
 ### B. Existing project — from inside your repo
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/install.sh
-less install.sh          # short, and it tells you what it will do
-bash install.sh          # dry run — lists every file it would add
-bash install.sh --apply
+curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/bootstrap.sh
+less bootstrap.sh        # short, and it tells you what it will do
+bash bootstrap.sh        # dry run — lists every file it would add
+bash bootstrap.sh --apply
 ```
 
-The URL fetches the *installer*; the installer then resolves the **newest semver tag** on the remote
-for the payload and prints which one it chose. Pin a specific one with `--ref`:
+`bootstrap.sh` is the only part of this that touches the network, and all it does is fetch: it
+resolves the **newest semver tag** on the remote, clones it, and hands over to that clone's
+`install.sh`, which runs entirely offline. Every decision about what lands in your repo — the
+compatibility gate, the plan, the confirmation, the manifest, the rollback — belongs to
+`install.sh`. Pin a specific tag with `--ref`:
 
 ```bash
-bash install.sh --apply --ref <tag>
+bash bootstrap.sh --apply --ref <tag>
+```
+
+Already have a checkout? Skip the fetch and run the installer directly — same behaviour, no network:
+
+```bash
+/path/to/GenericArch/install.sh /path/to/YourRepo
 ```
 
 > **Copy tag names; never reconstruct them.** Both prefixed and unprefixed forms exist here, and a
@@ -95,12 +104,14 @@ bash install.sh --apply --ref <tag>
 <summary>One-liner, if you already trust the source</summary>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/install.sh | bash -s -- --apply
+curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/bootstrap.sh | bash -s -- --apply
 ```
 </details>
 
-It pins to a tag, records what it installed in `.genericarch-version`, reports every collision
-instead of resolving it, and **never writes `CLAUDE.md`**. Then:
+It pins to a tag, records every file it installed in `.genericarch/manifest-v<version>.json`,
+reports every collision instead of resolving it, and **never writes `CLAUDE.md`**. Because that
+manifest hashes what it wrote, the install is fully reversible — see
+[Uninstalling](#uninstalling-and-what-it-refuses-to-delete). Then:
 
 ```
 /project-init          # reads YOUR CLAUDE.md, lists rule conflicts, asks one by one
@@ -133,6 +144,96 @@ by editing a doc ([docs/ADOPTION.md](docs/ADOPTION.md)).
 
 Skills and commands only. No rules, no docs, no code — so each product keeps its own `CLAUDE.md`,
 and tooling fixes reach every repo by updating one plugin.
+
+---
+
+## Uninstalling, and what it refuses to delete
+
+`install.sh` records every path it wrote, with a hash, in
+`.genericarch/manifest-v<version>.json`. `uninstall.sh` reads that manifest and nothing else — so
+removal is a verified operation, not a guess at which files were probably ours.
+
+```bash
+./uninstall.sh v0.2.0              # plan, then ask
+./uninstall.sh v0.2.0 --dry-run    # print the plan and stop
+./uninstall.sh v0.2.0 --yes        # skip the confirmation prompt
+```
+
+**The version argument is required.** Supported: `v0.1.0`, `v0.2.0` (latest). Defaulting it would
+mean guessing which release's footprint to delete, and a wrong guess deletes the wrong files.
+
+### Flags
+
+| Flag | `install.sh` | `uninstall.sh` | What it does |
+|---|:--:|:--:|---|
+| `--dry-run`, `-n` | ✅ | ✅ | Print the full plan and exit. Writes nothing |
+| `--yes`, `-y` | ✅ | ✅ | Skip the confirmation prompt (for CI) |
+| `--target DIR` | ✅ | ✅ | The repo to act on. Defaults to the current directory |
+| `--force`, `-f` | — | ✅ | Proceed when the requested version differs from the recorded one |
+| `--base DIR` | — | ✅ | A GenericArch checkout to verify hashes against when there is no manifest |
+| `--ref TAG` | `bootstrap.sh` | — | Pin which release to fetch |
+
+Both scripts print the complete plan — every path, with the action it will take — **before**
+touching the filesystem, and then ask.
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | Error — including a version mismatch, or no manifest and no reference checkout |
+| `2` | Usage error — missing or unknown version, unknown flag, bad path |
+| `3` | **Compatibility mismatch** — the target is not a macOS/Swift project. Nothing was written |
+| `4` | Aborted at the confirmation prompt |
+
+`3` is distinct so CI can tell "this repo is not a Swift project" (expected) from "the install
+broke" (`1`) without parsing output.
+
+### What "user-edited file preserved" means for you
+
+This is the message operators ask about, so it is worth being precise. When `uninstall.sh` reports:
+
+```
+  KEPT — not deleted
+    · .claude/MAP.tsv
+        you edited it — content hash does not match the manifest
+```
+
+…it means the file's current sha256 differs from the hash recorded when it was installed. **Someone
+changed it after install — so it is left exactly where it is, and nothing about it is modified.**
+
+That is a deliberate refusal, not a failure. GenericArch deletes a file only when its content
+*proves* the file is still the one GenericArch wrote. A hash that has drifted is the only evidence
+available that the file now contains something you would not get back, so it is defended instead of
+removed. Timestamps can corroborate ownership but never decide it — **a content mismatch always wins
+and always protects the file.** A path the manifest never mentioned is never even read.
+
+What that means in practice:
+
+- **Nothing is lost.** Review the listed files and delete them by hand if you do want them gone.
+- **`uninstall.sh` still exits `0`.** Preserved files are a reported outcome, not an error.
+- **Directories holding a preserved file survive.** Everything else empty is pruned, so no hollow
+  GenericArch folders are left behind.
+- For an edited file that GenericArch only *appended* to (`.gitignore`), your edits are kept and
+  **only the managed block is removed** — restoring the backup wholesale would discard your changes.
+
+### If an install failed part-way
+
+`install.sh` stages into a temp tree and commits from there, so a failure at any point rolls the
+target back to exactly where it started — there is normally nothing to clean up. If a process was
+killed hard enough to leave files but no manifest, `uninstall.sh` falls back to the known file list
+for that version, verified against the blobs that release actually shipped:
+
+```bash
+./uninstall.sh v0.2.0 --target /path/to/repo --base /path/to/GenericArch
+```
+
+Without a reference checkout ownership cannot be proven, so **nothing is removed** and the script
+tells you so. Files GenericArch *generates* rather than copies — the `.claude/notes/` inventories,
+`docs/DECISIONS.md`, `docs/GAPS.md` — have no shipped blob to compare against, so a fallback
+uninstall keeps them and lists them.
+
+Full format reference: [docs/INSTALL-MANIFEST.md](docs/INSTALL-MANIFEST.md).
 
 ---
 

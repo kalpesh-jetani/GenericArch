@@ -83,7 +83,11 @@ Scripts/verify-memory.sh
 Scripts/find-script.sh
 Scripts/session-script.sh
 Scripts/adopt-review.sh
+Scripts/ga-lifecycle.sh
+docs/INSTALL-MANIFEST.md
 install.sh
+uninstall.sh
+bootstrap.sh
 "
 
 # ── What must NOT travel, and why ──────────────────────────────────────────
@@ -119,7 +123,8 @@ KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|
 unaccounted=""
 for f in $(ls -d docs/*.md docs/modules docs/patterns docs/resources .claude/INDEX.md .claude/*.tsv \
                  .claude/memory Scripts/* .swiftlint.yml .swiftformat .gitignore \
-                 install.sh README.md CLAUDE.md .claude/skills .claude/commands .claude/notes \
+                 install.sh uninstall.sh bootstrap.sh README.md CLAUDE.md \
+                 .claude/skills .claude/commands .claude/notes \
                  Packages App 2>/dev/null); do
   case "$KNOWN" in *" $f "*) continue ;; esac
   unaccounted="$unaccounted $f"

@@ -25,6 +25,7 @@ docs/CONVENTIONS.md	cross	naming file layout access control doc comment style	Na
 docs/STRUCTURE.md	cross	where guidance belongs doc placement approval gate skill trigger	Writing a new doc, skill, or command — and before editing CLAUDE.md
 docs/REPO.md	cross	package version local override spm dependency add package resolved	Adding a package, or overriding an extracted one locally
 docs/SHARING.md	cross	publish share template plugin installer distribute	Publishing this base for someone else
+docs/INSTALL-MANIFEST.md	cross	install uninstall manifest sha256 ownership backup restore lifecycle removal plan	Inspecting what an install did, or changing install.sh / uninstall.sh
 docs/ADOPTION.md	cross	adopt existing repo conflict migration brownfield	Adopting this into a repo that already has its own rules
 docs/DELIVERY.md	cross	ci signing version bump release rollback testflight archive	CI, code signing, versioning, releasing, or rolling back
 docs/PERFORMANCE.md	cross	launch budget hitch rendering profile instruments memory	A launch budget, a SwiftUI redraw problem, or diagnosing a hitch
