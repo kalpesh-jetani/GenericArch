@@ -82,6 +82,7 @@ Scripts/memory-add.py
 Scripts/verify-memory.sh
 Scripts/find-script.sh
 Scripts/session-script.sh
+Scripts/adopt-review.sh
 install.sh
 "
 

@@ -67,17 +67,27 @@ copying ours. Only the template path above needs the manual step.
 ### B. Existing project — from inside your repo
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh
+curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/install.sh
 less install.sh          # short, and it tells you what it will do
 bash install.sh          # dry run — lists every file it would add
 bash install.sh --apply
 ```
 
+The URL fetches the *installer*; the installer then resolves the **newest semver tag** on the remote
+for the payload and prints which one it chose. Pin a specific one with `--ref`:
+
+```bash
+bash install.sh --apply --ref 0.2.0
+```
+
+> Tag names in this repo are inconsistent — `v0.1.0` carries the `v`, `0.2.0` does not. Copy the
+> name from `git ls-remote --tags`; guessing `v0.2.0` returns a 404.
+
 <details>
 <summary>One-liner, if you already trust the source</summary>
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh | bash -s -- --apply
+curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/install.sh | bash -s -- --apply
 ```
 </details>
 
@@ -96,13 +106,12 @@ by editing a doc ([docs/ADOPTION.md](docs/ADOPTION.md)).
 
 | Override | Effect |
 |---|---|
-| `GA_REF=v0.2.0` | A different version |
+| `--ref 0.2.0` or `GA_REF=0.2.0` | Pin a version instead of taking the newest tag |
 | `GA_REPO=/path/to/checkout` | A local clone or your fork |
 
-> **`v0.1.0` predates `docs/patterns/` and `docs/PATTERN-SEARCH.md`**, so those seven files 404 when
-> fetched at that tag. The installer detects this and refuses to `--apply` rather than produce a
-> half-resolving install. Until a newer tag exists, install from a checkout with
-> `./Scripts/adopt.sh /path/to/YourApp --apply`.
+> **Do not pin `v0.1.0`.** It predates `docs/patterns/`, `.claude/memory/`, the script registry and
+> every script added since, and it still ships six skills that were deleted from source. The
+> installer no longer defaults to it — but `--ref v0.1.0` will still honour your request.
 
 > If the repo is private, `curl` cannot reach it. Clone it once over SSH and use `adopt.sh` the same
 > way.
@@ -116,6 +125,59 @@ by editing a doc ([docs/ADOPTION.md](docs/ADOPTION.md)).
 
 Skills and commands only. No rules, no docs, no code — so each product keeps its own `CLAUDE.md`,
 and tooling fixes reach every repo by updating one plugin.
+
+---
+
+## Updating an install — you decide, per file
+
+`install.sh` never overwrites. That is the right default and it has a cost: once you have adopted,
+a fix upstream reaches you only if you go and get it, and *"0 collisions kept as-is"* tells you
+nothing about whether the incoming file even changed.
+
+`adopt-review.sh` is that missing half. It classifies every shipped path against your repo and
+prints a numbered list — nothing is written:
+
+```bash
+./Scripts/adopt-review.sh /path/to/YourApp            # what differs, what is missing
+./Scripts/adopt-review.sh /path/to/YourApp --diff 3   # with the actual diffs
+```
+
+```
+n   state    path                          delta
+1   differs  .claude/MAP.tsv               +0/-2 vs base
+2   missing  Scripts/verify-memory.sh      not installed
+3   differs  Scripts/find.sh               +0/-1 vs base
+```
+
+Identical files are not listed — they would bury the decisions. Then take only what you want:
+
+```bash
+./Scripts/adopt-review.sh /path/to/YourApp --take 2,3
+```
+
+Exit `0` means you match the base, `1` means decisions are pending — so it also works as a CI
+staleness gate. **Claude reports this table and never passes `--take`:** overwriting a file in a
+shipping repo is your call, and an approval never carries to the next run.
+
+### CLAUDE.md gets the same treatment, one section at a time
+
+`install.sh` refuses to touch `CLAUDE.md` at all, which protects your rules but means a genuinely
+useful new rule can never reach a project that already adopted. `adopt-review.sh` compares it **by
+numbered section** instead of as a file:
+
+```
+CLAUDE.md
+  in the base, not in yours — candidates, none applied automatically:
+    + 6. Concurrency
+    + 12. For Claude specifically
+  yours only — kept, never touched:
+    - 4. Our release process
+```
+
+So the report is "you do not have section 6", not a whole-file diff nobody reads. `--take` refuses
+`CLAUDE.md` on purpose — it loads into every session, so adopting a section goes through the
+pipeline that edits it under a record, with its own approval gate
+([docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md)).
 
 ---
 
@@ -310,6 +372,7 @@ python3 Scripts/check-note-links.py                  # a note points at a file t
 | `./Scripts/verify-memory.sh` | The other half: every memory has a row, every row has a file, frontmatter is valid, no `type: user` was committed |
 | `./Scripts/find-script.sh` | Intent phrase → the script that answers it, scored against `#@when`. Run it **before** writing a pipeline |
 | `./Scripts/session-script.sh` | Stages an improvised pipeline per session; promotes to `Scripts/` only once a **second** session needs it |
+| `./Scripts/adopt-review.sh` | What an update would change in a target, per file and per `CLAUDE.md` section — you pass `--take`, never the agent |
 | `./Scripts/detect-capabilities.sh` | Evidence scan behind `/gaps` — analytics, crash reporting, StoreKit, biometrics… |
 | `./Scripts/claude-utils/register-scripts.sh` | Regenerates `.claude/SCRIPTS.tsv` from every `#@` header; `--check` fails when one drifted |
 

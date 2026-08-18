@@ -2,34 +2,64 @@
 # Install GenericArch into the repo you are standing in.
 #
 #   Recommended — read it before you run it:
-#     curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh
+#     curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/install.sh
 #     less install.sh && bash install.sh --apply
 #
 #   One-liner, if you already trust the source:
-#     curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/v0.1.0/install.sh | bash -s -- --apply
+#     curl -fsSL https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/install.sh | bash -s -- --apply
 #
 # Dry run unless --apply is given. Nothing is ever overwritten.
 #
 # Overrides:
 #   GA_REPO=<git url|path>   where to fetch from   (default: the kalpesh-jetani/GenericArch remote)
-#   GA_REF=<tag|branch>      which version to pin  (default: v0.1.0 — pin, don't track main)
+#   GA_REF=<tag|branch>      which version to pin  (default: the newest semver tag on the remote)
+#   --ref <tag>              same, as a flag — usable through `curl ... | bash -s -- --ref 0.2.0`
 #
 # This script only FETCHES and DELEGATES. The list of what travels and what must not lives in
 # Scripts/adopt.sh, in one place — duplicating it here is how the two would disagree.
 set -o pipefail
 
+# Colours first: the ref resolution below reports through them, and a variable used before it is
+# assigned prints as empty rather than failing, so the warning would arrive unstyled and unnoticed.
+RED=$'\033[31m'; YEL=$'\033[33m'; GRN=$'\033[32m'; DIM=$'\033[2m'; BLD=$'\033[1m'; OFF=$'\033[0m'
+
 GA_REPO="${GA_REPO:-https://github.com/kalpesh-jetani/GenericArch.git}"
-GA_REF="${GA_REF:-v0.1.0}"
+GA_REF="${GA_REF:-}"
+RESOLVED_LATEST=0
 APPLY=0
-for a in "$@"; do
-  case "$a" in
-    --apply) APPLY=1 ;;
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --apply) APPLY=1; shift ;;
+    --ref)   GA_REF="$2"; shift 2 || { echo "--ref needs a tag" >&2; exit 2; } ;;
     --help|-h) sed -n '2,20p' "$0" 2>/dev/null || echo "see the header of install.sh"; exit 0 ;;
-    *) echo "unknown argument: $a" >&2; exit 2 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
-RED=$'\033[31m'; YEL=$'\033[33m'; GRN=$'\033[32m'; DIM=$'\033[2m'; BLD=$'\033[1m'; OFF=$'\033[0m'
+# A piped script cannot see the URL it was fetched from, so a hardcoded default silently
+# installs the wrong version: `curl .../0.2.0/install.sh | bash` used to clone v0.1.0 and say so
+# only in passing. Resolve the newest semver tag from the remote instead, and let --ref override.
+# Tag names are matched with an optional leading `v` because this repo has both forms.
+resolve_latest_ref() {
+  git ls-remote --tags --refs "$GA_REPO" 2>/dev/null \
+    | awk -F'refs/tags/' 'NF>1 {print $2}' \
+    | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' \
+    | awk '{o=$0; v=$0; sub(/^v/,"",v); print v"\t"o}' \
+    | sort -t. -k1,1n -k2,2n -k3,3n \
+    | tail -1 | cut -f2
+}
+
+if [ -z "$GA_REF" ]; then
+  GA_REF="$(resolve_latest_ref)"
+  if [ -n "$GA_REF" ]; then
+    RESOLVED_LATEST=1
+  else
+    echo "${YEL}could not list tags on $GA_REPO — falling back to the default branch${OFF}" >&2
+    echo "  ${DIM}pass --ref <tag> to pin a version you can reproduce${OFF}" >&2
+    GA_REF="HEAD"
+  fi
+fi
+
 TARGET="$(pwd)"
 
 command -v git >/dev/null 2>&1 || { echo "${RED}git is required${OFF}"; exit 1; }
@@ -43,7 +73,11 @@ echo
 echo "${BLD}GenericArch installer${OFF}"
 echo "  into    $TARGET"
 echo "  from    $GA_REPO"
-echo "  version ${BLD}$GA_REF${OFF}"
+if [ "$RESOLVED_LATEST" -eq 1 ]; then
+  echo "  version ${BLD}$GA_REF${OFF} ${DIM}(newest tag on the remote; pass --ref to pin another)${OFF}"
+else
+  echo "  version ${BLD}$GA_REF${OFF} ${DIM}(pinned)${OFF}"
+fi
 [ "$APPLY" -eq 1 ] && echo "  mode    ${GRN}APPLY${OFF}" || echo "  mode    ${YEL}dry run${OFF} (add --apply to write)"
 echo
 
@@ -53,7 +87,7 @@ TMP="$(mktemp -d)"
 cleanup() { rm -rf "$TMP"; }
 trap cleanup EXIT
 
-echo "${DIM}fetching $GA_REF…${OFF}"
+echo "${DIM}fetching $GA_REF...${OFF}"
 if ! git clone --quiet --depth 1 --branch "$GA_REF" "$GA_REPO" "$TMP/base" 2>/dev/null; then
   # A branch/tag that doesn't exist, or a local path clone — retry without --branch.
   if ! git clone --quiet --depth 1 "$GA_REPO" "$TMP/base" 2>/dev/null; then
