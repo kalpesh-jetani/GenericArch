@@ -13,7 +13,7 @@
 # Overrides:
 #   GA_REPO=<git url|path>   where to fetch from   (default: the kalpesh-jetani/GenericArch remote)
 #   GA_REF=<tag|branch>      which version to pin  (default: the newest semver tag on the remote)
-#   --ref <tag>              same, as a flag — usable through `curl ... | bash -s -- --ref 0.2.0`
+#   --ref <tag>              same, as a flag — usable through `curl ... | bash -s -- --ref <tag>`
 #
 # This script only FETCHES and DELEGATES. The list of what travels and what must not lives in
 # Scripts/adopt.sh, in one place — duplicating it here is how the two would disagree.
@@ -40,13 +40,30 @@ done
 # installs the wrong version: `curl .../0.2.0/install.sh | bash` used to clone v0.1.0 and say so
 # only in passing. Resolve the newest semver tag from the remote instead, and let --ref override.
 # Tag names are matched with an optional leading `v` because this repo has both forms.
-resolve_latest_ref() {
+semver_tags() {
   git ls-remote --tags --refs "$GA_REPO" 2>/dev/null \
     | awk -F'refs/tags/' 'NF>1 {print $2}' \
     | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' \
     | awk '{o=$0; v=$0; sub(/^v/,"",v); print v"\t"o}' \
-    | sort -t. -k1,1n -k2,2n -k3,3n \
-    | tail -1 | cut -f2
+    | sort -t. -k1,1n -k2,2n -k3,3n
+}
+
+# `0.2.0` and `v0.2.0` are the SAME version under two names, and nothing stops them pointing at
+# different commits — in this repo they do. Picking one silently is the bug this whole function
+# exists to fix, so a collision is reported and the choice is named rather than left to whichever
+# way `sort` happened to break the tie.
+resolve_latest_ref() {
+  local tags newest dupes
+  tags="$(semver_tags)"
+  [ -n "$tags" ] || return 0
+  newest="$(printf '%s\n' "$tags" | tail -1 | cut -f1)"
+  dupes="$(printf '%s\n' "$tags" | awk -F'\t' -v n="$newest" '$1==n {print $2}')"
+  if [ "$(printf '%s\n' "$dupes" | grep -c .)" -gt 1 ]; then
+    echo "${YEL}two tags both claim version $newest and may point at different commits:${OFF}" >&2
+    printf '%s\n' "$dupes" | sed "s|^|    |" >&2
+    echo "  ${DIM}picking the last by name; pass --ref <tag> to choose, or delete the duplicate tag${OFF}" >&2
+  fi
+  printf '%s\n' "$dupes" | tail -1
 }
 
 if [ -z "$GA_REF" ]; then

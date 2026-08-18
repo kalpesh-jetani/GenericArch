@@ -77,11 +77,19 @@ The URL fetches the *installer*; the installer then resolves the **newest semver
 for the payload and prints which one it chose. Pin a specific one with `--ref`:
 
 ```bash
-bash install.sh --apply --ref 0.2.0
+bash install.sh --apply --ref <tag>
 ```
 
-> Tag names in this repo are inconsistent — `v0.1.0` carries the `v`, `0.2.0` does not. Copy the
-> name from `git ls-remote --tags`; guessing `v0.2.0` returns a 404.
+> **Copy tag names; never reconstruct them.** Both prefixed and unprefixed forms exist here, and a
+> version published under both names is *not* guaranteed to point at the same commit — so the `v`
+> you guess can change which code you get. List them and copy one exactly:
+>
+> ```bash
+> git ls-remote --tags --refs https://github.com/kalpesh-jetani/GenericArch.git
+> ```
+>
+> The installer resolves the newest tag itself and warns when two names claim one version, so this
+> only matters when you pin with `--ref`.
 
 <details>
 <summary>One-liner, if you already trust the source</summary>
@@ -106,7 +114,7 @@ by editing a doc ([docs/ADOPTION.md](docs/ADOPTION.md)).
 
 | Override | Effect |
 |---|---|
-| `--ref 0.2.0` or `GA_REF=0.2.0` | Pin a version instead of taking the newest tag |
+| `--ref <tag>` or `GA_REF=<tag>` | Pin a version instead of taking the newest tag |
 | `GA_REPO=/path/to/checkout` | A local clone or your fork |
 
 > **Do not pin `v0.1.0`.** It predates `docs/patterns/`, `.claude/memory/`, the script registry and
