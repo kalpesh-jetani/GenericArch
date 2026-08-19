@@ -157,6 +157,129 @@ Then:
 | Non-destructive; their rules survive | Rule adoption is a negotiation, not a copy |
 | Works on a codebase that violates half the rules | Base updates need re-running the script |
 
+### Flags
+
+| Flag | `install.sh` | `uninstall.sh` | What it does |
+|---|:--:|:--:|---|
+| `--dry-run`, `-n` | ✅ | ✅ | Print the full plan and exit. Writes nothing |
+| `--yes`, `-y` | ✅ | ✅ | Skip the confirmation prompt (for CI) |
+| `--target DIR` | ✅ | ✅ | The repo to act on. Defaults to the current directory |
+| `--force`, `-f` | — | ✅ | Proceed when the requested version differs from the recorded one |
+| `--base DIR` | — | ✅ | A GenericArch checkout to verify hashes against when there is no manifest |
+| `--ref TAG` | `bootstrap.sh` | — | Pin which release to fetch |
+
+Both scripts print the complete plan — every path, with the action it will take — **before**
+touching the filesystem, and then ask.
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | Error — including a version mismatch, or no manifest and no reference checkout |
+| `2` | Usage error — missing or unknown version, unknown flag, bad path |
+| `3` | **Compatibility mismatch** — the target is not a macOS/Swift project. Nothing was written |
+| `4` | Aborted at the confirmation prompt |
+
+`3` is distinct so CI can tell "this repo is not a Swift project" (expected) from "the install
+broke" (`1`) without parsing output.
+
+### What "user-edited file preserved" means
+
+When `uninstall.sh` reports:
+
+```
+  KEPT — not deleted
+    · .claude/MAP.tsv
+        you edited it — content hash does not match the manifest
+```
+
+…the file's current sha256 differs from the hash recorded when it was installed. **Someone changed
+it after install — so it is left exactly where it is, and nothing about it is modified.**
+
+That is a deliberate refusal, not a failure. GenericArch deletes a file only when its content
+*proves* the file is still the one GenericArch wrote. A hash that has drifted is the only evidence
+available that the file now contains something you would not get back, so it is defended instead of
+removed. Timestamps can corroborate ownership but never decide it — **a content mismatch always wins
+and always protects the file.** A path the manifest never mentioned is never even read.
+
+What that means in practice:
+
+- **Nothing is lost.** Review the listed files and delete them by hand if you do want them gone.
+- **`uninstall.sh` still exits `0`.** Preserved files are a reported outcome, not an error.
+- **Directories holding a preserved file survive.** Everything else empty is pruned, so no hollow
+  GenericArch folders are left behind.
+- For an edited file that GenericArch only *appended* to (`.gitignore`), your edits are kept and
+  **only the managed block is removed** — restoring the backup wholesale would discard your changes.
+
+### If an install failed part-way
+
+`install.sh` stages into a temp tree and commits from there, so a failure at any point rolls the
+target back to exactly where it started — there is normally nothing to clean up. If a process was
+killed hard enough to leave files but no manifest, `uninstall.sh` falls back to the known file list
+for that version, verified against the blobs that release actually shipped:
+
+```bash
+./uninstall.sh v0.2.0 --target /path/to/repo --base /path/to/GenericArch
+```
+
+Without a reference checkout ownership cannot be proven, so **nothing is removed** and the script
+tells you so. Files GenericArch *generates* rather than copies — the `.claude/notes/` inventories,
+`docs/DECISIONS.md`, `docs/GAPS.md` — have no shipped blob to compare against, so a fallback
+uninstall keeps them and lists them.
+
+Full format reference: [INSTALL-MANIFEST.md](INSTALL-MANIFEST.md).
+
+### Updating an install — the consumer decides, per file
+
+`install.sh` never overwrites. That is the right default and it has a cost: once a repo has adopted,
+a fix upstream reaches it only if someone goes and gets it, and *"0 collisions kept as-is"* says
+nothing about whether the incoming file even changed.
+
+`adopt-review.sh` is that missing half. It classifies every shipped path against the target and
+prints a numbered list — nothing is written:
+
+```bash
+./Scripts/adopt-review.sh /path/to/YourApp            # what differs, what is missing
+./Scripts/adopt-review.sh /path/to/YourApp --diff 3   # with the actual diffs
+```
+
+```
+n   state    path                          delta
+1   differs  .claude/MAP.tsv               +0/-2 vs base
+2   missing  Scripts/verify-memory.sh      not installed
+3   differs  Scripts/find.sh               +0/-1 vs base
+```
+
+Identical files are not listed — they would bury the decisions. Then take only what is wanted:
+
+```bash
+./Scripts/adopt-review.sh /path/to/YourApp --take 2,3
+```
+
+Exit `0` means the target matches the base, `1` means decisions are pending — so it also works as a
+CI staleness gate. **Claude reports this table and never passes `--take`:** overwriting a file in a
+shipping repo is the owner's call, and an approval never carries to the next run.
+
+#### CLAUDE.md gets the same treatment, one section at a time
+
+`install.sh` refuses to touch `CLAUDE.md` at all, which protects a consumer's rules but means a
+genuinely useful new rule can never reach a project that already adopted. `adopt-review.sh` compares
+it **by numbered section** instead of as a file:
+
+```
+CLAUDE.md
+  in the base, not in yours — candidates, none applied automatically:
+    + 6. Concurrency
+    + 12. For Claude specifically
+  yours only — kept, never touched:
+    - 4. Our release process
+```
+
+So the report is "you do not have section 6", not a whole-file diff nobody reads. `--take` refuses
+`CLAUDE.md` on purpose — it loads into every session, so adopting a section goes through the
+pipeline that edits it under a record, with its own approval gate ([CLAUDE-TASKS.md](CLAUDE-TASKS.md)).
+
 ---
 
 ## Which layer to keep in sync — and which not to
