@@ -5,6 +5,7 @@
 #   ./install.sh /path/to/TargetRepo  # plan for somewhere else
 #   ./install.sh --dry-run            # print the plan and stop
 #   ./install.sh --yes                # skip the confirmation prompt
+#   ./install.sh --force              # install even if the repo identifies as non-Apple
 #
 # This script runs from a GenericArch CHECKOUT and touches the network never. To install straight
 # from GitHub, use bootstrap.sh, which clones a pinned tag and then calls this.
@@ -20,7 +21,7 @@
 # The manifest is written LAST, so its presence is itself the proof that the install completed.
 # uninstall.sh reads it and nothing else.
 #
-# Exit codes: 0 ok · 1 error · 2 usage · 3 incompatible target · 4 declined
+# Exit codes: 0 ok · 1 error · 2 usage · 3 incompatible target · 4 declined · 78 not macOS
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")" && pwd)"
@@ -35,17 +36,19 @@ fi
 . "$SRC/Scripts/ga-lifecycle.sh"
 
 usage() {
-  sed -n '2,14p' "$0"
+  sed -n '2,15p' "$0"
   echo
-  echo "Exit codes: 0 ok · 1 error · 2 usage · 3 incompatible target · 4 declined"
+  echo "Exit codes: 0 ok · 1 error · 2 usage · 3 incompatible target · 4 declined · 78 not macOS"
 }
 
 TARGET=""
 DRY_RUN=0
+FORCE_COMPAT=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes)      GA_ASSUME_YES=1; shift ;;
     -n|--dry-run)  DRY_RUN=1; shift ;;
+    -f|--force)    FORCE_COMPAT=1; shift ;;
     --target)      [ $# -ge 2 ] || ga_die "--target needs a directory" "$GA_EX_USAGE"
                    TARGET="$2"; shift 2 ;;
     -h|--help)     usage; exit "$GA_EX_OK" ;;
@@ -55,6 +58,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 GA_ASSUME_YES="${GA_ASSUME_YES:-0}"
+
+# Before the target is even resolved: this layer cannot run anywhere but macOS, and an install that
+# lands on Linux is a set of files whose every script refuses itself. -h is handled above, so help
+# still works on any machine.
+ga_require_macos
 
 # ── Source must be a real GenericArch checkout ─────────────────────────────
 # install.sh itself travels into the target (it is in adopt.sh's BASE list), so a copy of this
@@ -119,11 +127,19 @@ if ! ga_check_compatible "$TARGET"; then
   for m in $GA_COMPAT_FOREIGN; do printf '%s ' "$m"; done
   printf '\n'
   echo
-  ga_die "$TARGET is not a macOS/Swift project — nothing was written.
+  if [ "$FORCE_COMPAT" -eq 1 ]; then
+    ga_warn "--force given — installing into a repo that identifies as something else.
+  Every rule, skill and script below targets Apple platforms; in this repo most will be wrong."
+  else
+    ga_die "$TARGET is not a macOS/Swift project — nothing was written.
   GenericArch installs Swift-specific rules, skills and toolchain scripts; in this repo every
-  one of them would be wrong. No files were copied." "$GA_EX_COMPAT"
+  one of them would be wrong. No files were copied.
+  If this really is an Apple project the markers cannot see yet, re-run with --force." "$GA_EX_COMPAT"
+  fi
 fi
-if [ "$GA_COMPAT_KIND" = "fresh" ]; then
+if [ "$GA_COMPAT_KIND" = "foreign" ]; then
+  : # already reported above; only reachable with --force, and claiming a Swift project here would lie
+elif [ "$GA_COMPAT_KIND" = "fresh" ]; then
   ga_ok "no conflicting project type found — treating this as a fresh repo"
   ga_dim "  Nothing identifies this repo yet. That is a supported starting point: install, then"
   ga_dim "  run /project-init to scaffold the project itself."

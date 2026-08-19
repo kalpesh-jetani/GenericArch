@@ -5,7 +5,7 @@
 #@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, the macOS/Swift compatibility gate. Sourced, never executed.
 #@usage     . Scripts/ga-lifecycle.sh
 #@in        n/a (sourced). Honours GA_ASSUME_YES=1, GA_DRY_RUN=1, NO_COLOR
-#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version
+#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos
 #@exit      0=sourced ok 2=executed directly instead of sourced
 #@effects   none on its own; every write is performed by the caller through these helpers
 #@when      installer helper|manifest format|install exit codes|hashing a manifest|uninstall helper
@@ -36,6 +36,7 @@ GA_EX_ERR=1       # generic error — something went wrong
 GA_EX_USAGE=2     # bad or missing arguments
 GA_EX_COMPAT=3    # compatibility gate rejected the target; nothing was written
 GA_EX_ABORT=4     # the operator declined at the confirmation prompt
+GA_EX_PLATFORM=78 # not macOS — EX_CONFIG, the same code Scripts/claude-utils/_common.sh uses
 
 # The manifest format version. Bump only when the SHAPE changes, never for a GenericArch release —
 # uninstall.sh keys its parser off this, not off the product version.
@@ -291,6 +292,24 @@ ga_block_strip() {
   ' "$_ga_file" > "$_ga_tmp" && mv "$_ga_tmp" "$_ga_file"
 }
 
+# ── Platform gate ──────────────────────────────────────────────────────────
+# Runs before anything else, including the fetch. Every script this installs declares
+# `#@platform macos` and Scripts/claude-utils/_common.sh already exits 78 on anything else — but
+# that check fires only once a script is RUN, which is long after the install wrote it. Refusing
+# here means a Linux or WSL machine never receives a toolchain layer it cannot execute: shasum,
+# xcrun, xed, xcodebuild and BSD sed/awk semantics are all assumed, and a GNU box fails in ways
+# that read as corrupt data rather than the wrong platform.
+#
+# There is deliberately no override. macOS is a fixed choice, not a default (CLAUDE.md §1).
+ga_require_macos() {
+  _ga_os="$(uname -s 2>/dev/null || echo unknown)"
+  [ "$_ga_os" = Darwin ] && return 0
+  printf '%s✗ GenericArch is macOS-only (found: %s).%s\n' "${GA_RED:-}" "$_ga_os" "${GA_OFF:-}" >&2
+  printf '  It installs Apple-platform rules and scripts that assume shasum, xcrun and BSD\n' >&2
+  printf '  sed/awk. Nothing was written.\n' >&2
+  exit "$GA_EX_PLATFORM"
+}
+
 # ── Compatibility gate ─────────────────────────────────────────────────────
 # Runs BEFORE the first write, never alongside it. GenericArch is a rules-and-tooling layer for
 # Apple-platform Swift repos; in a Gradle or Node repo every skill it installs is wrong, every
@@ -318,8 +337,15 @@ ga_check_compatible() {
 
   for _ga_m in build.gradle build.gradle.kts settings.gradle settings.gradle.kts \
                AndroidManifest.xml pom.xml build.xml Cargo.toml go.mod \
-               pubspec.yaml composer.json Gemfile requirements.txt pyproject.toml CMakeLists.txt; do
+               pubspec.yaml composer.json Gemfile requirements.txt pyproject.toml CMakeLists.txt \
+               build.sbt mix.exs deno.json deno.jsonc setup.py Rakefile \
+               Makefile GNUmakefile; do
     [ -e "$_ga_dir/$_ga_m" ] && GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN $_ga_m"
+  done
+  # Build files that only exist under a glob, found the same bounded way as the Apple markers.
+  for _ga_m in "*.sln" "*.csproj" "*.vcxproj" "*.cabal"; do
+    _ga_hit=$(find "$_ga_dir" -maxdepth 2 -name "$_ga_m" -not -path '*/.git/*' -print -quit 2>/dev/null)
+    [ -n "$_ga_hit" ] && GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN ${_ga_hit#"$_ga_dir"/}"
   done
   # package.json alone is Node; beside an Xcode project it is React Native tooling and the Apple
   # markers already found decide the outcome.
@@ -328,6 +354,26 @@ ga_check_compatible() {
   fi
   # An android/ or app/src/main tree is Gradle even when the build file sits deeper.
   [ -d "$_ga_dir/app/src/main/java" ] && GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN app/src/main/java"
+
+  # A repo can hold a whole codebase and no build file at its root — a Java or C# tree with the
+  # build one level up, a PHP site, a plain Makefile-less C project. Source files decide those,
+  # but ONLY when no Apple marker was found: a Swift repo with a helper script in another language
+  # is still a Swift repo, which the ordering below already guarantees.
+  #
+  # Scripts/ and .claude/ are skipped because GenericArch installs its own .py helpers there — on
+  # a re-install into a repo that has not scaffolded its Xcode project yet, scanning them would
+  # make the previous install look like a Python project and refuse the upgrade.
+  #
+  # .py/.js/.ts are deliberately absent: they are too often incidental tooling in an otherwise
+  # Apple repo, and their real projects are already caught by the manifests above.
+  if [ -z "$GA_COMPAT_FOUND" ]; then
+    for _ga_x in java kt cs go rs rb php scala dart ex; do
+      _ga_hit=$(find "$_ga_dir" -name "*.$_ga_x" \
+                  -not -path '*/.git/*' -not -path '*/Scripts/*' -not -path '*/.claude/*' \
+                  -print -quit 2>/dev/null)
+      [ -n "$_ga_hit" ] && GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN *.$_ga_x"
+    done
+  fi
 
   if [ -n "$GA_COMPAT_FOUND" ]; then
     GA_COMPAT_KIND="swift"

@@ -38,6 +38,19 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# Refuse before the fetch, not after. bootstrap.sh cannot source Scripts/ga-lifecycle.sh — it is
+# what clones the repo that holds it — so the platform gate is repeated inline here, with the same
+# code (78) and the same reasoning: everything downstream assumes shasum, xcrun and BSD sed/awk.
+# Checking here means a Linux or WSL machine never clones a tree it cannot use. --help is handled
+# above, so reading the header still works anywhere.
+GA_OS="$(uname -s 2>/dev/null || echo unknown)"
+if [ "$GA_OS" != Darwin ]; then
+  printf '%s✗ GenericArch is macOS-only (found: %s).%s\n' "$RED" "$GA_OS" "$OFF" >&2
+  printf '  It installs Apple-platform rules and scripts that assume shasum, xcrun and BSD\n' >&2
+  printf '  sed/awk. Nothing was fetched and nothing was written.\n' >&2
+  exit 78
+fi
+
 # A piped script cannot see the URL it was fetched from, so a hardcoded default silently
 # installs the wrong version. Resolve the newest semver tag from the remote instead, and let
 # --ref override. Tag names are matched with an optional leading `v` because this repo has both.

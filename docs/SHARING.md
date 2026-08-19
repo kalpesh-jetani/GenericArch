@@ -178,8 +178,9 @@ touching the filesystem, and then ask.
 | `0` | Success |
 | `1` | Error — including a version mismatch, or no manifest and no reference checkout |
 | `2` | Usage error — missing or unknown version, unknown flag, bad path |
-| `3` | **Compatibility mismatch** — the target is not a macOS/Swift project. Nothing was written |
+| `3` | **Compatibility mismatch** — the target is not a macOS/Swift project. Nothing was written. `install.sh --force` overrides |
 | `4` | Aborted at the confirmation prompt |
+| `78` | **Not macOS** — `install.sh` and `bootstrap.sh` refuse before writing or fetching. No override: macOS is a fixed choice, not a default. `uninstall.sh` deliberately has no such gate, so an install that predates it can still be removed |
 
 `3` is distinct so CI can tell "this repo is not a Swift project" (expected) from "the install
 broke" (`1`) without parsing output.
