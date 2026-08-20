@@ -1,0 +1,10 @@
+import Testing
+@testable import __NAME__
+
+/// Smoke test, so the test target compiles and `swift test` is green from the first commit.
+///
+/// Delete it with the first real test — a suite whose only test asserts a constant proves the
+/// harness works and nothing else.
+@Test func moduleIsReachable() {
+    #expect(__NAME__Placeholder.moduleName == "__NAME__")
+}

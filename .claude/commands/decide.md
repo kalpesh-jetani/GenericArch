@@ -4,6 +4,13 @@ argument-hint: <scope> — <decision> [— why]
 allowed-tools: Read, Edit, Grep
 ---
 
+```bash
+./Scripts/ga-step.sh after install      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+
 Target file: @docs/DECISIONS.md
 
 Record the decision described by: `$ARGUMENTS`

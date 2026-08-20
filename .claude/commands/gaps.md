@@ -1,8 +1,15 @@
 ---
-description: Triage the open items in docs/GAPS.md — on an existing repo, derive each status from the code and record it without asking; on a fresh repo, help the user choose per item with adopt, defer, or skip
+description: Triage the open items in docs/GAPS.md — derive each status from the code on an existing repo, ask per item on a fresh one
 argument-hint: [optional: B | C | E | a specific item name]
 allowed-tools: Read, Edit, Grep, Glob, Bash, AskUserQuestion
 ---
+
+```bash
+./Scripts/ga-step.sh require gaps      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
 
 Triage the open gaps: @docs/GAPS.md
 
@@ -127,3 +134,12 @@ any given product. Present it neutrally — never imply that adopting more is be
 - **Never delete a row.** Change its Status — the value of the file is knowing what was declined.
 - Don't invent new gaps. If you spot one, mention it and ask whether to add it.
 - If a Skip looks genuinely risky, say the risk **once**, plainly, then record the choice and move on.
+- **A Skip that means deleting an installed file goes through `ga-remove.sh`**, never `rm` — the
+  tombstone is what stops the next install re-creating it:
+  `./Scripts/ga-remove.sh .swiftlint.yml --reason "§2 conventions declined" --apply`
+
+## Close
+
+```bash
+./Scripts/ga-step.sh record gaps "<n> adopted, <n> deferred, <n> skipped"
+```

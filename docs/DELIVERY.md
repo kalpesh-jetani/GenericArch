@@ -116,6 +116,9 @@ Warnings-as-errors is **off for DEV** deliberately; a warning mid-edit shouldn't
 
 ## Release checklist
 
+The ordered path this checklist sits inside, and who owns each gate:
+[DEPLOYMENT-PROCESS.md](DEPLOYMENT-PROCESS.md).
+
 - [ ] Version bumped in `Base.xcconfig`; build number from CI
 - [ ] `Package.resolved` pinned to released tags of NetworkKit + ImageCache — no `edit` overrides
 - [ ] All packages green standalone

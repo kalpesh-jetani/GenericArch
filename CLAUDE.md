@@ -3,6 +3,11 @@
 Reference architecture for **iPhone / iPad / Mac** from one codebase. Every package must be
 reusable, replaceable, and droppable into a new product with minimal change.
 
+**Session material only.** Setup, build, ship, project settings, packages — none of it is here.
+**Before any task that is not writing code, grep the map** (§5): it routes all of them, and a topic
+missing there is one to ask about, not improvise. A failed script writes its own report to
+`.genericarch/failures/` — read that, never the script.
+
 ---
 
 ## 0. Decisions Claude must ASK about, never assume
@@ -17,7 +22,8 @@ wait, then record it with `/decide`. Options and trade-offs per decision: the `n
 | **Persistence engine** | Only **if** the feature stores data |
 | **Caching / offline policy** | Any screen that fetches remote data |
 | **New external dependency** | Always, before adding it |
-| **Extracting a package to a repo** | Only when all three §4.2 tests pass |
+| **Extracting a package to a repo** | Only when all three §4 tests pass |
+| **Deployment floors** | Before writing any `platforms:` line — never defaulted (§1.1) |
 
 Ask **once per feature**, not once per file. Say so in the question if the answer would change the
 module graph or a §2 rule. Don't start while the question is open — do the answer-independent work
@@ -27,40 +33,37 @@ first (models, protocols, localization keys), then ask.
 
 ## 1. Stack
 
-**Acquired, never assumed** — `./Scripts/detect-toolchain.sh`. The project wins, the machine fills
-the gaps, the rest is asked at init and recorded with `/decide`.
-
-**Never quote a version from memory or from this file.** Min iOS, min macOS, Xcode, Swift and
-language mode live in [PROJECT.md](.claude/notes/PROJECT.md) (refresh with `--markdown`);
-`./Scripts/check.sh` fails when they drift.
+**Never quote a version from memory or from this file.** Every version is acquired, never assumed:
+min iOS, min macOS, Xcode, Swift and language mode live in
+[PROJECT.md](.claude/notes/PROJECT.md), and how they are resolved and set is
+[PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
 
 Fixed by **choice**, not detection — a divergent answer changes what §2 and the module docs apply
 to, and `/project-init` names what it invalidates:
 
 - **SwiftUI.** UIKit/AppKit only behind a `Representable`, only where SwiftUI genuinely cannot.
 - **macOS is a native SwiftUI target. No Mac Catalyst.**
-- **SPM for dependencies and project files.** No CocoaPods, Carthage, Tuist, XcodeGen, or a
-  checked-in `.framework`/`.xcframework` — [REPO.md](docs/REPO.md).
+- **SPM for dependencies and project files** — nothing else, and no checked-in binary framework
+  ([PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md)).
 - **async/await + structured concurrency.** No completion handlers, no Combine in new code, no
   `DispatchQueue` hopping.
 - **Swift Testing** (`import Testing`). XCTest only for UI tests.
 
 ### 1.1 The asymmetric baseline — read before writing shared code
 
-The Mac floor sits many OS generations above the iPhone floor, and shared code must satisfy the
-lower one. Take both from the `platforms:` line in a `Package.swift` — the manifest is what the
-compiler obeys.
+The Mac floor sits many OS generations above the iPhone floor. **Shared code compiles against the
+lower one**, so a newer API breaks the iOS build even where the Mac target would accept it.
 
-- **Shared code compiles against the iOS floor.** A newer API breaks the iOS build even where the
-  Mac target would accept it.
-- Newer APIs only via `#if os(macOS)` (platform-exclusive) or `if #available` (with a working
-  fallback). Never both silently.
-- **Never raise a floor to reach an API.** Gate it or don't ship it.
-- Every gate lives **inside a DesignSystem component or an infrastructure wrapper** — a feature must
-  not know which OS it is on.
+- Reach a newer API with `#if os(macOS)` or `if #available` **plus a working fallback**. Never both
+  silently, and **never by raising a floor** — gate it or don't ship it.
+- The gate lives **inside a DesignSystem component or an infrastructure wrapper**. A feature must
+not
+  know which OS it is on.
+- Until the cross-floor look-and-feel question ([DECISIONS.md](docs/DECISIONS.md) *Open*) is
+  answered, DesignSystem tokens stay platform-neutral.
 
-Cross-floor look-and-feel is **open** ([DECISIONS.md](docs/DECISIONS.md)); until it's answered,
-DesignSystem tokens stay platform-neutral.
+Where the floors come from, and why "no `platforms:` line" means unanswered rather than missing:
+[PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
 
 ---
 
@@ -100,6 +103,10 @@ DesignSystem tokens stay platform-neutral.
     ("first paint under 300 ms", not "improve this"), or **which reading**, listed, with your
     recommendation. Ask only what the user alone can answer; whatever the code, the docs or
     [DECISIONS.md](docs/DECISIONS.md) already settles, look up instead.
+15. **Never delete an installed file with `rm`.** `./Scripts/ga-remove.sh <path> --reason "…"`
+    records the tombstone that stops the next install re-creating it and the DECISIONS row that
+    stops it being re-proposed. Any command that rewrites installed files closes with
+    `./Scripts/ga-reseal.sh --apply`.
 
 ---
 
@@ -113,16 +120,10 @@ protocol extensions, never base classes. Abstract on *capability*, not type (`Im
 Dependency direction is strictly downward, and **`Package.swift` enforces it, not repo walls** — a
 local package still cannot import a sibling feature.
 
-```
-App shell (thin — @main, composition root, no logic)
-  ↓  Features (never import each other)
-  ↓  DesignSystem · Navigation
-  ↓  Infrastructure (StorageKit, LocalizationKit, LoggingKit, NotificationKit, DIKit, Wrappers)
-  ↓  Core (protocols, models, errors — zero dependencies)
-
-GenericArch-NetworkKit · GenericArch-ImageCache — extracted, zero-dependency, mapped in at our
-boundary like any vendor (§7)
-```
+Downward is: app shell (thin) → features (never each other) → DesignSystem · Navigation →
+infrastructure → `Core` (zero dependencies). The two extracted packages —
+`GenericArch-NetworkKit`, `GenericArch-ImageCache` — sit outside it and map in at our boundary like
+any vendor (§7).
 
 **Inheritable** — a new feature gets standard behavior free and can override any piece, through a
 **protocol + extension** supplying state handling, error mapping, retry, lifecycle. **No generic
@@ -137,22 +138,16 @@ composition root, one `Route` case. Use `/new-feature`.
 
 ### 4.1 Single repo, two extracted packages
 
-Local packages wire with `.package(path:)` and carry **no version numbers** — git history is the
-version. **The two extracted packages — `GenericArch-NetworkKit`, `GenericArch-ImageCache` — have
-zero dependencies and neither imports `Core`;** they declare their own errors and protocols, and we
-map at our boundary exactly as §7 treats a vendor. Layout, contents, versioning and local overrides:
-[REPO.md](docs/REPO.md). Releasing one: [release-bump](docs/patterns/release-bump.md).
+Local packages wire with `.package(path:)` and carry **no version numbers**. The two extracted
+packages have zero dependencies and neither imports `Core`.
 
 ### 4.2 When to extract — all three must be true
 
-1. **Product-independent** — no knowledge of this product's domain.
-2. **Actually reused** — a second product consumes it, not "might one day".
-3. **Stable** — its public API is not still being discovered.
+**Product-independent · actually reused · stable API.** Otherwise keep it local. It is a §0
+question.
 
-Otherwise **keep it local**; local costs nothing and reversing an extraction doesn't. A package that
-can't stand alone without `Core` was never product-independent. Extraction is a §0 question. **One
-exception, closed and not growing by precedent:** the two seed packages —
-[DECISIONS.md](docs/DECISIONS.md). Feature packages fail all three tests by definition.
+Both in full — and `Package.swift` as the enforcement, not convention:
+[Packages/CLAUDE.md](Packages/CLAUDE.md).
 
 ---
 
@@ -164,18 +159,27 @@ exception, closed and not growing by precedent:** the two seed packages —
 grep -i navigation .claude/MAP.tsv     # which doc, note, pattern or skill covers a topic
 grep -i lint .claude/SCRIPTS.tsv       # which script does this, and its contract
 ./Scripts/find.sh SmartLockHomeView    # where is this screen/route/endpoint/asset/token?
+./Scripts/ga-step.sh show              # which step is next, and why a command refused
 ```
 
-[`MAP.tsv`](.claude/MAP.tsv) indexes every doc, note, pattern and skill with its topics and when to
-read it — and **read the module doc before touching a module.**
-[`SCRIPTS.tsv`](.claude/SCRIPTS.tsv) is each script's contract: inputs, outputs, exit codes,
-effects. **Never read a script's body to learn what it does** — the row is the contract; read the
-body only when a call fails, then fix it in the same change. `find.sh` greps all nine inventories in
-one call; a miss prints the code-search fallback, and you record the row you find in that change.
+Commands run in a fixed order — install → `/project-init` → `/gaps` → `/sync-app-notes` → ready —
+enforced by each command's first step. Exit 5 means an earlier one has not run →
+[SEQUENCE.md](docs/SEQUENCE.md).
+
+[`MAP.tsv`](.claude/MAP.tsv) carries every doc, note, pattern and skill; **read the module doc
+before
+touching a module.** [`SCRIPTS.tsv`](.claude/SCRIPTS.tsv) is each script's contract — **never read a
+script's body to learn what it does**; read it only when a call fails, then fix it in the same
+change.
 
 **What earlier sessions learned:** [`.claude/memory/INDEX.md`](.claude/memory/INDEX.md) — in-repo
 and tracked, so it survives a clone. Never write to a machine-local store. What may be written, and
 where **new** material belongs: [STRUCTURE.md](docs/STRUCTURE.md).
+
+Both indexes are pruned per install, so **a row that is not here may still exist upstream** —
+declined, or a layer this product did not take. Check `.genericarch/TOMBSTONES.tsv` before
+concluding
+something does not exist ([INSTALL-MANIFEST.md](docs/INSTALL-MANIFEST.md)).
 
 `.claude/notes/` is generated. **Edit the affected rows in the same change as every insertion or
 deletion** — screen, route, API path, image, colour, font, token, scheme, target. A full rescan is
@@ -204,45 +208,40 @@ these still hold, the compiler just stops enforcing them.
 ## 7. External library wrapper policy
 
 **No feature or infrastructure module imports a third-party module directly** — only its wrapper
-does, and **swapping a vendor must touch exactly one target.**
+does, and **swapping a vendor must touch exactly one target.** **Our** types at the boundary; no
+vendor enum or error crosses it.
 
-Every wrapper ships: a protocol describing *our* need (in `Core` or `XWrapperInterface`) · one
-implementation in `XWrapper`, the sole place the vendor is imported · **our** types at the boundary,
-no vendor enums or errors leaking · a `NoOp` and a `Spy`/`Mock`. Split `XWrapperInterface` (no
-vendor dep) from `XWrapper` (vendor dep) so features link only the interface. Each wrapper carries
-its own `<Vendor>Wrapper.md` recording what we use it for and what we deliberately don't.
+What a wrapper ships and how to remove one: [Packages/CLAUDE.md](Packages/CLAUDE.md) §7,
+[wrapper](docs/patterns/wrapper.md).
 
 ---
 
 ## 8. Multiplatform, accessibility, security
 
 **Adaptivity** — branch on **size class and platform capability**, never device model or width
-constants; navigation state is data → [Navigation.md](docs/modules/Navigation.md). iPad: keyboard
-shortcuts, hover, drag & drop, multiple scenes, Slide Over. Mac: menu bar `Commands`, window
-restoration, sidebar, toolbar, context menus. `#if os(...)` lives **inside DesignSystem
-components**, not features.
+constants; navigation state is data → [Navigation.md](docs/modules/Navigation.md). `#if os(...)`
+lives **inside DesignSystem components**, not features. Which iPad and Mac affordances a screen must
+prove: [DONE.md](docs/DONE.md).
 
 **Accessibility — a requirement, not polish.** **Never encode meaning in color alone.** Mostly
 guaranteed inside components → [DesignSystem.md](docs/modules/DesignSystem.md); what a screen must
 still prove, and at which sizes, is the checklist in [DONE.md](docs/DONE.md).
 
-**Security & privacy** — ATS enforced, no arbitrary loads. **Certificate pinning off by default**;
-opt in per product only with a rotation plan and kill switch. No PII, tokens, or bodies in logs →
-[LoggingKit.md](docs/modules/LoggingKit.md). Secrets to Keychain only →
-[StorageKit.md](docs/modules/StorageKit.md). `PrivacyInfo.xcprivacy` current **per package**,
-including required-reason APIs. Biometrics behind `BiometricAuthenticating`.
+**Security & privacy** — two rules apply while writing code: **no PII, tokens or response bodies in
+logs** → [LoggingKit.md](docs/modules/LoggingKit.md), and **secrets to the Keychain only**, behind a
+protocol → [StorageKit.md](docs/modules/StorageKit.md). Everything else here is configuration — ATS,
+pinning, `PrivacyInfo.xcprivacy`, biometrics, capabilities:
+[PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
 
 ---
 
 ## 9. Testing
 
-- Unit-test every view model, mapper, and service against protocol mocks. **No network** — enforced
-  by mandatory `testValue` on every dependency key.
-- **Snapshots are bounded** → [DesignSystem.md](docs/modules/DesignSystem.md)
-- Contract tests per wrapper — real implementation and mock satisfy the same suite.
-- Localization test: no `.xcstrings` key missing in any language, no view using a raw literal.
-- **Every package builds and tests standalone** with `swift test`. That is what enforces the module
-  boundaries.
+**No network in tests** — enforced by the mandatory `testValue` on every dependency key. **Every
+package builds and tests standalone**; that is what enforces the module boundaries.
+
+Mocks, contract tests, snapshot bounds, the localization test:
+[Packages/CLAUDE.md](Packages/CLAUDE.md) §9.
 
 ---
 
@@ -266,12 +265,10 @@ conventions:
 **Read [DONE.md](docs/DONE.md) before saying a change is done**, or run `/verify` to walk it against
 the diff. Never declare completion from memory of the checklist — the items most often missed are
 the ones that feel already handled. If something can't be checked here (device, VoiceOver, Mac
-resize),
-**say what was skipped**.
+resize), **say what was skipped**.
 
-Build and test: `/build` — the sanctioned §2.12 exception; it resolves scheme and destination. A
-package has no scheme: `swift build|test --package-path Packages/<Name>`, plus `--filter <Pattern>`
-for a single test.
+Building it is a separate process with its own rules about who runs what:
+[BUILD-PROCESS.md](docs/BUILD-PROCESS.md).
 
 ---
 
@@ -279,6 +276,11 @@ for a single test.
 
 - **Never edit this file without explicit approval** — including when certain. Show the exact text
   and wait. Where new guidance belongs instead: [STRUCTURE.md](docs/STRUCTURE.md).
+- **An existing repo's structure wins.** Never propose this layout for a repo that has one, and
+  never install the architecture layer on your own initiative — in a repo that has not adopted
+  §2/§3,
+  `new-feature` scaffolds what the app cannot consume and `/review` reports rules it declined.
+  `/project-init` offers them once the conflict table is settled.
 - Read the relevant `Package.swift` before adding a dependency edge. If it violates §3's direction,
   stop and say so rather than adding it.
 - When asked for a feature, produce **protocol + mock + implementation + localized keys + every

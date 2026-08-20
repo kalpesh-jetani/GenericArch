@@ -33,7 +33,7 @@ features, one line in the composition root, and one case in `Route`.
 grep -i -e feature -e lint -e audit .claude/SCRIPTS.tsv   # 1. which script covers this
 ./Scripts/find.sh <ScreenOrRoute>                         # 2. does it already exist?
 ./Scripts/claude-utils/init-claude-env.sh --list          # 3. is the project registered?
-./Scripts/claude-workflows/run-task.sh <proj> <task> status  # 4. is a task already open?
+./Scripts/claude-workflows/run-task.sh <proj> <task> status  # 4. if installed: task already open?
 ```
 
 Order matters: **2 before 3** (an existing screen means this is `change`, not scaffolding), and
@@ -83,6 +83,9 @@ Two cautions:
 ./Scripts/claude-workflows/run-task.sh <project> <task> status      # what ran, what is next
 ```
 
+`Scripts/claude-workflows/` is optional — installed only with `adopt.sh --with-meta`. Absent, walk
+the same nine phases by hand in the same order; the table below is the contract either way.
+
 | Phase | Does | For a feature |
 |---|---|---|
 | 1 intake | classify, record the request verbatim | `--type feature --target <the doc you are writing>` |
@@ -122,6 +125,9 @@ localization keys. Do not write view models or views yet.
 Record answers in `docs/DECISIONS.md` under *Per feature*.
 
 ## 4. Layout
+
+**Read [Packages/CLAUDE.md](../../../Packages/CLAUDE.md) once before the first package** — it carries
+the scoped detail behind §4, §7 and §9 that the root file only summarises.
 
 A **local package** under `Packages/Features/Feature<Name>/` (CLAUDE.md §4.1). Not a repo — don't
 propose extracting it; feature packages fail all three §4.2 tests by definition.

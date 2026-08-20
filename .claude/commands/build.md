@@ -4,6 +4,13 @@ argument-hint: [DEV|TEST|BETA|PROD] [ios|macos|both] [build|test|archive]
 allowed-tools: Bash, Read, Grep
 ---
 
+```bash
+./Scripts/ga-step.sh after install      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+
 Build the project for the requested stage.
 
 **This command is the sanctioned exception to CLAUDE.md §2.12** — typing it *is* the instruction to
@@ -66,6 +73,23 @@ Scheme → configuration mapping and what each stage is *for*: @.claude/notes/SC
 4. **Report faithfully.** Warnings count — [DONE.md](../../docs/DONE.md) requires zero under strict concurrency, so
    surface them even when the build succeeds. Quote the actual compiler output for failures; don't
    paraphrase.
+
+The process around this command — choosing a stage, who runs what, what to do when it fails:
+[BUILD-PROCESS.md](../../docs/BUILD-PROCESS.md).
+
+## A package has no scheme
+
+`/build` resolves scheme and destination for the app. A package is built directly, and this is the
+only place those commands live:
+
+```bash
+swift build --package-path Packages/<Name>
+swift test  --package-path Packages/<Name>
+swift test  --package-path Packages/<Name> --filter <Pattern>   # one test
+```
+
+Every package must build and test standalone — that is what enforces the module boundaries
+(CLAUDE.md §9).
 
 ## Constraints
 

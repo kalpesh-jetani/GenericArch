@@ -4,6 +4,13 @@ argument-hint: [optional: path or feature to scope to]
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
+```bash
+./Scripts/ga-step.sh after project-init      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+
 Check the current change against the Definition of Done.
 
 **Token-efficient approach:** read [DONE.md](../../docs/DONE.md) once, up front. It is *not* in

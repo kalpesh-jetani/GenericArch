@@ -1,0 +1,20 @@
+# iOS / iPadOS shell
+
+`@main`, the composition root, and nothing else. If a file here does anything a test would want to
+assert on, it belongs in a package.
+
+## What lives here
+
+- The `App` struct and its `WindowGroup`
+- One composition root that builds the dependency container: `liveValue` for the app, and the place
+  every `.package(path:)` is wired in
+- `Info.plist`, entitlements, asset catalog, `PrivacyInfo.xcprivacy`
+- The one place configuration is read — injected onward as `AppEnvironment`, never re-read from a
+  feature (CLAUDE.md §2.10)
+
+## What does not
+
+Views, view models, networking, persistence, formatting, business rules. All of it goes in
+`Packages/`, because that is where `swift test` can reach it without a simulator.
+
+Adding a screen? `/new-feature`. It creates the package, the route case and the one line here.

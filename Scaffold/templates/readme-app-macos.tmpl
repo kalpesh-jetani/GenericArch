@@ -1,0 +1,18 @@
+# macOS shell
+
+A native SwiftUI target. **Not Mac Catalyst** — that compromises the menu bar, windowing and
+toolbars, and the decision is recorded, not open (CLAUDE.md §1).
+
+## What lives here
+
+- `@main`, the `WindowGroup` / `Settings` scenes, and the composition root
+- Menu bar `Commands`, window restoration, toolbar and sidebar wiring — Mac affordances that have no
+  iOS equivalent
+- The Mac target's entitlements and sandbox configuration
+
+## The floor that bites
+
+Shared code compiles against the **iOS** floor, which sits many OS generations below the Mac one. A
+newer API reached for here is fine; the same API in a package breaks the iOS build. Gate it with
+`#if os(macOS)` or `if #available` — inside a DesignSystem component or an infrastructure wrapper,
+never in a feature (CLAUDE.md §1.1).

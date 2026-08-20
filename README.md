@@ -1,6 +1,7 @@
 # GenericArch
 
-Reference architecture for building **iPhone / iPad / Mac** apps using CLAUDE from one shared codebase.
+Reference architecture for building **iPhone / iPad / Mac** apps from one shared codebase, with
+Claude Code as the thing that enforces it.
 
 This repo is the blueprint. Every package in it is meant to be reusable, replaceable, and droppable
 into a new product with minimal change.
@@ -22,8 +23,11 @@ Three ways in. Pick the row that matches what you have — all of them are non-d
 | You have | Use | You get |
 |---|---|---|
 | Nothing yet | **Template repo** | Everything: rules, docs, tooling, starter packages |
-| An existing app | **`bootstrap.sh`** → `install.sh` | Rules, docs and tooling — your code and your rules untouched, reversible with `uninstall.sh` |
+| An existing app | **`bootstrap.sh`** → `install.sh` | Skills, commands, indexes and tooling — your code and your rules untouched, every file hashed, fully reversible with `uninstall.sh` |
 | Several repos | **Plugin** | Only the skills and commands, updated centrally |
+
+Reference docs are fetched on demand rather than copied, and two groups are **opt-in** — see
+[What travels](#what-travels-and-what-does-not) below.
 
 ---
 
@@ -45,9 +49,9 @@ want as *hard* vs *base*, and which permissions to allow. Nothing is written bef
 
 **Then reset the state you inherited** — a template copies this product's answers along with the
 structure: the per-product rows in `docs/DECISIONS.md`, the statuses in `docs/GAPS.md` (then
-`/gaps`), the `.claude/notes/` table bodies, and every `.claude/memory/` file except `INDEX.md`
-— **and empty its `## Index` table**, because deleting the files while leaving their rows behind is
-the common mistake.
+`/gaps`), the `.claude/notes/` table bodies, and every `.claude/memory/` file except `INDEX.md` —
+**including its `## Index` table**, since deleting the files and leaving their rows is the usual
+slip.
 
 ```bash
 ./Scripts/detect-toolchain.sh   # your machine sets the baseline, not this repo's
@@ -67,15 +71,9 @@ bash bootstrap.sh --apply
 
 `bootstrap.sh` is the only part of this that touches the network, and all it does is fetch: it
 resolves the **newest semver tag** on the remote, clones it, and hands over to that clone's
-`install.sh`, which runs entirely offline. Every decision about what lands in your repo — the
-compatibility gate, the plan, the confirmation, the manifest, the rollback — belongs to
-`install.sh`. Pin a specific tag with `--ref`:
-
-```bash
-bash bootstrap.sh --apply --ref <tag>
-```
-
-Already have a checkout? Skip the fetch and run the installer directly — same behaviour, no network:
+`install.sh`. Every decision about what lands in your repo — the compatibility gate, the plan, the
+confirmation, the manifest, the rollback — belongs to it, and runs offline. Already have a checkout?
+Skip the fetch and run the installer directly:
 
 ```bash
 /path/to/GenericArch/install.sh /path/to/YourRepo
@@ -97,8 +95,11 @@ manifest hashes what it wrote, the install is fully reversible — see
 ```
 /project-init          # reads YOUR CLAUDE.md, lists rule conflicts, asks one by one
 /gaps                  # works out what you already have from your code, without asking
-./Scripts/check.sh     # expect failures on an existing codebase — that is the point
+/sync-app-notes        # builds the inventories every later lookup reads instead of searching
 ```
+
+**In that order — it is enforced**, not advisory ([the order](#the-commands-run-in-order)). Then, on
+your own machine, `./Scripts/check.sh`: expect failures on an existing codebase, that is the point.
 
 Your rules win by default. For a hard conflict — CocoaPods vs SPM, UIKit vs SwiftUI — the usual
 answer is *adopt for new code only*, because a codebase that already violates a rule cannot adopt it
@@ -121,6 +122,132 @@ and tooling fixes reach every repo by updating one plugin.
 
 ---
 
+## Two installs, one difference
+
+`install.sh` runs in one of two modes, derived from the compatibility gate and overridable with
+`--mode existing|new`. They differ in exactly one thing: **whether the target gets the predefined
+module material.**
+
+| | Existing repo | New repo |
+|---|---|---|
+| Detected by | any Apple/Swift marker | nothing identifies the repo yet |
+| Gets | skills, commands, indexes, tooling | the same, **plus** `Scaffold/` and `ga-scaffold.sh` |
+| `Packages/`, `docs/modules/` | **never** — the repo has its own shape, and a module doc for a layer it lacks is a dead lookup forever | the scaffold creates the layers you choose and brings each one's doc |
+| The architecture layer — `new-feature`, `/review`, the module and pattern index rows | **not installed.** Both enforce §2/§3: in a repo with no `Packages/`, `new-feature` scaffolds something the app cannot consume and `/review` reports rules the product declined. `/project-init` offers it once the rule-conflict table is settled, or `--with-architecture` takes it up front | included — starting from this base *is* the decision to use it |
+| `scaffold` step | recorded *not applicable* at install time, so nothing waits on it | pending until you run it |
+
+Imposing a layout on a codebase that already has one is the adoption mistake `/project-init` exists
+to avoid — so the existing-repo install has nothing to impose.
+
+### The new-repo scaffold
+
+```bash
+./Scripts/ga-scaffold.sh . --list                       # the layers on offer
+./Scripts/ga-scaffold.sh . --with navigation,design     # dry run — the plan
+./Scripts/ga-scaffold.sh . --with navigation,design --apply
+```
+
+It creates the app shells, copies `Core` and `DIKit` in as real tested packages, adds only the
+layers
+you ask for, brings each one's module doc, and records what you chose in `docs/DECISIONS.md`. Layers
+can be added later with the same command. What each choice costs:
+[Scaffold/ARCHITECTURE-OPTIONS.md](Scaffold/ARCHITECTURE-OPTIONS.md).
+
+**It writes no version numbers.** Deployment floors come from `detect-toolchain.sh` reading your
+repo's own manifests, or from `--ios`/`--macos`. With neither, the generated manifests carry a
+comment
+instead of a `platforms:` line and `Packages/FLOORS.md` explains how to choose — because a floor a
+tool picked compiles today, breaks on the first shared-code change, and by then reads as a decision
+somebody made.
+
+## What travels, and what does not
+
+`Scripts/adopt.sh` owns the list, and `install.sh` drives it — so there is one answer, not two.
+
+| | What | Why |
+|---|---|---|
+| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · the scan and lookup scripts · the lifecycle tools (`ga-step`, `ga-remove`, `ga-reseal`) · `uninstall.sh` | They must be local to work |
+| **Scaffolded empty** | `docs/DECISIONS.md` · `docs/GAPS.md` · `.claude/notes/` · `.claude/memory/` · `.claude/CANDIDATES.tsv` | The prose is ours, the answers are yours |
+| **Fetched on demand** | `docs/modules/` · `docs/patterns/` · the cross-cutting reference docs | A product should not carry docs for layers it does not have. `genericarch.installation.md` indexes them; a missing `docs/…` link is a fetch instruction |
+| **New repos only** | `Scaffold/` · `Scripts/ga-scaffold.sh` · the `Core`/`DIKit` seed under `Scaffold/seed/` | Decided by what the target *is*, not by preference — see above |
+| **On consent** | `--with-architecture` → the `new-feature` skill, `/review`, and the module and pattern rows in `MAP.tsv` | A surface that cannot fire is worse than a missing one: it is grepped, offered and trusted. Implied by a new-repo install |
+| **Opt-in** | `--with-lint` → `.swiftlint.yml`, `.swiftformat` · `--with-meta` → `Scripts/claude-workflows/` | Lint enforces conventions a product may have declined; the pipeline authors `CLAUDE.md` files rather than building apps |
+| **Never** | `CLAUDE.md` · this repo's decisions, gaps, notes and memory · `install.sh`, `bootstrap.sh` · `README.md` · `.claude/settings.json` | Your rules are yours; re-installing means fetching again |
+
+At install time the indexes are made true for *your* repo: `MAP.tsv` rows whose file is not on disk
+are marked `:remote` so a grep hit says "fetch me", and `SCRIPTS.tsv` rows for scripts you did not
+install are pruned outright — a registry row leading nowhere is read on every lookup.
+
+---
+
+## The commands run in order
+
+Each command leaves the repo in the state the next one assumes, and the order is **enforced**, not
+just documented — `Scripts/ga-step.sh` is every command's first step, and an out-of-order run
+exits 5
+without writing anything.
+
+```
+install → scaffold* → /project-init → /gaps → /sync-app-notes → ready
+                                                    * new repos only
+```
+
+```bash
+./Scripts/ga-step.sh show     # where am I, what runs next
+```
+
+After `ready`, the skills and `/find`, `/decide`, `/learn`, `/review`, `/verify`, `/build` run in
+any
+order — they are the work, not steps.
+
+Out of order, these commands do not fail; they succeed against the wrong input. `/gaps` before
+`/project-init` triages capabilities against rules nobody has accepted; `/sync-app-notes` before
+either scans a tree still being agreed. That is why it is a gate and not a paragraph. A step that
+genuinely does not apply is **recorded as skipped, with a reason** — by you, never by Claude:
+
+```bash
+./Scripts/ga-step.sh record gaps "not applicable: docs-and-tooling adoption"
+```
+
+Why each position matters, and how to add a command: [docs/SEQUENCE.md](docs/SEQUENCE.md).
+
+## Declining a file so it stays declined
+
+A file GenericArch ships that your product does not want is **not** deleted with `rm`. Absent from
+disk and never installed are the same state to an installer, so a hand deletion comes back on the
+next install:
+
+```bash
+./Scripts/ga-remove.sh docs/modules/StorageKit.md --reason "no StorageKit here" --apply
+```
+
+One command, four effects:
+
+1. **moves** the file to `.genericarch/safetodelete/` — nothing is destroyed, so reversing costs
+   nothing. The name is the contract: deleting that directory loses only the ability to revive;
+2. **tombstones** it, so no later install re-creates it;
+3. **de-references** it — rows pruned from `MAP.tsv` and `SCRIPTS.tsv`, and every remaining prose
+   reference reported with file and line rather than rewritten, because only a reader of the
+   sentence can tell whether it should go, change, or point elsewhere;
+4. **records** the reason in `DECISIONS.md` *Do not re-propose*.
+
+`--list` shows what is declined; `--revive <path> --apply` moves the file back byte-identical.
+
+## Keeping an install removable
+
+`uninstall.sh` removes a file only while its hash still matches the manifest — that contract is what
+stops it deleting something you wrote. The catch: any command that *rewrites* an installed file
+breaks the match, silently turning that file into something no uninstall can remove. So
+`/project-init`, `/gaps` and `/sync-app-notes` close with:
+
+```bash
+./Scripts/ga-reseal.sh --apply     # without --apply: says what drifted, writes nothing
+```
+
+Run it yourself after editing an installed file by hand.
+
+---
+
 ## Uninstalling, and what it refuses to delete
 
 `install.sh` records every path it wrote, with a hash, in
@@ -135,6 +262,10 @@ removal is a verified operation, not a guess at which files were probably ours.
 
 **The version argument is required.** Supported: `v0.1.0`, `v0.2.0` (latest). Defaulting it would
 mean guessing which release's footprint to delete, and a wrong guess deletes the wrong files.
+
+**Exit 0 means the repo is back to its pre-install state; exit 1 means files were left behind** —
+listed in `.genericarch/orphans-<version>.txt`, which outlives the terminal. A partial removal that
+reported success is how one repo ended up half-installed with nobody aware of it.
 
 Flags, exit codes, what *user-edited file preserved* means, and recovering an install that failed
 part-way: [docs/SHARING.md](docs/SHARING.md). Manifest format:
@@ -162,9 +293,26 @@ outright. Details: [docs/SHARING.md](docs/SHARING.md).
 
 ## What you just installed
 
+### Where the rules live — and what each costs per session
+
+`CLAUDE.md` is loaded in full on **every** session, so it holds only what binds while writing code.
+Everything else is one lookup away, and linked from there so it is never lost:
+
+| File | Loaded | Holds |
+|---|---|---|
+| `CLAUDE.md` | every session — ~3,700 tokens | §0–§12: the ask-first decisions, the 15 unbreakable rules, the index, concurrency, conventions |
+| `Packages/CLAUDE.md` | when you work in a package | the detail behind §4 extraction, §7 wrappers, §9 package testing |
+| `docs/BUILD-PROCESS.md` · `DEPLOYMENT-PROCESS.md` · `PROJECT-SETTINGS.md` | when the task is that | building a stage · shipping and rolling back · capabilities, floors, secrets, privacy |
+| `docs/` reference, `.claude/notes/` | on lookup | the reasoning, and the code's own inventory |
+
+Every section heading stays in `CLAUDE.md` even when its detail moves out — roughly 380 `§N`
+citations across the docs, skills and scripts resolve against those headings, and no linter checks
+them.
+
 ### The map — how the agent finds anything
 
-`.claude/MAP.tsv` is one grep-able row per doc, note, pattern, skill and command: its topics and when
+`.claude/MAP.tsv` is one grep-able row per doc, note, pattern, skill and command: its topics and
+when
 to read it. It replaces a table of contents that used to be re-read every session.
 
 ```bash
@@ -172,10 +320,11 @@ grep -i navigation .claude/MAP.tsv           # what covers this topic
 awk -F'\t' '$2=="module"' .claude/MAP.tsv    # every module doc
 ```
 
-Reference docs are **not copied** into your repo — they are fetched when a task needs them. A
-`docs/…` row that isn't on disk is a fetch instruction, not a broken link; the map's `# FETCH-BASE:`
-line, stamped at install time with the exact commit you installed from, says where to get it.
-`/project-init` verifies every row resolves before reporting success.
+Reference docs are **not copied** into your repo — they are fetched when a task needs them. Those
+rows are marked at install time: a kind reading `module:remote` means *not on disk here, fetch it*,
+and the map's `# FETCH-BASE:` line carries the exact commit you installed from. Without the mark,
+every reader had to stat the file to find out — 22 of 60 rows in one real adoption, each costing a
+lookup and sometimes a fetch of a doc for a layer the product does not have.
 
 ### The script registry — the agent calls scripts instead of rewriting them
 
@@ -205,9 +354,38 @@ The `claude` column is what makes that safe:
 | `never:<reason>` | the agent must not run it — `check.sh` compiles the iOS floor |
 
 `register-scripts.sh` refuses to register a script with an incomplete header, so a script cannot be
-added without stating its contract. A script with no row is a script the agent will never call.
+added without stating its contract. A script with no row is a script the agent will never call — and
+the reverse is worse, so a row whose script is not installed here is **pruned at install time**
+rather than left to be grepped forever.
 
 ### The notes — a grep index, not documents
+
+**Seven of the nine come from a script**, in two tiers — because a note needing judgement rarely
+means every *column* does:
+
+| Tier | Notes | Who writes it |
+|---|---|---|
+| Generated | FONTS · ASSETS-COLORS · PROJECT | the script, outright |
+| Partial | ASSETS-IMAGES · API-MAP · NAVIGATION · SCHEMES | the script writes what it can prove and states, in the note, what it did not |
+| Hand-written | FEATURES · STYLE-GUIDE | a reviewer, from candidates |
+
+
+```bash
+./Scripts/sync-notes.sh --apply       # writes those three, between managed markers
+./Scripts/sync-notes.sh --evidence    # candidates for the six that need judgement
+./Scripts/sync-notes.sh --check       # CI gate: exit 1 when one has drifted
+```
+
+Offline, no model. A partial note carries its caveat **inside** the generated block — "the 110 rows
+above are parsed from the tree; what this scan does not establish is which screen calls each
+endpoint" — so it can never be mistaken for a complete one. The remainder goes to
+`.claude/notes/.evidence/<NOTE>.tsv`, and `/sync-app-notes` resolves a named list instead of running
+a scan. Why the last two resist automation at all: [SCAN-TRAPS.md](docs/SCAN-TRAPS.md).
+
+When a generator cannot handle your repo it writes a ~45-line report to `.genericarch/failures/`
+naming what it expected and what it found, and **that** is what the agent reads — not the 175-line
+scanner. It fixes the script, so the next run is mechanical again.
+
 
 `.claude/notes/` holds nine inventories generated from your code: features and screens, routes, the
 API map, images, colours, fonts, design tokens, schemes, targets. They exist to be **searched, never
@@ -249,7 +427,8 @@ the symptom to the one scan that answers it rather than opening files. Running t
 order is how you scaffold a package that already exists.
 
 Six more are written and waiting as patterns — `change`, `style-guide`, `dark-light-mode`,
-`rtl-support`, `release-bump`, `feature-complete`. Each becomes a real skill via `/learn <name>` once
+`rtl-support`, `release-bump`, `feature-complete`. Each becomes a real skill via `/learn <name>`
+once
 your repo has the code it describes.
 
 **A description is trigger phrases, never a summary of the body.** A summary makes the skill fire on
@@ -295,11 +474,10 @@ comes out slightly different each time.
 ./Scripts/session-script.sh add --intent "..." --cmd '...'   # only when that exits 1
 ```
 
-A staged script is **session-local and gitignored**. It is promoted into `Scripts/` only when a
-*second, distinct session* needs the same intent — one session repeating itself is a one-off, not
-a capability. Promotion runs seven gates, refuses anything that invokes a compiler (§2.12) or
-touches the network, then writes a real `#@` header and regenerates the registry. The registry row
-is what puts it in front of the agent, so no skill prose is ever hand-written.
+A staged script is **session-local and gitignored**, promoted into `Scripts/` only when a *second,
+distinct session* needs the same intent. Promotion runs seven gates, refuses anything that invokes a
+compiler (§2.12) or touches the network, then writes a real `#@` header and regenerates the
+registry.
 
 **The exit code is the contract.** Every `#@exit` header in the registry is what a gate branches
 on, so these four compose into a check that needs no Xcode and no network — unlike
@@ -322,6 +500,10 @@ Ask it instead — `./Scripts/find-script.sh "<what you want>"`, or `grep` `.cla
 `CLAUDE.md` — under a record, with `Scripts/claude-utils/` holding the cross-phase utilities. Full
 reference: [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md).
 
+**Opt-in**: eleven scripts that author this layer rather than build an app with it, so they install
+only with `adopt.sh --with-meta`. Without them the same nine phases are walked by hand, in the same
+order.
+
 ```bash
 ./Scripts/claude-utils/init-claude-env.sh --add myapp ~/code/myapp
 ./Scripts/claude-workflows/run-task.sh myapp task-1 all --approve --text "<the request>"
@@ -338,11 +520,18 @@ script and never runs git. Phase 4 is where a bad edit dies — absent text, tex
 once, a section that does not exist. Gates, phase contracts, Xcode resolution and undo:
 [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md).
 
-### Six rules the agent follows without being asked
+### Ten rules the agent follows without being asked
 
 - **`CLAUDE.md` is never edited without your explicit approval** — it loads into every session, so a
   change there alters every future response.
 - **It never commits or pushes.** Work is left in the working tree; you decide when it's done.
+- **It never deletes an installed file with `rm`** — it retires it through `ga-remove.sh`, which
+  moves, tombstones, de-references and records in one operation. A hand deletion would come back.
+- **It runs the commands in order**, and stops when the gate refuses rather than passing `--force`.
+- **It greps the map before any task that is not writing code.** Setup, build, ship and settings are
+  not in `CLAUDE.md`; a topic it cannot find is one to ask about, not to improvise.
+- **It reads a failed script's report, not the script.** ~45 lines naming what the script expected
+  and what your repo has, instead of 175 lines to re-derive.
 - **It never builds, runs, or tests** — including `./Scripts/check.sh`, which compiles. It tells you
   what to run.
 - **The note inventories are updated row by row** as part of a change; a full rescan only happens
@@ -361,12 +550,16 @@ once, a section that does not exist. Gates, phase contracts, Xcode resolution an
 
 | You want to… | Read |
 |---|---|
+| Know what every file in here is for | [OPERATORS-GUIDE.md](OPERATORS-GUIDE.md) — written for a person, not the agent |
 | Know the rules before writing code | [CLAUDE.md](CLAUDE.md) |
 | Find the doc for a topic | `grep -i <topic> .claude/MAP.tsv` |
 | Find *which script already does this* | `./Scripts/find-script.sh "<what you want>"` |
 | Find *where something is* — a screen, route, endpoint, asset | `/find <name>` |
 | Edit a `CLAUDE.md` under a record | [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md) |
 | Know why a scan is written the way it is | [docs/SCAN-TRAPS.md](docs/SCAN-TRAPS.md) |
+| Know which command runs next, or why one refused | `./Scripts/ga-step.sh show` · [docs/SEQUENCE.md](docs/SEQUENCE.md) |
+| Decline a file GenericArch ships | `./Scripts/ga-remove.sh <path> --reason "…"` |
+| Find a file this thing retired | `.genericarch/safetodelete/` · `./Scripts/ga-remove.sh --list` |
 | Know the resolved stack — min OS, Xcode, Swift | [.claude/notes/PROJECT.md](.claude/notes/PROJECT.md) |
 | Understand a specific layer | [docs/modules/](docs/modules/) — one doc per package |
 | Know why something is the way it is | [docs/DECISIONS.md](docs/DECISIONS.md) |
@@ -374,12 +567,19 @@ once, a section that does not exist. Gates, phase contracts, Xcode resolution an
 | Set up a machine, or ship | [docs/REPO.md](docs/REPO.md), [docs/DELIVERY.md](docs/DELIVERY.md) |
 | Know when a change is actually finished | [docs/DONE.md](docs/DONE.md), or `/verify` |
 | Know where a new doc belongs | [docs/STRUCTURE.md](docs/STRUCTURE.md) |
+| Know what earlier sessions learned about this repo | [.claude/memory/INDEX.md](.claude/memory/INDEX.md) — tracked, so it survives a clone |
+| Regenerate the inventories without spending a session | `./Scripts/sync-notes.sh --apply` |
 
 ## Layout
 
 ```
-CLAUDE.md            always-on rules ONLY — no version numbers, no reference tables, no
-                     checklists. Those live in docs/ and are read when a task needs them
+CLAUDE.md            session rules ONLY — no version numbers, no reference tables, no checklists,
+                     no setup/build/ship material. Those live in docs/ and are read per task
+Packages/CLAUDE.md   scoped rules: extraction, wrappers, package testing — loaded where they bind
+OPERATORS-GUIDE.md   every file in this repo and what a person does with it
+docs/BUILD-PROCESS.md      building a stage: who runs what, and what a failure means
+docs/DEPLOYMENT-PROCESS.md tag → soak → submit → roll back, and who owns each gate
+docs/PROJECT-SETTINGS.md   capabilities, entitlements, floors, secrets, privacy, localization
 Packages/            local Swift packages — Core, DIKit, DesignSystem, Features/…
 App/                 thin iOS + macOS shells: @main, composition root, no logic
 docs/                hand-written reasoning: module design + cross-cutting reference
@@ -397,13 +597,25 @@ docs/CLAUDE-TASKS.md the nine-phase pipeline: contracts, gates, and how to add a
 .claude/skills/      procedures Claude applies on its own
 .claude/commands/    things you trigger, listed above
 .claude/claude-tasks/ per-run pipeline artifacts — gitignored working state, not a record to keep
-Scripts/check.sh     enforces the rules a linter can't express
-Scripts/claude-workflows/  the nine numbered phases, plus run-task.sh
+.genericarch/        the install record: manifest-<version>.json (what was written, hashed),
+                     TOMBSTONES.tsv (what was declined and why), STEPS.tsv (which steps ran),
+                     safetodelete/ (the declined files themselves — the one directory you may
+                     delete), orphans-<version>.txt (what an uninstall could not remove)
+docs/SEQUENCE.md     the command order, what each step must leave behind, and how to add one
+Scripts/ga-step.sh   the sequence gate — show · next · require · after · record
+Scripts/sync-notes.sh    regenerate seven of the nine notes offline — no model, no network
+Scripts/ga-handoff.sh    a failing script's bounded diagnosis, so the agent fixes it from that
+Scripts/ga-remove.sh retire a file: move, tombstone, de-reference, record
+Scripts/ga-reseal.sh keep files the commands edited removable
+Scripts/ga-roundtrip.sh  proves install → uninstall still round-trips
+Scripts/check.sh     enforces the rules a linter can't express — compiles, so it is yours to run
 Scripts/claude-utils/      cross-phase utilities: lint, links, rollback, registry — macOS only
+Scripts/claude-workflows/  the nine numbered phases, plus run-task.sh — OPTIONAL (--with-meta)
 ```
 
 Two packages are **not in this repo at all**. `GenericArch-NetworkKit` and `GenericArch-ImageCache`
-are standalone, zero-dependency packages in their own repositories — add them to `Package.swift` when
+are standalone, zero-dependency packages in their own repositories — add them to `Package.swift`
+when
 a product needs them, and they resolve by version. Their source is never copied into a consuming
 codebase ([docs/REPO.md](docs/REPO.md)).
 
@@ -415,7 +627,8 @@ swift test  --package-path Packages/Core
 ./Scripts/check.sh                           # rule enforcement
 ```
 
-Apps build per stage — DEV / TEST / BETA / PROD ([.claude/notes/SCHEMES.md](.claude/notes/SCHEMES.md)),
+Apps build per stage — DEV / TEST / BETA / PROD
+([.claude/notes/SCHEMES.md](.claude/notes/SCHEMES.md)),
 or via `/build`, which picks the scheme and destination for you.
 
 ## Status
@@ -426,3 +639,7 @@ deliberately absent.
 
 `./Scripts/check.sh` is currently red on one item: the recorded minimum macOS is above the installed
 macOS SDK. `/upgrade-stack` reviews that and asks before changing anything.
+
+The install lifecycle has its own gate, and it is green: `./Scripts/ga-roundtrip.sh` — six cases,
+each against a repo built from nothing. Run it before tagging a release; a lifecycle that cannot
+round-trip is how an adoption ends up half-installed with nobody aware of it.

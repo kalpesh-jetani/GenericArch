@@ -1,0 +1,27 @@
+# Features
+
+One local package per feature. **No feature imports another** — they talk through `Core` protocols
+and navigate by `Route` value, and `Package.swift` is what enforces it (CLAUDE.md §2.1, §3).
+
+```
+Packages/Features/FeatureX/
+├── Package.swift                 depends on Core, DIKit — never on FeatureY
+├── Sources/FeatureX/
+│   ├── FeatureXView.swift        the screen
+│   ├── FeatureXViewModel.swift   @MainActor, @Observable
+│   ├── FeatureXService.swift     a protocol in Core, an actor or Sendable struct here
+│   └── Mocks/                    the mock every test and preview uses
+└── Tests/FeatureXTests/
+```
+
+## Four things every feature ships
+
+1. **A protocol for anything it depends on** — registered in DIKit, mockable, with a mandatory
+   `testValue`. No `.shared`, no `resolve` inside a feature type.
+2. **Every content state** — loading, empty, offline, error, loaded, and paging where paged. Not the
+   happy path plus a spinner.
+3. **Localized keys for every user-facing string.** No literals, ever.
+4. **A view model test against the mock.** No network in tests — that is what the mandatory
+   `testValue` guarantees.
+
+Use `/new-feature`. It asks the presentation question once, then produces all four.

@@ -1,8 +1,15 @@
 ---
-description: Learn from a resource or from finished work, and record it — take a sample repo, Figma link, doc URL or a completed feature, write a usage note, index it, promote a pattern to a skill, or capture a twice-repeated manual operation as a registered script (--script)
+description: Learn from a resource or from finished work and record it — a repo, Figma link or doc URL, a shipped feature, a promoted pattern, or a repeated manual step captured as a script (--script)
 argument-hint: [a URL, a path, a pattern name, a feature that just shipped, or --script <what you keep doing by hand>]
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebFetch, AskUserQuestion
 ---
+
+```bash
+./Scripts/ga-step.sh after sync-app-notes      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
 
 Turn something into repo knowledge: a resource you were given, or work that just finished.
 

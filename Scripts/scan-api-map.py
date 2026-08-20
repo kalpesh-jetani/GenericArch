@@ -77,6 +77,93 @@ for chunk in re.split(r'\n\s*case\s+', bm.group(1) if bm else "")[1:]:
     if not (names and lits): continue
     paths[names[0]] = sorted({re.sub(r'\\\((\w+)\)', r'{\1}', l) for l in lits})
 
+# ---- 3b. fallback: many routers, one per feature --------------------------------
+# The single-router discovery above assumes what most sample projects do: one enum, one `path`
+# switch, one call convention. Real repos also do the opposite — a `*Resources.swift` enum per
+# feature, each conforming to a `TargetType`-style protocol, each with its own `path`. On such a repo
+# the pass above finds nothing and reports `router: null`, which is honest but useless.
+#
+# So: when nothing was declared, discover EVERY type that declares a String `path` and read it. No
+# call convention is assumed, because there is no single one to assume.
+def brace_body(text, open_pos):
+    """Text between the brace at/after open_pos and its match. Returns (body, end)."""
+    i = text.find("{", open_pos)
+    if i < 0: return "", open_pos
+    depth = 0
+    for j in range(i, len(text)):
+        if text[j] == "{": depth += 1
+        elif text[j] == "}":
+            depth -= 1
+            if depth == 0: return text[i + 1:j], j
+    return text[i + 1:], len(text)
+
+def literals_by_case(body, cases):
+    """Map case -> normalised path literals from a property body, whether it switches or not."""
+    out = {}
+    if re.search(r'\bswitch\b', body):
+        # `case .x, .y: return "…"` and `case .x: "…"` both occur; a branch can hold two literals.
+        for m in re.finditer(r'case\s+([^:]+):(.*?)(?=\n\s*(?:case\s|default\s*:|\Z))', body, re.S):
+            names = re.findall(r'\.(\w+)', m.group(1))
+            lits  = re.findall(r'"([^"]*)"', m.group(2))
+            for n in names:
+                if lits: out[n] = sorted({re.sub(r'\\\((\w+)\)', r'{\1}', l) for l in lits if l})
+    else:
+        lits = sorted({re.sub(r'\\\((\w+)\)', r'{\1}', l) for l in re.findall(r'"([^"]*)"', body) if l})
+        if lits:
+            for c in cases: out[c] = lits
+    return out
+
+multi = []
+if not paths:
+    for p, t in clean.items():
+        # Cases and the `path` property are usually in DIFFERENT declarations: `enum X { case … }`
+        # and `extension X: TargetType { var path … }`, often the dominant shape in a real app. So
+        # this works per FILE and attributes a property to its enclosing `extension X`, falling back
+        # to the file's only enum. Scanning enum bodies alone finds nothing here.
+        enums = {}
+        for em in re.finditer(r'^\s*(?:public\s+|internal\s+|private\s+)?enum\s+(\w+)', t, re.M):
+            body, _ = brace_body(t, em.start())
+            cases = []
+            for cm in re.finditer(r'^\s*case\s+([^\n]+)', body, re.M):
+                for c in re.findall(r'\b([a-z]\w*)\b', cm.group(1).split("(")[0]):
+                    if c not in cases: cases.append(c)
+            if cases: enums[em.group(1)] = cases
+        if not enums: continue
+
+        def owner_type(pos):
+            """The type a property at `pos` belongs to: nearest preceding `extension X`, else the
+            file's only enum. Guessing when a file holds several is how rows get attached to the
+            wrong endpoint, so that case is skipped rather than approximated."""
+            ext = None
+            for xm in re.finditer(r'^\s*extension\s+(\w+)', t, re.M):
+                if xm.start() < pos and xm.group(1) in enums: ext = xm.group(1)
+            if ext: return ext
+            return next(iter(enums)) if len(enums) == 1 else None
+
+        for pm2 in re.finditer(r'var\s+path\s*:\s*String', t):
+            who = owner_type(pm2.start())
+            if not who: continue
+            pbody, _ = brace_body(t, pm2.end())
+            pl = literals_by_case(pbody, enums[who])
+            if not pl: continue
+            ml = {}
+            for mm in re.finditer(r'var\s+method\s*:\s*\w+', t):
+                if owner_type(mm.start()) != who: continue
+                mbody, _ = brace_body(t, mm.end())
+                if re.search(r'\bswitch\b', mbody):
+                    for m in re.finditer(r'case\s+([^:]+):(.*?)(?=\n\s*(?:case\s|default\s*:|\Z))', mbody, re.S):
+                        vm = re.search(r'\.(\w+)', m.group(2))
+                        if vm:
+                            for n in re.findall(r'\.(\w+)', m.group(1)): ml[n] = vm.group(1).upper()
+                else:
+                    vm = re.search(r'\.(\w+)', mbody)
+                    if vm:
+                        for c in enums[who]: ml[c] = vm.group(1).upper()
+            for c in enums[who]:
+                if c in pl:
+                    multi.append(dict(router=os.path.relpath(p, SRC), enum=who, case=c,
+                                      paths=pl[c], method=ml.get(c, "?")))
+
 # ---- 4. caller identity + screen title -----------------------------------------
 L10N = {}
 if STRINGS and os.path.exists(STRINGS):
@@ -143,10 +230,32 @@ for case in sorted(sites):
                             screen_file=sf, title=st))
     rows.append(dict(case=case, paths=paths.get(case), callers=callers))
 
-result = dict(source=SRC, router=os.path.relpath(router, SRC) if router else None,
-              enum=enum_name, path_property=prop, l10n_keys=len(L10N),
-              declared=len(paths), called=len(rows),
-              never_called=sorted(set(paths) - set(sites)), rows=rows)
+# The multi-router pass produces endpoints without callers: no call convention was assumed, so the
+# screen pairing is not proven and must not be implied. They are reported separately, and
+# `pairing: "unproven"` is what stops a consumer rendering them as if a screen were known.
+if multi and not rows:
+    # A file that declares a `path` and yielded nothing is the honest gap: a shape this pass still
+    # does not read. Naming those files is what lets the next fix be targeted instead of speculative,
+    # and stops 90 rows reading as "all of them".
+    covered = {m["router"] for m in multi}
+    # `var path: String { get }` is a PROTOCOL requirement, not a router — counting it as an
+    # unparsed router reports a gap that does not exist.
+    def declares_router(t):
+        for m in re.finditer(r'var\s+path\s*:\s*String\s*\{', t):
+            if not re.match(r'\s*get\b', t[m.end():m.end() + 12]): return True
+        return False
+    declares = {os.path.relpath(p, SRC) for p, t in clean.items() if declares_router(t)}
+    result = dict(source=SRC, router="multiple", enum="per-feature",
+                  path_property="path", l10n_keys=len(L10N),
+                  declared=len(multi), called=0, pairing="unproven",
+                  routers=sorted(covered),
+                  unparsed=sorted(declares - covered),
+                  never_called=[], rows=multi)
+else:
+    result = dict(source=SRC, router=os.path.relpath(router, SRC) if router else None,
+                  enum=enum_name, path_property=prop, l10n_keys=len(L10N),
+                  declared=len(paths), called=len(rows), pairing="proven",
+                  never_called=sorted(set(paths) - set(sites)), rows=rows)
 
 if "--markdown" not in sys.argv:
     json.dump(result, sys.stdout, indent=1); sys.exit(0)

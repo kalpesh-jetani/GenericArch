@@ -46,3 +46,4 @@ Convert relative dates to absolute — "last week" is unreadable in six months.
 | Memory | What it holds |
 |---|---|
 | [`claude-md-section-numbers-are-load-bearing.md`](claude-md-section-numbers-are-load-bearing.md) | ~380 repo-wide §N citations — shrink CLAUDE.md bodies, never move a heading |
+| [`per-feature-router-shape.md`](per-feature-router-shape.md) | One router enum per feature, `path` in an extension — the shape that found 0 endpoints until scan-api-map.py got a second pass |

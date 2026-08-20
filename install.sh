@@ -44,11 +44,19 @@ usage() {
 TARGET=""
 DRY_RUN=0
 FORCE_COMPAT=0
+ROOT_OK=0
+MODE=""
+WITH_ARCH=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes)      GA_ASSUME_YES=1; shift ;;
     -n|--dry-run)  DRY_RUN=1; shift ;;
     -f|--force)    FORCE_COMPAT=1; shift ;;
+    --root-ok)     ROOT_OK=1; shift ;;
+    --with-architecture) WITH_ARCH=1; shift ;;
+    --mode)        [ $# -ge 2 ] || ga_die "--mode needs existing or new" "$GA_EX_USAGE"
+                   case "$2" in existing|new) MODE="$2" ;; *) ga_die "--mode takes existing or new, not $2" "$GA_EX_USAGE" ;; esac
+                   shift 2 ;;
     --target)      [ $# -ge 2 ] || ga_die "--target needs a directory" "$GA_EX_USAGE"
                    TARGET="$2"; shift 2 ;;
     -h|--help)     usage; exit "$GA_EX_OK" ;;
@@ -81,6 +89,52 @@ TARGET="${TARGET:-$(pwd)}"
 TARGET="$(cd "$TARGET" && pwd)"
 [ "$TARGET" = "$SRC" ] && ga_die "the target is GenericArch itself — nothing to install" "$GA_EX_USAGE"
 [ -w "$TARGET" ] || ga_die "target is not writable: $TARGET" "$GA_EX_ERR"
+
+# ── One install per repo, at one root ──────────────────────────────────────
+# The failure this prevents: the layer installed at a repo root AND at the nested Xcode-project
+# directory beside it. Both copies are live, the commands and skills are duplicated under names
+# Claude resolves ambiguously, and only one of them has a manifest — so the other can never be
+# uninstalled. That cost three commits to create and one hand cleanup to undo, and the second
+# install had no way to know the first existed.
+#
+# So: look up to the git root and down one level for an existing footprint, and refuse rather than
+# create the second one. --root-ok is the operator's override for the case where two independent
+# products genuinely share a checkout.
+ga_footprint_at() {
+  [ -d "$1/$GA_STATE_DIR" ] || [ -d "$1/.claude/commands" ]
+}
+OTHER_ROOT=""
+# Compare PHYSICAL paths on both sides. `git rev-parse` resolves symlinks and `cd`+`pwd` does not,
+# so on a symlinked tree (/var → /private/var on macOS, or any repo reached through a link) the
+# same directory compares unequal and the target is reported as a second root against itself.
+TARGET_P="$(cd "$TARGET" && pwd -P)"
+GIT_ROOT="$(git -C "$TARGET" rev-parse --show-toplevel 2>/dev/null || echo "")"
+if [ -n "$GIT_ROOT" ]; then
+  GIT_ROOT_P="$(cd "$GIT_ROOT" 2>/dev/null && pwd -P || echo "$GIT_ROOT")"
+  if [ "$GIT_ROOT_P" != "$TARGET_P" ] && ga_footprint_at "$GIT_ROOT"; then
+    OTHER_ROOT="$GIT_ROOT"
+  fi
+fi
+if [ -z "$OTHER_ROOT" ]; then
+  for d in "$TARGET"/*/; do
+    d="${d%/}"
+    [ -d "$d" ] || continue
+    case "${d##*/}" in .*|Packages|Scripts|docs) continue ;; esac
+    if ga_footprint_at "$d"; then OTHER_ROOT="$d"; break; fi
+  done
+fi
+if [ -n "$OTHER_ROOT" ] && [ "$ROOT_OK" -eq 0 ]; then
+  installed_ver="unknown"
+  for m in $(ga_manifest_find "$OTHER_ROOT"); do installed_ver="$(ga_manifest_version "$m")"; done
+  ga_die "GenericArch is already installed at another root in this checkout:
+    here:      $TARGET
+    already:   $OTHER_ROOT  ($installed_ver)
+  Two live copies duplicate every command and skill, and only one of them can be uninstalled.
+  Install into that root instead, or upgrade it:  ./install.sh \"$OTHER_ROOT\"
+  If two products really do share this checkout, re-run with --root-ok." "$GA_EX_ERR"
+fi
+[ -n "$OTHER_ROOT" ] && ga_warn "--root-ok given — a second footprint exists at $OTHER_ROOT.
+  Every command and skill now resolves ambiguously between the two."
 
 # ── Which version is being installed ───────────────────────────────────────
 # The manifest is named after this and uninstall.sh validates against it, so it must be a real
@@ -153,6 +207,44 @@ else
 fi
 [ -d "$TARGET/.git" ] || ga_warn "target is not a git repository — you will not be able to diff or revert this"
 
+# ── Which of the two installs this is ──────────────────────────────────────
+# They differ in exactly one thing: whether the target gets the predefined MODULE material.
+#
+#   existing — a repo that already has a shape. It gets rules, indexes and tooling and NOTHING
+#              module-shaped: no Packages/, no docs/modules/, no scaffold. Imposing a layout on a
+#              codebase that already has one is the adoption failure /project-init exists to avoid,
+#              and a module doc for a package the repo does not have is a dead lookup forever.
+#
+#   new      — a repo with no shape yet. The module material is exactly what it needs, so it also
+#              gets Scaffold/ and ga-scaffold.sh: the predefined structure, the seed packages, and
+#              the notes that turn "which layers?" into a decision instead of a guess.
+#
+# Derived from the same compatibility gate above, so the two can never disagree. --mode overrides it
+# for the case the markers get wrong — a repo cleared out to be rebuilt, say.
+if [ -z "$MODE" ]; then
+  case "$GA_COMPAT_KIND" in
+    fresh) MODE="new" ;;
+    *)     MODE="existing" ;;
+  esac
+  MODE_WHY="derived from the compatibility gate"
+else
+  MODE_WHY="given with --mode"
+fi
+printf '\n  %sinstall mode%s  %s%s%s  %s(%s)%s\n' \
+  "$GA_BLD" "$GA_OFF" "$GA_BLD" "$MODE" "$GA_OFF" "$GA_DIM" "$MODE_WHY" "$GA_OFF"
+if [ "$MODE" = "new" ]; then
+  ga_dim "  Adds the scaffold: Scaffold/LAYOUT.tsv, its templates, the architecture notes, and"
+  ga_dim "  ga-scaffold.sh — the predefined structure and seed packages, applied when you run it."
+elif [ "$WITH_ARCH" -eq 1 ]; then
+  ga_dim "  --with-architecture given: new-feature and /review come too. Take this only once the"
+  ga_dim "  product has actually adopted §2/§3 — /project-init is where that is decided."
+else
+  ga_dim "  Tooling and lookup only. No Packages/, no docs/modules/, no scaffold — and no new-feature"
+  ga_dim "  or /review, because both enforce an architecture this repo has not adopted: new-feature"
+  ga_dim "  would scaffold a package the app cannot consume, /review would report rules you declined."
+  ga_dim "  /project-init offers them once the rule-conflict table is settled."
+fi
+
 # ── 2. Stage into a temp tree ──────────────────────────────────────────────
 # Scripts/adopt.sh owns the authoritative list of what travels, the "nothing falls through the
 # lists" gate, and the scaffolding rules. Pointing it at an EMPTY directory is what makes it usable
@@ -200,7 +292,13 @@ trap 'rc=$?; rollback; cleanup_temp; exit $rc' INT TERM
 trap 'rollback; cleanup_temp' EXIT
 
 ga_hdr "── Staging ────────────────────────────────────────────"
-if ! "$SRC/Scripts/adopt.sh" "$STAGE" --apply --quiet-next > "$ADOPT_LOG" 2>&1; then
+ADOPT_ARGS="--apply --quiet-next"
+[ "$MODE" = "new" ] && ADOPT_ARGS="$ADOPT_ARGS --fresh"
+# --fresh implies it inside adopt.sh — starting a repo from this base IS the decision — so this only
+# ever adds it for an existing repo whose operator asked.
+[ "$WITH_ARCH" -eq 1 ] && ADOPT_ARGS="$ADOPT_ARGS --with-architecture"
+# shellcheck disable=SC2086  # deliberate word splitting of a flag list
+if ! "$SRC/Scripts/adopt.sh" "$STAGE" $ADOPT_ARGS > "$ADOPT_LOG" 2>&1; then
   echo
   cat "$ADOPT_LOG" >&2
   ga_die "staging failed — Scripts/adopt.sh refused (output above). Nothing was written to the target." "$GA_EX_ERR"
@@ -221,13 +319,19 @@ if [ -n "$PREV_MANIFEST" ]; then
   ga_dim "  found a previous install: ${PREV_MANIFEST#"$TARGET"/} ($(ga_manifest_version "$PREV_MANIFEST"))"
 fi
 
-n_create=0; n_adopt=0; n_keep=0; n_skip=0
+n_create=0; n_adopt=0; n_keep=0; n_skip=0; n_declined=0
 
 while IFS= read -r rel; do
   staged="$STAGE/$rel"
   tgt="$TARGET/$rel"
   ssha="$(ga_sha256 "$staged")"
   if [ ! -e "$tgt" ]; then
+    # Not on disk is not the same as never installed. A path this product DECLINED carries a
+    # tombstone, and re-creating it is how a recorded decision gets silently reversed — four times,
+    # in the adoption that made this check necessary.
+    if ga_tombstoned "$TARGET" "$rel"; then
+      printf 'declined\t%s\t%s\t0\n' "$rel" "$ssha" >> "$PLAN"; n_declined=$((n_declined + 1)); continue
+    fi
     printf 'create\t%s\t%s\t1\n' "$rel" "$ssha" >> "$PLAN"; n_create=$((n_create + 1)); continue
   fi
   tsha="$(ga_sha256 "$tgt" || echo "")"
@@ -274,6 +378,12 @@ if [ "$n_skip" -gt 0 ]; then
   printf '\n%s  yours — skipped, kept exactly as they are%s\n' "$GA_YEL" "$GA_OFF"
   awk -F'\t' '$1=="skip" {print "    · " $2}' "$PLAN"
 fi
+if [ "$n_declined" -gt 0 ]; then
+  printf '\n%s  declined by this product%s — not created; see %s/%s\n' \
+    "$GA_BLD" "$GA_OFF" "$GA_STATE_DIR" "$GA_TOMBSTONES"
+  awk -F'\t' '$1=="declined" {print "    ⊘ " $2}' "$PLAN"
+  ga_dim "    To take one back: ./Scripts/ga-remove.sh --revive <path> --apply, then re-run."
+fi
 case "$GITIGNORE_ACTION" in
   modify) printf '\n%s  append%s — .gitignore gains a managed block (original backed up first)\n' "$GA_BLD" "$GA_OFF"
           printf '    ~ .gitignore  %s.claude/claude-tasks/ and dist/%s\n' "$GA_DIM" "$GA_OFF" ;;
@@ -287,8 +397,8 @@ printf '    + %s/manifest-%s.json  %swritten last, on full success only%s\n' \
 
 echo
 printf '%s───────────────────────────────────────────────────────%s\n' "$GA_BLD" "$GA_OFF"
-printf '%d create · %d already ours · %d left at older version · %d yours (skipped)\n' \
-  "$n_create" "$n_adopt" "$n_keep" "$n_skip"
+printf '%d create · %d already ours · %d left at older version · %d yours (skipped) · %d declined\n' \
+  "$n_create" "$n_adopt" "$n_keep" "$n_skip" "$n_declined"
 [ "$n_skip" -gt 0 ] && ga_dim "Nothing in the skipped list is read, moved or rewritten."
 
 if [ "$DRY_RUN" -eq 1 ]; then
@@ -327,8 +437,11 @@ while IFS="$(printf '\t')" read -r act rel sha needs_write; do
     sha="$(ga_sha256 "$TARGET/$rel")"
   fi
   case "$act" in
-    skip) ga_manifest_add "$rel" skipped   "$sha" "$(ga_mtime_iso "$TARGET/$rel")" "" "$GA_VERSION" ;;
-    *)    ga_manifest_add "$rel" created   "$sha" "$(ga_mtime_iso "$TARGET/$rel")" "" "$GA_VERSION" ;;
+    # Recorded so the manifest is a complete statement of what GenericArch would own here, and so
+    # `declined` survives a re-install rather than being re-derived from the tombstone file alone.
+    declined) ga_manifest_add "$rel" declined "$sha" "$(ga_now_iso)" "" "$GA_VERSION" ;;
+    skip)     ga_manifest_add "$rel" skipped  "$sha" "$(ga_mtime_iso "$TARGET/$rel")" "" "$GA_VERSION" ;;
+    *)        ga_manifest_add "$rel" created  "$sha" "$(ga_mtime_iso "$TARGET/$rel")" "" "$GA_VERSION" ;;
   esac
 done < "$PLAN"
 ga_ok "wrote $n_create file(s)"
@@ -341,13 +454,13 @@ case "$GITIGNORE_ACTION" in
     cp -p "$TARGET/.gitignore" "$TARGET/$backup_rel"
     printf 'backup\t%s\t%s\n' ".gitignore" "$TARGET/$backup_rel" >> "$WROTE"
     printf 'file\t%s\t\n' "$backup_rel" >> "$WROTE"
-    ga_block_append "$TARGET/.gitignore" ".claude/claude-tasks/" "dist/"
+    ga_block_append "$TARGET/.gitignore" ".claude/claude-tasks/" ".claude/notes/.evidence/" "dist/"
     ga_manifest_add ".gitignore" modified "$(ga_sha256 "$TARGET/.gitignore")" \
       "$(ga_mtime_iso "$TARGET/.gitignore")" "$backup_rel" "$GA_VERSION" "$orig_sha"
     ga_ok "appended the managed block to .gitignore (original at $backup_rel)"
     ;;
   create)
-    ga_block_append "$TARGET/.gitignore" ".claude/claude-tasks/" "dist/"
+    ga_block_append "$TARGET/.gitignore" ".claude/claude-tasks/" ".claude/notes/.evidence/" "dist/"
     printf 'file\t%s\t\n' ".gitignore" >> "$WROTE"
     ga_manifest_add ".gitignore" created "$(ga_sha256 "$TARGET/.gitignore")" \
       "$(ga_mtime_iso "$TARGET/.gitignore")" "" "$GA_VERSION"
@@ -398,18 +511,48 @@ COMMITTED=0   # past the point of rollback — the install is complete
 trap - INT TERM
 trap 'cleanup_temp' EXIT
 
-ga_hdr "Installed $GA_VERSION"
+# The first step in the ledger. Every command gates on this, so an install that did not record it
+# would block the whole sequence it just enabled.
+ga_step_record "$TARGET" install "$MODE install of $GA_VERSION from $SOURCE_REF"
+if [ "$MODE" = "existing" ]; then
+  # Not applicable rather than pending: this repo has a structure, so the step will never run and a
+  # gate that waits for it forever would block every command behind it.
+  ga_step_record "$TARGET" scaffold "not applicable: existing repo keeps its own structure"
+fi
+
+if [ "$MODE" = "new" ]; then
+  # Every escape passed as an argument: the here-doc below expands $SCAFFOLD_STEP but does not
+  # re-expand what is inside it, so a ${GA_BLD} written into the format string arrives literally.
+  SCAFFOLD_STEP="$(printf '%s./Scripts/ga-scaffold.sh . --list%s
+       Read %sScaffold/ARCHITECTURE-OPTIONS.md%s, choose your layers, then:
+         ./Scripts/ga-scaffold.sh . --with navigation,design,storage,messaging --apply
+       It creates the structure, seeds Core and DIKit, and records what you chose.' \
+    "$GA_BLD" "$GA_OFF" "$GA_BLD" "$GA_OFF")"
+else
+  SCAFFOLD_STEP="$(printf '%sscaffold — not applicable%s
+       Your repo has its own structure. Recorded, so nothing waits on it.' "$GA_DIM" "$GA_OFF")"
+fi
+
+ga_hdr "Installed $GA_VERSION ($MODE$([ "$WITH_ARCH" -eq 1 ] && printf ', with architecture'))"
 cat <<NEXT
 
-  1. ${GA_BLD}/project-init${GA_OFF}
+  The commands run ${GA_BLD}in this order${GA_OFF} — each one leaves the repo in the state the next assumes.
+  ${GA_DIM}./Scripts/ga-step.sh show${GA_OFF} at any point says where you are and what is next.
+
+  1. ${SCAFFOLD_STEP}
+  2. ${GA_BLD}/project-init${GA_OFF}
        Reads your CLAUDE.md in full, builds the rule-conflict table, and asks per conflict.
        Your rules win by default; nothing is overwritten without an explicit yes.
-  2. ${GA_BLD}/gaps${GA_OFF}
+  3. ${GA_BLD}/gaps${GA_OFF}
        Derives each gap's status from your code instead of asking.
-  3. ${GA_BLD}./Scripts/detect-toolchain.sh${GA_OFF}
-       Your project defines the baseline, not GenericArch's numbers.
+  4. ${GA_BLD}/sync-app-notes${GA_OFF}
+       Builds the nine inventories every later lookup reads instead of searching.
 
-${GA_DIM}No CLAUDE.md was written. Your rules stay yours until you decide otherwise.
+  Then the repo is ${GA_BLD}ready${GA_OFF}: skills, /find, /decide, /learn, /review, /verify, /build.
+
+${GA_DIM}Also: ./Scripts/detect-toolchain.sh — your project defines the baseline, not GenericArch's numbers.
+No CLAUDE.md was written. Your rules stay yours until you decide otherwise.
+To decline a file so no later install re-creates it:  ./Scripts/ga-remove.sh <path> --reason "..."
 To remove everything again:  ./uninstall.sh $GA_VERSION${GA_OFF}
 NEXT
 exit "$GA_EX_OK"

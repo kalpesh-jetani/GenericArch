@@ -47,6 +47,17 @@ This generalises: **before writing any negative finding — "never used", "no co
 run the positive search for the thing you claim is absent.** A negative claim is the kind people act
 on destructively.
 
+## API map — the router is found by its call sites, not by its name
+
+A repo can carry a legacy router that still compiles and is never called. Naming it in `API-MAP.md`
+sends every reader to the wrong enum, and the note reads as authoritative while being wrong. So
+discovery starts at the call sites and works back to the enum, and a router with no call site is
+reported as dead rather than tabulated.
+
+Two more that bit: a conditional path built from two literals concatenates into one nonsense string
+(`…/address/update` + `…/address/create`) unless each branch is emitted as its own row, and `\(id)`
+must be normalised to `{id}` or the same endpoint appears once per caller.
+
 ## Secrets — `.gitignore` does not apply to tracked files
 
 A repo had `**/Configurations/*Secrets.xcconfig` ignored and `DevSecrets.xcconfig` sitting in `HEAD`,

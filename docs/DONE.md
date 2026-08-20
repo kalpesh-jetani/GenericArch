@@ -48,11 +48,18 @@ Not every line is machine-checkable, and pretending otherwise is how a checklist
 
 ## Platforms & accessibility
 
+Settings these items depend on — privacy manifest, secrets, capabilities, floors — are ruled by
+[PROJECT-SETTINGS.md](PROJECT-SETTINGS.md), not by this checklist.
+
 Accessibility is a requirement, not polish (CLAUDE.md §8). Most of it is guaranteed inside
 DesignSystem components — these lines are what a *screen* still has to prove.
 
 - [ ] 👁 Works in **compact and regular** width, at every size the app ships: iPhone
       portrait/landscape · iPad portrait/landscape/split · Mac resized small **and** large
+- [ ] 👁 **iPad affordances** the screen implies: keyboard shortcuts, hover, drag & drop,
+      multiple scenes, Slide Over
+- [ ] 👁 **Mac affordances** the screen implies: menu bar `Commands`, window restoration,
+      sidebar, toolbar, context menus
 - [ ] 👁 Dark Mode verified — run `/dark-light-mode` if colors or assets changed
 - [ ] 👁 RTL verified — run `/rtl-support` if layout or strings changed
 - [ ] 👁 Dynamic Type to **XXXL** with no truncation or clipping

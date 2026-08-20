@@ -32,9 +32,12 @@ Add a row when a §0 decision is made; never remove one.
 ## Ask every time — never assume
 
 Presentation pattern (per feature/screen) · persistence engine (only if data is stored) · caching
-and offline policy (any remote fetch) · any new external dependency · extracting a package.
-Options and phrasing: the `new-feature` skill, which carries the full table. Record the answer
-below.
+and offline policy (any remote fetch) · any new external dependency · extracting a package ·
+**deployment floors** (before any `platforms:` line — never defaulted) · **which layers exist on day
+one** (scaffolding a new repo only).
+Options and phrasing: the `new-feature` skill carries the first five;
+[Scaffold/ARCHITECTURE-OPTIONS.md](../Scaffold/ARCHITECTURE-OPTIONS.md) carries the last two.
+Record the answer below.
 
 ## Do not re-propose
 

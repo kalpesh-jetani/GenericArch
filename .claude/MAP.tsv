@@ -3,6 +3,8 @@
 #	  awk -F'\t' '$2=="module"' .claude/MAP.tsv every module doc
 #	Columns: path	kind	topics (grep targets)	read it when
 #	Maintained by targeted edit. A doc with no row here is a doc nobody finds.
+#	A kind suffixed ':remote' is NOT on disk here — the row is a fetch instruction, not a broken
+#	link. adopt.sh marks them at install time, so a grep hit says which it is without a stat.
 #	A row whose path is NOT on disk is a fetch instruction, not a broken link. Outside this repo
 #	the docs/ rows are fetched on demand — look for a '# FETCH-BASE:' line below and curl the path
 #	onto itself, keeping the same relative location so links between docs still resolve.
@@ -23,10 +25,18 @@ docs/DECISIONS.md	cross	decision record settled choice rationale	Before any §0 
 docs/DONE.md	cross	definition of done checklist finish complete ship	Before calling any change finished
 docs/CONVENTIONS.md	cross	naming file layout access control doc comment style	Naming a type or file, or setting access control
 docs/STRUCTURE.md	cross	where guidance belongs doc placement approval gate skill trigger	Writing a new doc, skill, or command — and before editing CLAUDE.md
+Packages/CLAUDE.md	cross	package manifest extraction wrapper vendor testing standalone swift test mock contract snapshot boundaries scoped rules	Working inside Packages/ — the scoped detail behind root §4, §7 and §9
 docs/REPO.md	cross	package version local override spm dependency add package resolved	Adding a package, or overriding an extracted one locally
 docs/SHARING.md	cross	publish share template plugin installer distribute uninstall flags exitcodes manifest preserved updating adoptreview	Publishing this base for someone else, and the installer reference — flags, exit codes, preserved files, updating an install
+Scaffold/ARCHITECTURE-OPTIONS.md	cross	scaffold new repo layers choose architecture presentation persistence caching floors platforms day one	Scaffolding a new repo — what each layer and each choice costs before you take it
+OPERATORS-GUIDE.md	cross	operator human what every file does run own read recipes token cost where knowledge lives	A person asks what a file is for, what to run, or where knowledge lives
+docs/SEQUENCE.md	cross	sequence order step ledger prerequisite out of order cannot run yet project-init gaps sync ready	A command refused as out of order, adopting into an existing repo, or adding a command
 docs/INSTALL-MANIFEST.md	cross	install uninstall manifest sha256 ownership backup restore lifecycle removal plan	Inspecting what an install did, or changing install.sh / uninstall.sh
 docs/ADOPTION.md	cross	adopt existing repo conflict migration brownfield	Adopting this into a repo that already has its own rules
+.genericarch/failures/	cross	script failed error handoff diagnosis fix the script adapt machine broke	A script failed — read its report there, never the script's source
+docs/BUILD-PROCESS.md	cross	build test archive stage dev test beta prod scheme who runs it warnings signing local	About to build, test or archive — or a build failed and you need the next step
+docs/DEPLOYMENT-PROCESS.md	cross	deploy ship release tag testflight soak submit rollback dsym gates who owns	Shipping: a release tag, a soak, a submission, or a rollback
+docs/PROJECT-SETTINGS.md	cross	setting configuration capability entitlement signing floor platforms ats pinning privacyinfo keychain secret localization	Adding a capability, wiring an environment, setting a floor, or a privacy/security question
 docs/DELIVERY.md	cross	ci signing version bump release rollback testflight archive	CI, code signing, versioning, releasing, or rolling back
 docs/PERFORMANCE.md	cross	launch budget hitch rendering profile instruments memory	A launch budget, a SwiftUI redraw problem, or diagnosing a hitch
 docs/GAPS.md	cross	gap missing not covered scope backlog	Deciding what this architecture should cover for your product
@@ -42,6 +52,7 @@ docs/SCAN-TRAPS.md	cross	scan trap false positive evidence why recipe regex port
 .claude/notes/SCHEMES.md	note	scheme DEV TEST BETA PROD configuration build stage environment	Choosing a build stage, or debugging stage-specific behaviour
 .claude/notes/PROJECT.md	note	project target bundle id capability entitlement info.plist resolved stack toolchain	Anything target-, capability- or toolchain-version dependent
 .claude/memory/INDEX.md	memory	memory remembered fact preference context history	Starting work — what earlier sessions learned about this repo
+docs/patterns/wrapper.md	pattern	wrapper vendor third-party sdk swap boundary noop spy interface split remove dependency	Adding, replacing or removing a third-party dependency (CLAUDE.md §7)
 docs/patterns/change.md	pattern	edit modify existing extend refactor	Changing something that already exists (not yet a skill)
 docs/patterns/style-guide.md	pattern	token spacing radius design system value	Applying or adding a design token (not yet a skill)
 docs/patterns/dark-light-mode.md	pattern	dark light appearance colorscheme contrast	Light/dark appearance work (not yet a skill)

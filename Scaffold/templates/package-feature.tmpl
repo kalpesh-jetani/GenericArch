@@ -1,0 +1,26 @@
+// swift-tools-version: 6.0
+import PackageDescription
+
+// Feature package. It may depend on Core, DIKit, DesignSystem and Navigation — never on another
+// feature (CLAUDE.md §2.1). Package.swift is what enforces that, not a convention.
+let package = Package(
+    name: "__NAME__",
+__PLATFORMS_BLOCK__
+    products: [.library(name: "__NAME__", targets: ["__NAME__"])],
+    dependencies: [
+        .package(path: "../../Core"),
+        .package(path: "../../DIKit"),
+    ],
+    targets: [
+        .target(
+            name: "__NAME__",
+            dependencies: ["Core", "DIKit"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "__NAME__Tests",
+            dependencies: ["__NAME__"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+    ]
+)

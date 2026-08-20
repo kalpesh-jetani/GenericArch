@@ -4,6 +4,13 @@ argument-hint: [PR number, branch, or base ref — defaults to the current branc
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
+```bash
+./Scripts/ga-step.sh after project-init      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+
 Review a change you did not write.
 
 Target: `$ARGUMENTS` — a PR number, a branch, or a base ref. Default: current branch vs `main`.
