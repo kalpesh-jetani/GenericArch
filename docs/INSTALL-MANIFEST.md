@@ -199,6 +199,20 @@ grep '"path":' .genericarch/manifest-v0.2.0.json \
 
 ## When there is no manifest
 
+**What the fallback can and cannot reach, as of v0.3.0.** Ownership is proven by hashing against the
+blobs the release shipped, so it only reaches files that are *byte-identical to what was shipped*.
+v0.3.0 deliberately transforms several files at install time — `MAP.tsv` gains a `FETCH-BASE` header
+and `:remote` marks, `SCRIPTS.tsv` is pruned, and `notes/`, `DECISIONS.md` and `GAPS.md` are
+scaffolded rather than copied. None of those can be proven without the manifest, so a fallback
+uninstall preserves them and lists them in the orphan report.
+
+That is the contract working, not failing: the alternative is deleting a file on a path match, which
+is what deletes someone's notes. The manifest path handles all of them, because it records the hash
+of what was written **after** those transformations — measured: a clean install→uninstall with the
+manifest leaves `git status` empty.
+
+
+
 If `install.sh` was killed mid-run or blocked by the compatibility gate, there may be files but no
 manifest. `uninstall.sh` falls back to the known file list for the requested version — but that list
 only **narrows the search**, it never authorises a removal. Each candidate is still proven by
