@@ -156,6 +156,7 @@ install.sh|installing again means fetching again — ./bootstrap.sh does that fr
 bootstrap.sh|the entry point lives upstream, not in every consumer (curl one-liner in the README)
 Scripts/ga-roundtrip.sh|tests install.sh, which does not travel — it belongs where the base is authored
 OPERATORS-GUIDE.md|maps THIS repo's files, most of which do not travel; a target gets genericarch.installation.md
+CHANGELOG.md|our release history, not the target's — the manifest records which version it has
 "
 
 # ── Nothing may fall through the lists ─────────────────────────────────────
@@ -178,7 +179,7 @@ KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|
 unaccounted=""
 for f in $(ls -d docs/*.md docs/modules docs/patterns docs/resources .claude/INDEX.md .claude/*.tsv \
                  .claude/memory Scripts/* .swiftlint.yml .swiftformat .gitignore \
-                 install.sh uninstall.sh bootstrap.sh README.md CLAUDE.md OPERATORS-GUIDE.md Scaffold \
+                 install.sh uninstall.sh bootstrap.sh README.md CLAUDE.md OPERATORS-GUIDE.md CHANGELOG.md Scaffold \
                  .claude/skills .claude/commands .claude/notes \
                  Packages App 2>/dev/null); do
   case "$KNOWN" in *" $f "*) continue ;; esac

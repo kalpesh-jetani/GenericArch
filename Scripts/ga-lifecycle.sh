@@ -410,8 +410,8 @@ ga_is_version_stamp() {
 # The releases whose footprint uninstall.sh knows how to clean without a manifest. A version
 # absent here is refused rather than guessed at: removing files by a list invented at runtime is
 # exactly the failure mode the manifest exists to prevent.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0"
-GA_LATEST_VERSION="v0.2.0"
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0"
+GA_LATEST_VERSION="v0.3.0"
 
 ga_is_supported_version() {
   case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) return 0 ;; *) return 1 ;; esac
@@ -433,6 +433,27 @@ ga_known_paths() {
         .genericarch-version
       ;;
     v0.2.0)
+      # What v0.2.0 ACTUALLY shipped. Editing this list to match a later release is how a v0.2.0
+      # uninstall starts hunting for files that release never wrote — the fallback narrows the
+      # search, so a wrong entry is a wrong search.
+      printf '%s\n' \
+        .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
+        .claude/CANDIDATES.tsv .claude/notes .claude/memory \
+        .swiftlint.yml .swiftformat \
+        Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
+        Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
+        Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
+        Scripts/scan-unused-assets.py Scripts/scan-api-map.py Scripts/check-note-links.py \
+        Scripts/detect-capabilities.sh Scripts/claude-workflows Scripts/claude-utils \
+        Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
+        Scripts/session-script.sh Scripts/ga-lifecycle.sh \
+        docs/DECISIONS.md docs/GAPS.md docs/resources \
+        install.sh uninstall.sh bootstrap.sh genericarch.installation.md \
+        .genericarch-version
+      ;;
+    v0.3.0)
+      # Adds the lifecycle tools, the offline note pass, the new-repo scaffold and the scoped package
+      # rules. Drops install.sh and bootstrap.sh — v0.3.0 does not copy the installer into a target.
       printf '%s\n' \
         .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
         .claude/CANDIDATES.tsv .claude/notes .claude/memory \
@@ -445,9 +466,10 @@ ga_known_paths() {
         Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
         Scripts/session-script.sh Scripts/ga-lifecycle.sh \
         Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh Scripts/ga-scaffold.sh \
+        Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         Scaffold \
         docs/DECISIONS.md docs/GAPS.md docs/resources \
-        install.sh uninstall.sh bootstrap.sh genericarch.installation.md \
+        uninstall.sh genericarch.installation.md \
         .genericarch-version
       ;;
     *) return 1 ;;
