@@ -62,7 +62,7 @@ needs a dependency installed first is not an installer.
 | `original_sha256` | string \| null | For `modified`: hash of the file **before** install. What a restore is verified against, so "restored byte-for-byte" is checked rather than claimed |
 | `version` | string | The release that installed this path |
 
-### The three actions
+### The four actions
 
 - **`created`** — GenericArch owns this path. Removed on uninstall if the hash still matches.
 
@@ -77,6 +77,50 @@ needs a dependency installed first is not an installer.
 
 - **`skipped`** — the path existed with content that is not ours. **Never written, never removed.**
   Recorded so the plan can show what was left alone and why.
+
+- **`declined`** — GenericArch ships this path and **this product decided against it.** Not in the
+  working tree, and `install.sh` must not create it. Written by `Scripts/ga-remove.sh`, which does
+  four things in one operation:
+
+  1. **moves** the file to `.genericarch/safetodelete/<same relative path>` — it is never deleted, so
+     reversing the decision costs nothing and needs no network;
+  2. **tombstones** it in `.genericarch/TOMBSTONES.tsv`;
+  3. **de-references** it — its rows are pruned from `.claude/MAP.tsv` and `.claude/SCRIPTS.tsv`, and
+     every remaining prose reference is reported with file and line, because only a reader of the
+     sentence can tell whether it should be dropped, rephrased, or repointed;
+  4. **records** the reason in `docs/DECISIONS.md` *Do not re-propose*.
+
+  `--revive <path>` reverses it: the file moves back byte-identical, the tombstone is dropped, and
+  the two things it cannot do for you — the DECISIONS row and the index rows — are named.
+
+  The tombstone file, not the manifest, is what the installer consults — a manifest is per version
+  and a decision is not. Without it, "absent from disk" and "never installed" are the same state, so
+  every deliberate deletion is undone by the next install. That flip happened four times in one
+  adoption before it was noticed, which is why this action exists.
+
+---
+
+## Sibling records in `.genericarch/`
+
+The manifest is one of four files, and only it is per version:
+
+| File | Written by | Lifetime |
+|---|---|---|
+| `manifest-<version>.json` | `install.sh`, last and only on success | Replaced per version |
+| `TOMBSTONES.tsv` | `ga-remove.sh` | **Outlives uninstall** — a decision is not an install artifact |
+| `safetodelete/` | `ga-remove.sh` | **Outlives uninstall** — it holds the declined files themselves. Nothing is destroyed; the name is the contract, and deleting the directory costs only the ability to `--revive` |
+| `STEPS.tsv` | `install.sh`, then `ga-step.sh record` | Deleted by a clean uninstall; kept if anything was declined |
+| `orphans-<version>.txt` | `uninstall.sh`, only when files were left behind | Until a person resolves and deletes it |
+
+## Ownership must be re-sealed after an edit
+
+`uninstall.sh` removes a `created` file only while its hash matches. Every command that rewrites an
+installed file — `/project-init`, `/sync-app-notes`, `/gaps` — therefore turns that file into a
+permanent orphan unless the record is updated. `Scripts/ga-reseal.sh --apply` re-hashes them, and
+those commands run it as their last step.
+
+A partial uninstall now **exits 1** and writes `orphans-<version>.txt`. `Scripts/ga-roundtrip.sh`
+asserts all of this against throwaway repos; run it before releasing a version.
 
 ---
 

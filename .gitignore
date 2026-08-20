@@ -15,3 +15,8 @@ dist/
 # working state: phase outputs, extracted snippets, pre-edit backups. The scripts
 # are tracked; what a particular run produced is not.
 .claude/claude-tasks/
+
+# Lifecycle state. In a CONSUMER repo .genericarch/ is tracked — the manifest, the tombstones and
+# the step ledger are the record of what was installed and what was declined. In THIS repo there is
+# no install, so the ledger ga-step.sh derives is local noise.
+.genericarch/

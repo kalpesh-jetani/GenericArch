@@ -4,7 +4,15 @@ argument-hint: [optional: a mismatch id, e.g. macos-target-above-sdk]
 allowed-tools: Bash, Read, Edit, Grep, Glob, AskUserQuestion
 ---
 
-Reconcile the project's stack settings with the machine.
+```bash
+./Scripts/ga-step.sh after project-init      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+
+Reconcile the project's stack settings with the machine. What each setting must satisfy, and why an
+SDK version is not a deployment floor: [PROJECT-SETTINGS.md](../../docs/PROJECT-SETTINGS.md).
 
 ```bash
 ./Scripts/detect-toolchain.sh              # human report

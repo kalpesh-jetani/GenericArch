@@ -1,0 +1,15 @@
+/// Every destination in the app, as a value.
+///
+/// A feature navigates by appending a case — it never constructs another feature's view, which is
+/// what keeps features from importing each other (CLAUDE.md §2.1). Add a case here, then map it to
+/// a view in the composition root.
+public enum Route: Hashable, Sendable {
+    /// Replace with the first real destination.
+    case placeholder
+}
+
+/// The navigation state, owned as data so it can be restored and deep-linked into.
+public struct NavigationState: Sendable {
+    public var path: [Route]
+    public init(path: [Route] = []) { self.path = path }
+}

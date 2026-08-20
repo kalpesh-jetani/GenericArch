@@ -1,8 +1,15 @@
 ---
-description: Initialize or adopt GenericArch in a repo — detects whether the repo is fresh or already has its own CLAUDE.md, skills, or source; reconciles conflicting rules with explicit approval before changing anything; then scaffolds only what is missing and approved
+description: Initialize or adopt GenericArch in a repo — reconciles conflicting rules with approval before changing anything, then scaffolds only what is missing
 argument-hint: [optional: product name]
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, AskUserQuestion
 ---
+
+```bash
+./Scripts/ga-step.sh require project-init      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
 
 Initialize this project, or adopt this structure into an existing one.
 
@@ -460,6 +467,17 @@ falling back to grep.
 
 ## S2c. Clean up irrelevant docs
 
+**Every deletion in this command goes through `ga-remove.sh`, never `rm`.** A file deleted by hand
+is re-created by the next install — it has no record saying it was declined, so nothing can tell it
+apart from a file that was never there:
+
+```bash
+./Scripts/ga-remove.sh docs/modules/StorageKit.md --reason "no StorageKit package here" --apply
+```
+
+That writes the tombstone *and* the `DECISIONS.md` *Do not re-propose* row in one step. Both, or it
+comes back.
+
 **Delete module docs for packages that were not approved.** The `local` commit ships all 12
 `docs/modules/*.md` files; if StorageKit, LocalizationKit, or NotificationKit were not approved in
 S2, delete their docs now.
@@ -473,6 +491,51 @@ that isn't there. Cleaner to delete it than to leave it with a "not used here" n
 
 Approved packages keep their docs; a feature will eventually need the infrastructure described
 there, and when it does, the doc is immediately discoverable.
+
+## S3a. Offer the architecture layer — after the conflicts, never before
+
+An existing repo is installed **without** `new-feature` or `/review`. That is not an omission: until
+the §2/§3 rules are actually adopted, `new-feature` scaffolds a `Packages/Features` package the app
+cannot consume, and `/review` reports violations of rules the product declined. Shipping them
+unasked is how a repo ends up carrying surfaces that cannot fire.
+
+This is the moment they can be offered, because the rule-conflict table above is the consent:
+
+- **Most or all of §2 adopted** → offer it. One command, and say what it brings:
+  `./install.sh . --with-architecture` — adds the `new-feature` skill, `/review`, and the module and
+  pattern rows in `MAP.tsv`.
+- **Adopted for new code only** → offer it with that framing: `new-feature` applies to new packages,
+  `/review` output must be read against the declined list. Say both, then let them choose.
+- **Declined, or scope is docs-and-tooling** → **do not offer it.** Record in `DECISIONS.md`
+  *Do not re-propose* that the architecture layer was not installed and why. One line, then move on.
+
+Never install it on your own initiative, and never argue for it twice.
+
+## S3b. Shrink CLAUDE.md to what only CLAUDE.md can say
+
+**Adoption must leave `CLAUDE.md` smaller than it found it.** It is the one file loaded in full on
+every single session; the notes are looked up. When both hold the same material, the always-loaded
+copy is pure cost — an adoption that adds nine inventories beside an unchanged 600-line CLAUDE.md
+doubles the standing token bill and nothing gets cheaper.
+
+Walk the existing `CLAUDE.md` section by section and classify each one **out loud, in a table**:
+
+| Section holds | Verdict |
+|---|---|
+| Endpoint tables, paths, routers | → `.claude/notes/API-MAP.md`; leave a one-line pointer |
+| Env/config/xcconfig/key tables | → `.claude/notes/SCHEMES.md` |
+| Folder tree, per-module walkthroughs, screen lists | → `.claude/notes/FEATURES.md` |
+| Modifier/component/token catalogues | → `.claude/notes/STYLE-GUIDE.md` |
+| Route enums, navigation wiring | → `.claude/notes/NAVIGATION.md` |
+| Targets, capabilities, toolchain versions | → `.claude/notes/PROJECT.md` |
+| A rule, a prohibition, a decision, an ask-first | **keep** — this is what the file is for |
+| Build commands | keep one block; the rest is `/build` |
+
+Then: **show the proposed shrunken file and wait for a yes** (§12 — this file is never edited
+without approval). Report the before/after line count. Do not move content into a note and leave it
+in `CLAUDE.md` as well; one owner per fact.
+
+If the user declines, say plainly what it costs per session and move on — it is their file.
 
 ## S4. Report
 
@@ -488,3 +551,15 @@ State explicitly:
 
 A report that reads as complete when a question went unanswered, or that omits a skill you removed,
 or a package you didn't ask about, is the failure mode of this whole command.
+
+## S5. Seal and record
+
+This command rewrites installed files. Both lines, always — the first keeps them removable, the
+second unblocks the next step:
+
+```bash
+./Scripts/ga-reseal.sh --apply
+./Scripts/ga-step.sh record project-init "<what was reconciled, in a few words>"
+```
+
+Skipping the reseal turns every file this command touched into an orphan no uninstall can remove.

@@ -9,6 +9,9 @@
 #   --target DIR   the repo to clean (default: the current directory)
 #   --base DIR     a GenericArch checkout to verify hashes against when there is no manifest
 #
+# Exit 0 means the repo is back to its pre-install state. Exit 1 means files were left behind —
+# they are listed in .genericarch/orphans-<version>.txt, which outlives the terminal.
+#
 # The version argument is REQUIRED. Supported: v0.1.0, v0.2.0 (latest).
 #
 # What this will and will not delete:
@@ -342,17 +345,50 @@ if [ -n "$DIRS" ]; then
   ga_prune_empty_dirs "$TARGET" $DIRS
 fi
 rmdir "$TARGET/$GA_STATE_DIR/backups" 2>/dev/null || true
+# The step ledger is install-time bookkeeping, not a decision: with nothing declined there is
+# nothing to carry forward, and leaving it behind means "back to its pre-install state" is a claim
+# `git status` contradicts. Tombstones are different — those outlive the install on purpose.
+if [ ! -f "$(ga_tombstone_path "$TARGET")" ]; then
+  rm -f "$(ga_step_path "$TARGET")"
+fi
+rmdir "$(ga_grave_path "$TARGET")" 2>/dev/null || true
 rmdir "$TARGET/$GA_STATE_DIR" 2>/dev/null || true
 if [ -d "$TARGET/$GA_STATE_DIR" ]; then
   ga_warn "$GA_STATE_DIR/ still holds files — left in place:"
   find "$TARGET/$GA_STATE_DIR" -type f | sed "s|$TARGET/|    |"
+  ga_dim "  TOMBSTONES.tsv and STEPS.tsv are records of decisions, not installed files. They are kept"
+  ga_dim "  on purpose: a re-install must still honour what this product declined."
+  ga_dim "  $GA_GRAVEYARD/ holds files this product declined, moved rather than deleted. The name is the"
+  ga_dim "  contract: deleting that directory loses nothing except the ability to restore them."
+fi
+
+# ── The orphan report ──────────────────────────────────────────────────────
+# A partial removal that reports success is the failure mode this closes. One run of an earlier
+# uninstaller removed 4 files out of about 110, printed nothing durable, and the next installer
+# absorbed the remainder as if it had always been there. Whatever this run could not prove it owned
+# is written to a file that outlives the terminal, and the exit code says the repo is not clean.
+ORPHANS="$TARGET/$GA_STATE_DIR/orphans-$VERSION.txt"
+if [ "$n_keep" -gt 0 ]; then
+  mkdir -p "$(dirname "$ORPHANS")"
+  {
+    printf '# GenericArch %s — files this uninstall did NOT remove, and why.\n' "$VERSION"
+    printf '# Written %s by uninstall.sh. Each line: path <TAB> reason.\n' "$(ga_now_iso)"
+    printf '# Each is either yours to keep or yours to delete — nothing here is removable by tooling,\n'
+    printf '# because ownership could not be proven. Resolve them, then delete this file.\n'
+    cat "$KEEP"
+  } > "$ORPHANS"
+  ga_warn "orphan report: ${ORPHANS#"$TARGET"/}"
 fi
 
 ga_hdr "Removed GenericArch $VERSION"
 if [ "$n_keep" -gt 0 ]; then
-  printf '\n%s%d file(s) were preserved because you edited them.%s They are listed above and were\n' \
+  printf '\n%s%d file(s) were preserved because you edited them.%s They are listed above and in\n' \
     "$GA_YEL" "$n_keep" "$GA_OFF"
-  printf 'not touched. Nothing else GenericArch installed remains.\n'
+  printf '%s. GenericArch will not touch them again — they are\n' "${ORPHANS#"$TARGET"/}"
+  printf 'yours to keep or delete by hand.\n'
+  printf '\n%sThis repo is NOT back to its pre-install state%s, so this run exits non-zero. Nothing else\n' \
+    "$GA_YEL" "$GA_OFF"
+  printf 'GenericArch installed remains.\n'
 else
   printf '\nThe repo is back to its pre-install state.\n'
 fi
@@ -362,4 +398,7 @@ fi
 if [ -d "$TARGET/.git" ]; then
   ga_dim "Confirm with: git -C $TARGET status"
 fi
+# Exit 1 on a partial removal. A caller — a person or CI asserting that install→uninstall is a
+# round trip — must not have to parse stdout to learn that files were left behind.
+[ "$n_keep" -gt 0 ] && exit "$GA_EX_ERR"
 exit "$GA_EX_OK"

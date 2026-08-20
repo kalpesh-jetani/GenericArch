@@ -4,6 +4,13 @@ argument-hint: <a screen, route case, endpoint path, asset, colour token, or tar
 allowed-tools: Bash, Grep
 ---
 
+```bash
+./Scripts/ga-step.sh after sync-app-notes      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+
 Answer "where is `$ARGUMENTS`?" from the index, not from the codebase.
 
 ```bash

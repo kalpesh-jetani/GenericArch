@@ -5,7 +5,7 @@
 #@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, the macOS/Swift compatibility gate. Sourced, never executed.
 #@usage     . Scripts/ga-lifecycle.sh
 #@in        n/a (sourced). Honours GA_ASSUME_YES=1, GA_DRY_RUN=1, NO_COLOR
-#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos
+#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
 #@exit      0=sourced ok 2=executed directly instead of sourced
 #@effects   none on its own; every write is performed by the caller through these helpers
 #@when      installer helper|manifest format|install exit codes|hashing a manifest|uninstall helper
@@ -36,6 +36,7 @@ GA_EX_ERR=1       # generic error — something went wrong
 GA_EX_USAGE=2     # bad or missing arguments
 GA_EX_COMPAT=3    # compatibility gate rejected the target; nothing was written
 GA_EX_ABORT=4     # the operator declined at the confirmation prompt
+GA_EX_SEQ=5       # a step ran out of order — nothing was written
 GA_EX_PLATFORM=78 # not macOS — EX_CONFIG, the same code Scripts/claude-utils/_common.sh uses
 
 # The manifest format version. Bump only when the SHAPE changes, never for a GenericArch release —
@@ -332,7 +333,11 @@ ga_check_compatible() {
     _ga_hit=$(find "$_ga_dir" -maxdepth 2 -name "$_ga_m" -not -path '*/.git/*' -print -quit 2>/dev/null)
     [ -n "$_ga_hit" ] && GA_COMPAT_FOUND="$GA_COMPAT_FOUND ${_ga_hit#"$_ga_dir"/}"
   done
-  _ga_hit=$(find "$_ga_dir" -name '*.swift' -not -path '*/.git/*' -print -quit 2>/dev/null)
+  # Scaffold/ and the state dir are GenericArch's own footprint. Counting the seed packages under
+  # Scaffold/seed/ as the target's Swift code would make a re-install of a fresh repo read as an
+  # existing one, and silently stop staging the material that repo was installed with.
+  _ga_hit=$(find "$_ga_dir" -name '*.swift' -not -path '*/.git/*' \
+              -not -path '*/Scaffold/*' -not -path "*/$GA_STATE_DIR/*" -print -quit 2>/dev/null)
   [ -n "$_ga_hit" ] && GA_COMPAT_FOUND="$GA_COMPAT_FOUND *.swift"
 
   for _ga_m in build.gradle build.gradle.kts settings.gradle settings.gradle.kts \
@@ -439,6 +444,8 @@ ga_known_paths() {
         Scripts/detect-capabilities.sh Scripts/claude-workflows Scripts/claude-utils \
         Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
         Scripts/session-script.sh Scripts/ga-lifecycle.sh \
+        Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh Scripts/ga-scaffold.sh \
+        Scaffold \
         docs/DECISIONS.md docs/GAPS.md docs/resources \
         install.sh uninstall.sh bootstrap.sh genericarch.installation.md \
         .genericarch-version
@@ -461,4 +468,125 @@ ga_prune_empty_dirs() {
       _ga_p="$(dirname "$_ga_p")"
     done
   done
+}
+
+# ── Tombstones ─────────────────────────────────────────────────────────────
+# A file GenericArch installed and the product then DECLINED. Without this record a deletion is
+# indistinguishable from "never installed", so the next install re-creates it — the add/delete/add
+# flip that cost this project four commits. One row per declined path, append-only.
+#
+#   path <TAB> sha256-when-removed <TAB> removed-at <TAB> version <TAB> reason
+GA_TOMBSTONES="TOMBSTONES.tsv"
+
+# Where a declined file goes instead of being destroyed. Named for what a reader needs to know about
+# it: everything in here is out of use, and deleting the whole directory loses nothing but the
+# ability to `--revive`. Relative paths are preserved inside it.
+GA_GRAVEYARD="safetodelete"
+
+ga_tombstone_path() { printf '%s/%s/%s' "$1" "$GA_STATE_DIR" "$GA_TOMBSTONES"; }
+
+# ga_grave_path <target> [relpath]
+ga_grave_path() { printf '%s/%s/%s%s' "$1" "$GA_STATE_DIR" "$GA_GRAVEYARD" "${2:+/$2}"; }
+
+ga_tombstone_init() {
+  _ga_tf="$(ga_tombstone_path "$1")"
+  [ -f "$_ga_tf" ] && return 0
+  mkdir -p "$(dirname "$_ga_tf")"
+  {
+    printf '#\tGenericArch tombstones — paths this product declined. Append-only; never edit a row.\n'
+    printf '#\tinstall.sh reads this BEFORE creating a file: a tombstoned path is reported, not written.\n'
+    printf '#\tWritten by Scripts/ga-remove.sh. Undo with: ga-remove.sh --revive <path>\n'
+    printf '#\tpath\tsha256\tremoved_at\tversion\treason\n'
+  } > "$_ga_tf"
+}
+
+# ga_tombstoned <target> <relpath> → 0 when declined
+ga_tombstoned() {
+  _ga_tf="$(ga_tombstone_path "$1")"
+  [ -f "$_ga_tf" ] || return 1
+  awk -F'\t' -v p="$2" '$1!~/^#/ && $1==p {found=1; exit} END {exit !found}' "$_ga_tf"
+}
+
+ga_tombstone_reason() {
+  _ga_tf="$(ga_tombstone_path "$1")"
+  [ -f "$_ga_tf" ] || return 1
+  awk -F'\t' -v p="$2" '$1!~/^#/ && $1==p {print $5; exit}' "$_ga_tf"
+}
+
+# ga_tombstone_add <target> <relpath> <sha> <version> <reason>
+ga_tombstone_add() {
+  ga_tombstone_init "$1"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$2" "$3" "$(ga_now_iso)" "$4" "$5" >> "$(ga_tombstone_path "$1")"
+}
+
+# ga_tombstone_drop <target> <relpath> — the only mutation allowed, and only via --revive
+ga_tombstone_drop() {
+  _ga_tf="$(ga_tombstone_path "$1")"
+  [ -f "$_ga_tf" ] || return 1
+  _ga_tmp="$_ga_tf.tmp"
+  awk -F'\t' -v p="$2" '$1~/^#/ || $1!=p' "$_ga_tf" > "$_ga_tmp" && mv "$_ga_tmp" "$_ga_tf"
+}
+
+# ── Step ledger ────────────────────────────────────────────────────────────
+# The order commands must run in, and the record of which have run. A command that reorders itself
+# reads a repo that is not yet in the state it assumes — /gaps before /project-init triages items
+# nobody has decided, /sync-app-notes before either one writes nine notes off an unsurveyed tree.
+#
+# Canonical order. Position is the gate: a step requires every LOWER step to be recorded.
+# `scaffold` applies to a NEW repo only. install.sh records it as not-applicable on an existing one,
+# so the gate never blocks a repo that already has a structure — and the ledger says which kind of
+# install this was, months later, without anyone having to remember.
+GA_STEPS="install scaffold project-init gaps sync-app-notes ready"
+GA_STEP_LEDGER="STEPS.tsv"
+
+ga_step_path() { printf '%s/%s/%s' "$1" "$GA_STATE_DIR" "$GA_STEP_LEDGER"; }
+
+ga_step_pos() {
+  _ga_i=0
+  for _ga_s in $GA_STEPS; do
+    _ga_i=$((_ga_i + 1))
+    [ "$_ga_s" = "$1" ] && { printf '%s' "$_ga_i"; return 0; }
+  done
+  return 1
+}
+
+ga_step_done() {
+  _ga_lf="$(ga_step_path "$1")"
+  [ -f "$_ga_lf" ] || return 1
+  awk -F'\t' -v s="$2" '$1!~/^#/ && $1==s {found=1; exit} END {exit !found}' "$_ga_lf"
+}
+
+# ga_step_record <target> <step> [note]
+ga_step_record() {
+  _ga_lf="$(ga_step_path "$1")"
+  if [ ! -f "$_ga_lf" ]; then
+    mkdir -p "$(dirname "$_ga_lf")"
+    {
+      printf '#\tGenericArch step ledger — which lifecycle steps have run, in order.\n'
+      printf '#\tWritten by Scripts/ga-step.sh record. Order: %s\n' "$GA_STEPS"
+      printf '#\tstep\tat\tnote\n'
+    } > "$_ga_lf"
+  fi
+  ga_step_done "$1" "$2" && return 0
+  printf '%s\t%s\t%s\n' "$2" "$(ga_now_iso)" "${3:-}" >> "$_ga_lf"
+}
+
+# The first step in GA_STEPS that has not been recorded — what to run next.
+ga_step_next() {
+  for _ga_s in $GA_STEPS; do
+    ga_step_done "$1" "$_ga_s" || { printf '%s' "$_ga_s"; return 0; }
+  done
+  printf 'ready'
+}
+
+# ga_step_missing <target> <step> → prints the unmet prerequisites, empty when clear
+ga_step_missing() {
+  _ga_want="$(ga_step_pos "$2")" || return 2
+  _ga_i=0; _ga_out=""
+  for _ga_s in $GA_STEPS; do
+    _ga_i=$((_ga_i + 1))
+    [ "$_ga_i" -ge "$_ga_want" ] && break
+    ga_step_done "$1" "$_ga_s" || _ga_out="$_ga_out $_ga_s"
+  done
+  printf '%s' "${_ga_out# }"
 }

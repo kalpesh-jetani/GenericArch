@@ -16,6 +16,13 @@ manifests, local under `Packages/` (CLAUDE.md §4.1).
 **Detected, never hand-written** (CLAUDE.md §1). Refresh with `./Scripts/detect-toolchain.sh
 --markdown`; `./Scripts/check.sh` fails when these drift from the machine or the project.
 
+**Reading the Source column, and the state that has no row.** `project` means the answer exists — a
+`Package.swift` `platforms:` line, which is what the compiler obeys. `machine` means only an SDK was
+found, and an SDK is not a deployment floor: it says what you can build with, never what you must
+support. A manifest with **no `platforms:` line at all** means the floors are *unanswered* — a valid,
+deliberate state for a repo that has not decided yet, and a §0 question rather than a number for
+anyone to supply. Nothing in this repo's tooling defaults one.
+
 | Item | Value | Source |
 |---|---|---|
 | Minimum iOS / iPadOS | **17.0** | project |

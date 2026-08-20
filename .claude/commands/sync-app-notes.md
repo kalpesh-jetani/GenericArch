@@ -1,8 +1,15 @@
 ---
-description: Rebuild the nine inventories in .claude/notes/ from a filesystem scan — features and screens, navigation and routes, API map, image assets, colour tokens, fonts and registration, schemes, project targets. Reports the gaps it finds.
+description: Rebuild the nine inventories in .claude/notes/ from a filesystem scan, and report the gaps it finds
 argument-hint: "[optional: a note name, e.g. FONTS]"
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 ---
+
+```bash
+./Scripts/ga-step.sh require sync-app-notes      # sequence gate
+```
+
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
+never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
 
 Rebuild the living inventories in `.claude/notes/` from what is actually on disk.
 
@@ -84,6 +91,34 @@ exist. Read the note's header first; this table is the default for a fresh Gener
 | `SCHEMES.md` | `*.xcconfig`, scheme list, `Info.plist` substitutions | DEV/TEST/BETA/PROD → config, bundle ID, base URL |
 | `PROJECT.md` | `project.pbxproj`, `*.entitlements`, `Info.plist`, package links | targets, deployment targets, capabilities, links |
 | `STYLE-GUIDE.md` | token declarations in `DesignSystem/Tokens/`, components + their `#Preview` blocks | spacing, radius, elevation, motion, type scale, component variants |
+
+## S1b. Run the offline pass FIRST — most of this is not your work
+
+```bash
+./Scripts/sync-notes.sh --apply       # writes FONTS, ASSETS-COLORS, PROJECT outright
+./Scripts/sync-notes.sh --evidence    # candidates for the six that need judgement
+```
+
+Nine notes, three tiers — and **seven of the nine now come from the script**:
+
+| Tier | Notes | Your job |
+|---|---|---|
+| **Generated** | FONTS · ASSETS-COLORS · PROJECT | Nothing. Do not open them |
+| **Partial** | ASSETS-IMAGES · API-MAP · NAVIGATION · SCHEMES | Only the named remainder. Each note carries a caveat line stating what the scan did **not** establish |
+| **Hand-written** | FEATURES · STYLE-GUIDE | Review the candidates, then write the rows |
+
+A partial note's table is already correct for what it covers — **do not re-derive it**. Read its
+caveat line, open `.claude/notes/.evidence/<NOTE>.tsv`, and resolve only what is listed there:
+which screen calls an endpoint, whether an asset is really unused, whether a route case with call
+sites is a real destination. That is the difference between reviewing a list and running a scan.
+
+If a note has no markers yet the script says so — `--init-markers`, once. The scans in S2 below are
+the fallback for what the script could not cover, not the default route.
+
+**If a generator failed** it wrote a bounded report to `.genericarch/failures/`. Read *that*, not the
+script: it names what the script expected and what this repo actually has. Fix the script so the next
+run is mechanical again, and delete the report in the same change. A scan done by hand twice is a
+script nobody improved.
 
 ## S2. The scans
 
@@ -377,3 +412,39 @@ rows worth trusting.
 
 Close with the commands the user should run themselves (CLAUDE.md §2.12) — this command never
 builds, tests, or compiles.
+
+## S9. Header discipline — a note is read to be looked something up in
+
+Every note is written to be **grepped, not read**. A header earns its lines only if a reader looking
+something up needs them. Exactly four things qualify:
+
+1. `# Title`, and one line on what this note owns — plus what the companion note owns instead
+2. `**Read it when**` — the lookups this note answers
+3. `- **Last synced:** <date>` and `- **Tree hash:** <the value stamped below>`
+4. a scope rule, where one exists ("no feature builds a URL")
+
+**Audit narrative does not.** Why a table was *not* regenerated, which scan pass was wrong, what a
+re-parse produced, what the first pass missed — that belongs in the commit message and the S8 report.
+It reads as diligence and costs every future reader who wanted one row. Seen in the wild: twelve
+header lines justifying a decision not to rescan, in a file whose job is to answer "which screens
+call this endpoint?".
+
+If the header runs past roughly eight lines, something in it is narrative.
+
+Stamp the tree hash so the next run can tell staleness without re-reading nine files:
+
+```bash
+./Scripts/notes-staleness.sh --stamp
+```
+
+## S10. Seal and record
+
+```bash
+./Scripts/sync-notes.sh --check       # must exit 0: the mechanical notes match the tree
+./Scripts/ga-reseal.sh --apply
+./Scripts/ga-step.sh record sync-app-notes "<which notes changed>"
+./Scripts/ga-step.sh record ready
+```
+
+`ready` is what unblocks the skills and the day-to-day commands. Record it only when the nine notes
+actually reflect the tree — that is the whole value everything downstream is trusting.
