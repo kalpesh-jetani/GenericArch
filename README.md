@@ -61,10 +61,19 @@ Reference docs are fetched on demand rather than copied, and two groups are **op
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/bootstrap.sh
-less bootstrap.sh        # short, and it tells you what it will do
-bash bootstrap.sh        # dry run — lists every file it would add
+less bootstrap.sh
+bash bootstrap.sh
 bash bootstrap.sh --apply
 ```
+
+Read it, then run it: the third line is a **dry run** that lists every file it would add, and only
+the fourth writes anything.
+
+> **Paste one line at a time, or strip the comments.** Every other block here annotates its commands
+> with `#`, and **zsh — the macOS default — does not treat `#` as a comment when you paste it**
+> (`interactive_comments` is off). A pasted `bash bootstrap.sh   # dry run` arrives as
+> `bash bootstrap.sh '#' dry run`, which is not a dry run. The scripts here name that specific
+> mistake when they see it; `setopt interactive_comments` fixes it for good.
 
 `bootstrap.sh` is the only part of this that touches the network, and all it does is fetch: it
 resolves the **newest semver tag** on the remote, clones it, and hands over to that clone's

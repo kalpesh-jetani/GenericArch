@@ -69,6 +69,9 @@ while [ $# -gt 0 ]; do
     --target)      [ $# -ge 2 ] || ga_die "--target needs a directory" "$GA_EX_USAGE"
                    TARGET="$2"; shift 2 ;;
     -h|--help)     usage; exit "$GA_EX_OK" ;;
+    '#')           ga_die "a '#' comment reached this script as an argument — your shell did not
+  strip it (zsh does not, by default). Paste the command without its trailing comment, or run:
+      setopt interactive_comments" "$GA_EX_USAGE" ;;
     -*)            usage >&2; ga_die "unknown option: $1" "$GA_EX_USAGE" ;;
     *)             [ -z "$TARGET" ] || ga_die "more than one target given: $TARGET and $1" "$GA_EX_USAGE"
                    TARGET="$1"; shift ;;
@@ -133,14 +136,35 @@ if [ -z "$OTHER_ROOT" ]; then
   done
 fi
 if [ -n "$OTHER_ROOT" ] && [ "$ROOT_OK" -eq 0 ]; then
+  # Tolerate a manifest this version cannot parse. The value is display-only, and under `set -e` a
+  # failing command substitution here killed the installer with no output at all — the one message
+  # the operator needed was the one that could not be printed.
   installed_ver="unknown"
-  for m in $(ga_manifest_find "$OTHER_ROOT"); do installed_ver="$(ga_manifest_version "$m")"; done
+  for m in $(ga_manifest_find "$OTHER_ROOT"); do
+    installed_ver="$(ga_manifest_version "$m" 2>/dev/null || true)"
+    [ -n "$installed_ver" ] || installed_ver="unreadable manifest"
+  done
+  # Name a command the caller can actually run. Via bootstrap.sh there is no local install.sh — the
+  # clone it used is a temp dir — so advising `./install.sh` sent people to a file they do not have.
+  if [ "${GA_VIA_BOOTSTRAP:-0}" = "1" ]; then
+    # bootstrap.sh installs into $(pwd) without cd-ing, so PWD is the repo the operator downloaded
+    # it into — but only name the file if it is really there, or the advice is wrong again.
+    if [ -f "$PWD/bootstrap.sh" ]; then _bs="bash \"$PWD/bootstrap.sh\""; else _bs="bash bootstrap.sh"; fi
+    _fix_there="cd \"$OTHER_ROOT\" && $_bs --apply"
+    _fix_both="bash bootstrap.sh --apply --root-ok"
+  else
+    _fix_there="./install.sh \"$OTHER_ROOT\""
+    _fix_both="./install.sh \"$TARGET\" --root-ok"
+  fi
   ga_die "GenericArch is already installed at another root in this checkout:
     here:      $TARGET
     already:   $OTHER_ROOT  ($installed_ver)
   Two live copies duplicate every command and skill, and only one of them can be uninstalled.
-  Install into that root instead, or upgrade it:  ./install.sh \"$OTHER_ROOT\"
-  If two products really do share this checkout, re-run with --root-ok." "$GA_EX_ERR"
+
+  Install into that root instead, or upgrade it:
+      $_fix_there
+  If two products really do share this checkout:
+      $_fix_both" "$GA_EX_ERR"
 fi
 [ -n "$OTHER_ROOT" ] && ga_warn "--root-ok given — a second footprint exists at $OTHER_ROOT.
   Every command and skill now resolves ambiguously between the two."
