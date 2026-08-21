@@ -8,7 +8,7 @@
 #@out       stdout:the plan, then what was created; with --apply the tree exists and DECISIONS.md records the choice
 #@exit      0=ok 1=target not empty enough|unknown group 2=usage 4=declined at the prompt
 #@effects   with --apply: creates directories and files under the TARGET, copies Packages/Core and Packages/DIKit, appends to the target's docs/DECISIONS.md
-#@when      new repo structure|scaffold the directories|which layers should exist|starter packages|predefined structure|set up a fresh app|generate the layout
+#@when      new repo structure|scaffold the directories|which layers should exist|starter packages|predefined structure|set up a fresh app|generate the layout|template copy has no layers|no App directory after gh repo create
 #
 # For a repo that has no structure yet. NEVER for an existing one: an existing repo already answered
 # these questions by having a shape, and imposing this one on it is exactly the adoption mistake
@@ -66,9 +66,10 @@ fi
 [ -d "$TARGET" ] || ga_die "no such directory: $TARGET" "$GA_EX_USAGE"
 TARGET="$(cd "$TARGET" && pwd)"
 # Scaffolding the repo this script lives in is the NORMAL case — after install, that is where it is
-# run from. Only the authoring checkout is off-limits, identified the way ga-step.sh does it:
-# .claude-plugin never travels, so its presence means this is GenericArch itself.
-if [ "$TARGET" = "$SRC" ] && [ -d "$SRC/.claude-plugin" ] && [ -f "$SRC/Scripts/adopt.sh" ]; then
+# run from. Only the AUTHORING checkout is off-limits, identified the way ga-step.sh does it. A
+# template copy is NOT it: the markers travel with a template, and refusing on their presence alone
+# refused the one repo that most needed scaffolding — a new product with only the inherited floor.
+if [ "$TARGET" = "$SRC" ] && ga_is_source_checkout "$SRC"; then
   ga_die "the target is the GenericArch checkout itself — scaffold a product repo instead" "$GA_EX_USAGE"
 fi
 
@@ -93,6 +94,12 @@ hit=$(find "$TARGET" -name '*.swift' -not -path '*/.git/*' -not -path '*/Scaffol
 #                 <group> later is the documented way to take a layer you skipped
 ADDING=0
 ga_step_done "$TARGET" scaffold && ADDING=1
+#   inherited    a template copy of the base: Packages/Core, Packages/DIKit and the package rules
+#                are already here because the copy brought them, and nothing else the layout lists
+#                is. That is OUR floor, not a shape this product chose, so it is the adding case —
+#                everything present is kept and the missing layers are created.
+INHERITED=0
+if [ "$ADDING" -eq 0 ] && ga_is_template_copy "$TARGET"; then INHERITED=1; ADDING=1; fi
 if [ "$ADDING" -eq 0 ] && [ -n "$GA_COMPAT_FOUND" ]; then
   ga_die "$TARGET already has a structure — found:$GA_COMPAT_FOUND
   This scaffold is for a repo with none. An existing repo keeps its own shape; /project-init
@@ -123,8 +130,14 @@ selected_has() { case " $SELECTED " in *" $1 "*) return 0 ;; esac; return 1; }
 # So: the answer comes from the PROJECT, via detect-toolchain.sh, or from the operator via
 # --ios/--macos. With neither, generated manifests carry NO platforms line, and the scaffold leaves
 # the note that explains how to choose.
+# One exception to detecting from the project: in a template copy the manifests being read ARE
+# GenericArch's, copied wholesale. Detecting there would launder this repo's floors into every layer
+# the product takes and make them look like its own answer, which is the §0 violation the number was
+# supposed to avoid. No line is written instead, and --ios/--macos still work.
 FLOOR_SRC="none"
-if [ -z "$IOS" ] && [ -z "$MACOS" ] && [ -x "$SRC/Scripts/detect-toolchain.sh" ]; then
+if [ "$INHERITED" -eq 1 ] && [ -z "$IOS" ] && [ -z "$MACOS" ]; then
+  FLOOR_SRC="none"
+elif [ -z "$IOS" ] && [ -z "$MACOS" ] && [ -x "$SRC/Scripts/detect-toolchain.sh" ]; then
   # --root, not a cd. This read "$(cd "$TARGET" && …)" and claimed it scanned the target; it did
   # not — detect-toolchain.sh cd's to its own root, so scaffolding from a checkout into another
   # repo wrote GenericArch's floors into every manifest it generated.
@@ -182,8 +195,15 @@ seed_tests() {   # seed_tests <package-dir> <package-name>
 ga_hdr "GenericArch scaffold"
 printf '  into     %s\n' "$TARGET"
 printf '  groups   %s%s%s\n' "$GA_BLD" "$SELECTED" "$GA_OFF"
-[ "$ADDING" -eq 1 ] && printf '  %sadding to a scaffold that already ran here — anything present is kept%s\n' \
-  "$GA_DIM" "$GA_OFF"
+if [ "$INHERITED" -eq 1 ]; then
+  printf '  %stemplate copy — the Core+DIKit floor arrived with it; anything present is kept%s\n' \
+    "$GA_DIM" "$GA_OFF"
+  printf '  %sits Package.swift floors are GenericArch\047s, not yours — reset them, or pass --ios/--macos%s\n' \
+    "$GA_YEL" "$GA_OFF"
+elif [ "$ADDING" -eq 1 ]; then
+  printf '  %sadding to a scaffold that already ran here — anything present is kept%s\n' \
+    "$GA_DIM" "$GA_OFF"
+fi
 if [ -z "$IOS" ] && [ -z "$MACOS" ]; then
   printf '  floors   %snot set%s  %s(nothing to detect yet — no version is written anywhere;\n' \
     "$GA_YEL" "$GA_OFF" "$GA_DIM"
@@ -338,10 +358,12 @@ echo
 ga_ok "$made item(s) created"
 # The step the gate is waiting on. Without this, every command after it stays blocked.
 if [ -x "$SRC/Scripts/ga-step.sh" ]; then
-  if [ "$ADDING" -eq 1 ]; then
+  if [ "$ADDING" -eq 1 ] && [ "$INHERITED" -eq 0 ]; then
     ga_dim "  step already recorded; added: $SELECTED"
   else
-    "$SRC/Scripts/ga-step.sh" record scaffold "layers: $SELECTED" --target "$TARGET" >/dev/null 2>&1 && ga_ok "step recorded: scaffold"
+    STEP_NOTE="layers: $SELECTED"
+    [ "$INHERITED" -eq 1 ] && STEP_NOTE="$STEP_NOTE (onto a template copy's inherited floor)"
+    "$SRC/Scripts/ga-step.sh" record scaffold "$STEP_NOTE" --target "$TARGET" >/dev/null 2>&1 && ga_ok "step recorded: scaffold"
   fi
 fi
 ga_hdr "── Next ───────────────────────────────────────────────"

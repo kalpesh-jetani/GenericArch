@@ -162,7 +162,9 @@ manifests, or from `--ios`/`--macos`. With neither, the manifests carry a commen
 months on, as a decision somebody made.
 
 **The exception is a repo started from the template rather than installed into.** There, the seed
-manifests arrive already carrying *this* repo's floors, so detection finds them and they travel.
+manifests arrive already carrying *this* repo's floors, so `detect-toolchain.sh` finds them and
+reports them as the *project's* answer. (`ga-scaffold.sh` will not propagate them: in a template copy
+it writes no `platforms:` line at all rather than launder a number nobody chose into a new layer.)
 Check before anything else, and reset them along with the decisions, gaps, notes and memory:
 
 ```bash

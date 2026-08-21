@@ -2,7 +2,7 @@
 #@kind      tool
 #@platform  macos
 #@claude    needs-approval
-#@purpose   Gate the Xcode toolchain and prepare a new repo's project inputs — the four .xcconfig files and the checklist for creating the .xcodeproj itself.
+#@purpose   Gate the Xcode toolchain and prepare a new repo's project inputs — the five .xcconfig files and the checklist for creating the .xcodeproj itself.
 #@usage     ga-project-setup.sh <target-dir> [--apply] [--yes] [--product NAME] [--bundle-id ID] [--team-id ID] [--org NAME] [--targets ios,macos] [--ios N] [--macos V] [--adopt|--prepare]
 #@in        target:dir --apply:flag(without it, dry run) --yes:flag(skip the prompt; same as GA_ASSUME_YES=1) --product:string(product name, default the target's basename) --bundle-id:string(base reverse-DNS id, no stage suffix) --team-id:string(10-char Apple Team ID; never invented, omit if unknown) --org:string(organization name for file headers) --targets:csv(ios,macos) --ios:int(iOS deployment floor) --macos:string(macOS deployment floor) --prepare:flag(force prepare mode) --adopt:flag(force adopt mode)
 #@out       stdout:the toolchain verdict, the answers, and the plan; with --apply the Configurations/ files and XCODE-SETUP.md exist

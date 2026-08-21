@@ -19,7 +19,7 @@ The order the commands run in, what each one must leave behind, and what enforce
 | # | Step | Run by | Must leave behind |
 |---|---|---|---|
 | 1 | `install` | `./install.sh` (or `./bootstrap.sh`) | The manifest. Recorded automatically — no command records it |
-| 2 | `scaffold` | `./Scripts/ga-scaffold.sh` | **New repos only.** The directory structure, the Core+DIKit floor, and the layers chosen. Recorded *not applicable* automatically in the two cases where it can never run: an existing repo (by `install.sh`, which has a structure to keep) and a GenericArch checkout or template copy (derived by `ga-step.sh` from `.claude-plugin/`, which already *is* the structure). So nothing waits on it in either |
+| 2 | `scaffold` | `./Scripts/ga-scaffold.sh` | **New repos only.** The directory structure, the Core+DIKit floor, and the layers chosen. Recorded *not applicable* automatically in the two cases where it can never run: an existing repo (by `install.sh`, which has a structure to keep) and the GenericArch authoring checkout (derived by `ga-step.sh`, which is the source of the scaffold). A **template copy** is neither — it carries the floor and no layers, so this step stays pending there and is real work; `ga_is_source_checkout` in `Scripts/ga-lifecycle.sh` is what tells the copy from the checkout, and why files alone cannot |
 | 3 | `project-init` | `/project-init` | A reconciled `CLAUDE.md`, `docs/DECISIONS.md` rows for every answer, declined files tombstoned |
 | 4 | `gaps` | `/gaps` | Every `docs/GAPS.md` row at ✅ ⏸ or ⛔, each ⛔ with a *Do not re-propose* row |
 | 5 | `sync-app-notes` | `/sync-app-notes` | Nine inventories in `.claude/notes/`, each with a `Last synced` line |
