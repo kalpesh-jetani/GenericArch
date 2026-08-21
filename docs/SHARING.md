@@ -59,11 +59,27 @@ reaches every consumer by bumping a version.
 
 `Scripts/adopt.sh` enforces all of this, and **refuses to run** if a file is in none of the lists.
 
+**"Never travels" is a statement about the installer, not about GitHub.** A template copy
+(`gh repo create --template`) is made by GitHub, which copies every **tracked** file — so `Packages/`,
+`App/`, `README.md`, `CLAUDE.md` and `.claude-plugin/` all land in the new repo, and no list here
+stops them. Two consequences worth knowing before relying on either:
+
+- **No file can identify this repo.** Treating `.claude-plugin/` as the marker for "this is
+  GenericArch itself" made every template copy answer to it, which recorded `scaffold` as
+  not-applicable in a brand-new product and then refused to scaffold it. The tree is identical; the
+  **history** is not, which is what `ga_is_source_checkout` reads instead
+  ([Scripts/ga-lifecycle.sh](../Scripts/ga-lifecycle.sh)).
+- **A template copy inherits this product's state**, including its floors and its `.gitignore`. The
+  reset is manual and it is listed in [README.md](../README.md) path A step 1.
+
 ---
 
 ## Option 1 — Template repository · for a **new** product
 
-Best when the product starts from nothing. One command, everything present, no history.
+Best when the product starts from nothing. One command, no local checkout to install from, no
+history — but **not everything present**: GitHub copies the tracked tree, and `Packages/` holds only
+the `Core`+`DIKit` floor while `App/` does not exist here at all. The structure is still scaffolded,
+and this product's state still has to be cleared. Full sequence: [README.md](../README.md) path A.
 
 ```bash
 # once, on the base repo
@@ -75,22 +91,31 @@ gh repo create kalpesh-jetani/MyApp --template kalpesh-jetani/GenericArch --priv
 cd MyApp
 ```
 
-Then in Claude Code: **`/project-init MyApp`** — detects a fresh repo, shows the available skills and
-commands, and asks for bundle ID, Team ID, v1 languages, the open §1.1 visual-language decision, and
-permissions per group.
-
-**Then reset the inherited state**, which a template copies wholesale:
+**Reset the inherited state first** — a template copies it wholesale, and `/project-init` reconciles
+rules against whatever it finds:
 
 ```bash
 ./Scripts/detect-toolchain.sh     # §1 must describe THIS machine, not GenericArch's
 # drop this product's answers from DECISIONS.md
 # reset GAPS.md statuses to ▶ Open
 # clear .claude/notes/ table bodies
+# drop .genericarch/ from .gitignore — in a product that state is tracked
 ```
+
+**Then scaffold**, because `scaffold` is genuinely pending in a copy (`ga-step.sh` records only
+`install`):
+
+```bash
+./Scripts/ga-scaffold.sh . --list
+./Scripts/ga-scaffold.sh . --with navigation,design --apply
+```
+
+Then in Claude Code: **`/project-init MyApp`** — asks for bundle ID, Team ID, v1 languages, the open
+§1.1 visual-language decision, and permissions per group. Then `/gaps`, then `/sync-app-notes`.
 
 | Good | Bad |
 |---|---|
-| Everything in one step; code and docs included | Inherits state that must be reset by hand |
+| One command to a working repo; rules, docs and tooling included | Inherits state that must be reset by hand — floors included |
 | No sync obligation — the fork is yours | Divergence is permanent; later base fixes don't reach it |
 
 ## Option 2 — Plugin · for the **tooling layer**, across many repos

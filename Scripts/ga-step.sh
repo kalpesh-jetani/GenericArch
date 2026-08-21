@@ -8,7 +8,7 @@
 #@out       stdout:for show, the ledger and what is next; for require, ok or the unmet prerequisites
 #@exit      0=clear to proceed 2=usage 5=out of order, nothing written
 #@effects   record appends one row to .genericarch/STEPS.tsv; show/next/require are read-only
-#@when      can I run this command yet|what runs next|which step am I on|command order|out of order|step ledger
+#@when      can I run this command yet|what runs next|which step am I on|command order|out of order|step ledger|template copy|is this the source repo
 #
 # Why this exists: every command in .claude/commands assumes a repo state an earlier command was
 # supposed to leave behind. /gaps before /project-init triages items nobody has decided.
@@ -55,16 +55,24 @@ USAGE
 # The install step is not recorded by a command — the manifest IS the record. Deriving it here
 # keeps a repo installed before this script existed from looking like it never ran install.
 derive_steps() {
-  # The source repo is never "installed" into itself — .claude-plugin is excluded from every adopt,
-  # so its presence is the one reliable marker. Without this, every command is blocked in the repo
-  # that authors them.
-  if [ -d "$TARGET/.claude-plugin" ] && [ -f "$TARGET/Scripts/adopt.sh" ]; then
+  # The authoring checkout is never "installed" into itself. Without this, every command is blocked
+  # in the repo that defines them — ga_is_source_checkout is what tells that checkout apart from a
+  # template copy of it, which carries the same files.
+  if ga_is_source_checkout "$TARGET"; then
     ga_step_record "$TARGET" install "GenericArch source repo — nothing to install"
     # scaffold is derivable here for exactly the same reason install is, and leaving it pending
     # blocked every command behind it: /project-init reported "these have not run: scaffold" in the
     # repo that authors the scaffolder, and the only documented escape was an operator --force.
     # This checkout already HAS the structure ga-scaffold.sh creates — it is the source of it.
     ga_step_record "$TARGET" scaffold "not applicable: GenericArch source repo is the scaffold source"
+    return 0
+  fi
+  # A template copy is a PRODUCT that starts as a copy of the base, so install has nothing left to
+  # do — but scaffold does: a copy carries the Core+DIKit floor and none of the layers, no App/ and
+  # no Packages/Features. Recording scaffold here (the old marker check did) left the product unable
+  # to take a single layer, because ga-scaffold.sh then had no reason to run.
+  if ga_is_template_copy "$TARGET"; then
+    ga_step_record "$TARGET" install "template copy of GenericArch — the base is already in the tree"
     return 0
   fi
   for _m in $(ga_manifest_find "$TARGET"); do

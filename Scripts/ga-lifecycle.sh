@@ -5,7 +5,7 @@
 #@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, the macOS/Swift compatibility gate. Sourced, never executed.
 #@usage     . Scripts/ga-lifecycle.sh
 #@in        n/a (sourced). Honours GA_ASSUME_YES=1, GA_DRY_RUN=1, NO_COLOR
-#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
+#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
 #@exit      0=sourced ok 2=executed directly instead of sourced
 #@effects   none on its own; every write is performed by the caller through these helpers
 #@when      installer helper|manifest format|install exit codes|hashing a manifest|uninstall helper
@@ -578,6 +578,50 @@ ga_tombstone_drop() {
   [ -f "$_ga_tf" ] || return 1
   _ga_tmp="$_ga_tf.tmp"
   awk -F'\t' -v p="$2" '$1~/^#/ || $1!=p' "$_ga_tf" > "$_ga_tmp" && mv "$_ga_tmp" "$_ga_tf"
+}
+
+# ── Which kind of base tree is this? ───────────────────────────────────────
+# Three different directories can hold the whole base, and only one of them is off-limits to the
+# product lifecycle:
+#
+#   authoring checkout   a clone or fork of GenericArch — the repo where this file is edited
+#   template copy        `gh repo create --template` — a PRODUCT repo that merely starts as a
+#                        byte-for-byte copy of the base
+#   consumer repo        install.sh wrote the base into it; `.claude-plugin/` never travels there
+#
+# The files cannot tell the first two apart. A GitHub template copies every TRACKED file, so
+# `.claude-plugin/`, `Scripts/adopt.sh`, `Scaffold/` and `Packages/` are all present in MyApp too —
+# "never travels" (docs/SHARING.md) is a statement about install.sh, not about a template. Reading
+# their presence as "this is GenericArch itself" recorded `scaffold` as not-applicable in a
+# brand-new product and then had ga-scaffold.sh refuse it: the product was left holding the
+# Core+DIKit floor with no app shells, no layers, and no way to ask for either.
+#
+# What does differ is the HISTORY. A template copy starts at one fresh commit with no tags; a clone
+# or a fork carries the base's release tags. With no git at all — an unpacked tarball — the
+# directory name is all that is left, and the PRODUCT reading is the safe default there: a product
+# mistaken for the base is silently blocked, while the base mistaken for a product still has to get
+# past ga-scaffold.sh's confirm prompt.
+ga_has_base_markers() {
+  [ -f "$1/.claude-plugin/plugin.json" ] && [ -f "$1/Scripts/adopt.sh" ] \
+    && [ -f "$1/Scaffold/LAYOUT.tsv" ]
+}
+
+# ga_is_source_checkout <dir> — the repo that AUTHORS the base, not a copy of it
+ga_is_source_checkout() {
+  ga_has_base_markers "$1" || return 1
+  # Its own repository, not a directory sitting inside someone else's: compare physical paths, as
+  # install.sh does, because git resolves symlinks and `cd`+`pwd` does not.
+  _ga_top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$_ga_top" ] && [ "$_ga_top" = "$(cd "$1" && pwd -P)" ]; then
+    git -C "$1" tag --merged HEAD 2>/dev/null | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'
+  else
+    [ "$(basename "$1" | tr '[:upper:]' '[:lower:]')" = genericarch ]
+  fi
+}
+
+# ga_is_template_copy <dir> — the base's whole tree, but as the starting point of a PRODUCT
+ga_is_template_copy() {
+  ga_has_base_markers "$1" && ! ga_is_source_checkout "$1"
 }
 
 # ── Step ledger ────────────────────────────────────────────────────────────

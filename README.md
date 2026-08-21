@@ -22,8 +22,8 @@ Four ways in. Pick the row that matches what you have — all of them are non-de
 
 | You have | Use | You get |
 |---|---|---|
-| Nothing yet, and you want to choose your layers | **Empty directory** → `install.sh` + `ga-scaffold.sh` — path **B** below | Rules, docs, tooling, and only the layers you pick. **No deployment floor is written for you** — the §0 default |
-| Nothing yet, and you want everything at once | **Template repo** — path **A** below | The same, plus every layer this repo has — and this product's answers, which you then reset (including its floors) |
+| Nothing yet, and nothing to unlearn | **Empty directory** → `install.sh` + `ga-scaffold.sh` — path **B** below | Rules, docs, tooling, and only the layers you pick. **No deployment floor is written for you** — the §0 default |
+| Nothing yet, but you want a GitHub repo in one command | **Template repo** — path **A** below | The same tree without a local checkout to install from — **but carrying this product's answers**, which you then reset (floors included). The layers are still yours to pick: a copy brings the Core+DIKit floor and no more |
 | An existing app | **`bootstrap.sh`** → `install.sh` | Skills, commands, indexes and tooling — your code and your rules untouched, every file hashed, fully reversible with `uninstall.sh` |
 | Several repos | **Plugin** | Only the skills and commands, updated centrally |
 
@@ -41,34 +41,41 @@ Reference docs are fetched on demand rather than copied, and two groups are **op
 ```bash
 gh repo create <you>/MyApp --template kalpesh-jetani/GenericArch --private --clone
 cd MyApp
-./Scripts/detect-toolchain.sh --mismatches   # do this BEFORE /project-init
+./Scripts/detect-toolchain.sh --mismatches   # do this BEFORE anything else
 ```
 
 **Clear any `BLOCKING` row first.** `/project-init` refuses to do anything while one stands — a
 deployment floor above your installed SDK cannot build, and reconciling rules onto a repo that does
-not build wastes the session. On this path the usual offender is an inherited floor; see the reset
+not build wastes the session. On this path the usual offender is an inherited floor; see step 1
 below, and `/upgrade-stack` if you would rather be walked through it.
 
-Then, in Claude Code:
+**A template copy is not an install.** It is this product's entire *tracked* tree with your repo's
+name on it — GitHub copies every tracked file — so three things are true at once, and the order of
+the steps below follows from them:
 
-```
-/project-init MyApp
-```
+- the base is already in the tree, so there is nothing to install: `ga-step.sh` records that for you;
+- this product's **answers** came with it, and they are not yours — step 1 clears them;
+- the **structure** did not. `Packages/` holds the Core+DIKit floor, there is no `App/`, and no layer
+  beyond the floor, because the base keeps none of those as product content
+  ([docs/SHARING.md](docs/SHARING.md)). So `scaffold` stays pending here, and `/project-init` waits
+  on it ([docs/SEQUENCE.md](docs/SEQUENCE.md)) — step 2 is not optional.
 
-It asks for what it cannot infer — bundle ID, Team ID, the languages you ship at v1, which rules you
-want as *hard* vs *base*, and which permissions to allow. Nothing is written before you answer.
+#### 1. Reset the state you inherited
 
-**Then reset the state you inherited** — a template copies this product's answers along with the
-structure: the per-product rows in `docs/DECISIONS.md`, the statuses in `docs/GAPS.md` (then
-`/gaps`), the `.claude/notes/` table bodies, and every `.claude/memory/` file except `INDEX.md` —
-**including its `## Index` table**, since deleting the files and leaving their rows is the usual
-slip.
+The per-product rows in `docs/DECISIONS.md`, the statuses in `docs/GAPS.md` (then `/gaps`), the
+`.claude/notes/` table bodies, and every `.claude/memory/` file except `INDEX.md` — **including its
+`## Index` table**, since deleting the files and leaving their rows is the usual slip.
 
 ```bash
 ./Scripts/detect-toolchain.sh              # your machine sets the baseline, not this repo's
 ./Scripts/detect-toolchain.sh --mismatches # BLOCKING rows first — see the floors note below
 ./Scripts/verify-memory.sh                 # 0 once the store is yours; 1 lists what is still inherited
 ```
+
+**Drop `.genericarch/` from `.gitignore`.** It is ignored *here* because this repo is never installed
+into, so the ledger is local noise. In a product it is the opposite: the manifest, the tombstones and
+the step ledger are the record of what was installed and what was declined, and they belong in git
+([docs/INSTALL-MANIFEST.md](docs/INSTALL-MANIFEST.md)).
 
 **Reset the deployment floors too — this is the one inherited answer that stops the build, not just
 misleads.** The template carries this product's floors in code, in the two seed manifests:
@@ -86,15 +93,39 @@ the *Deployment targets* row in `docs/DECISIONS.md`, and `/decide` to record wha
 Nothing here defaults a floor for you — that is CLAUDE.md §0, and it applies to an inherited number
 exactly as it applies to a blank one.
 
-Two more things the template path does differently from an install:
+#### 2. Scaffold the structure the copy does not carry
 
-- **`scaffold` is recorded *not applicable* automatically.** A template copy already has the
-  structure `ga-scaffold.sh` would create — `ga-step.sh` derives that from the checkout itself, so
-  `/project-init` clears its gate without an operator override.
-- **You inherit the layer set, not a choice of one.** Every layer this repo has arrives whether your
-  product needs it or not. If that is not what you want, take path B instead and pick.
+```bash
+./Scripts/ga-scaffold.sh . --list                            # the layers on offer
+./Scripts/ga-scaffold.sh . --with navigation,design --apply  # everything already here is kept
+```
 
-`./Scripts/adopt.sh` (path D) does this reset for you. Only the template path needs the manual step.
+It creates the `App/iOS` and `App/macOS` shells, `Packages/Features`, and each layer you name; every
+file the copy brought is reported as kept and left alone. Read
+[Scaffold/ARCHITECTURE-OPTIONS.md](Scaffold/ARCHITECTURE-OPTIONS.md) before choosing — a layer costs
+something the day you take it.
+
+**It writes no `platforms:` line into the new manifests.** Reading a floor out of the inherited ones
+would launder this repo's answer into your product as if you had chosen it (§0), so each generated
+manifest carries the `Packages/FLOORS.md` note instead. Pass `--ios`/`--macos` once you have decided,
+or do the floor reset in step 1 first.
+
+#### 3. Then, in Claude Code
+
+```
+/project-init MyApp
+/gaps
+/sync-app-notes
+```
+
+`/project-init` asks for what it cannot infer — bundle ID, Team ID, the languages you ship at v1,
+which rules you want as *hard* vs *base*, and which permissions to allow. Nothing is written before
+you answer. **In that order — it is enforced**, not advisory
+([the order](#the-commands-run-in-order)).
+
+Paths B and C need no step 1 at all: `install.sh` copies the base and never this product's state, and
+`Scripts/adopt.sh` refuses to run if a file is in neither list. Only the template path, which copies
+the whole tracked tree, carries state that has to be cleared by hand.
 
 ### B. New project — from an empty directory *(recommended for a genuinely new app)*
 
@@ -114,7 +145,7 @@ Then `/project-init` in Claude Code. Nothing to reset: the decisions, gaps, note
 empty, and the floors arrive unset.
 
 **The install offers to set up the Xcode project first.** On an empty directory it checks the Xcode
-toolchain, asks what the project needs, and writes the four `.xcconfig` files —
+toolchain, asks what the project needs, and writes the five `.xcconfig` files —
 `Configurations/{Base,DEV,TEST,BETA,PROD}.xcconfig` exactly as
 [SCHEMES.md](.claude/notes/SCHEMES.md) specifies them — plus an `XCODE-SETUP.md` checklist. It stops
 before the `.xcodeproj` itself, because nothing here generates one. You do the two minutes of
