@@ -356,12 +356,12 @@ Run it yourself after editing an installed file by hand.
 removal is a verified operation, not a guess at which files were probably ours.
 
 ```bash
-./uninstall.sh v0.3.0              # plan, then ask
-./uninstall.sh v0.3.0 --dry-run    # print the plan and stop
-./uninstall.sh v0.3.0 --yes        # skip the confirmation prompt
+./uninstall.sh v0.4.0              # plan, then ask
+./uninstall.sh v0.4.0 --dry-run    # print the plan and stop
+./uninstall.sh v0.4.0 --yes        # skip the confirmation prompt
 ```
 
-**The version argument is required.** Supported: `v0.1.0`, `v0.2.0`, `v0.3.0` (latest). Defaulting it would
+**The version argument is required.** Supported: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0` (latest). Defaulting it would
 mean guessing which release's footprint to delete, and a wrong guess deletes the wrong files.
 
 **Exit 0 means the repo is back to its pre-install state; exit 1 means files were left behind** —

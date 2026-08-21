@@ -414,8 +414,8 @@ ga_is_version_stamp() {
 # The releases whose footprint uninstall.sh knows how to clean without a manifest. A version
 # absent here is refused rather than guessed at: removing files by a list invented at runtime is
 # exactly the failure mode the manifest exists to prevent.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0"
-GA_LATEST_VERSION="v0.3.0"
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0"
+GA_LATEST_VERSION="v0.4.0"
 
 ga_is_supported_version() {
   case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) return 0 ;; *) return 1 ;; esac
@@ -470,6 +470,33 @@ ga_known_paths() {
         Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
         Scripts/session-script.sh Scripts/ga-lifecycle.sh \
         Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh Scripts/ga-scaffold.sh \
+        Scripts/sync-notes.sh Scripts/ga-handoff.sh \
+        Scaffold \
+        docs/DECISIONS.md docs/GAPS.md docs/resources \
+        uninstall.sh genericarch.installation.md \
+        .genericarch-version
+      ;;
+    v0.4.0)
+      # v0.3.0 plus the two tools the empty-directory path needs: ga-project-setup.sh (the Xcode
+      # toolchain gate and the four .xcconfig files) and ga-init-scan.sh (the offline half of
+      # /project-init, which install.sh now runs itself). Both are copied, so both are removable.
+      #
+      # NOT listed, on purpose: .claude/notes/.evidence/. install.sh generates it rather than
+      # copying it, so no hash can prove ownership — uninstall.sh removes it by name instead, in the
+      # one place that knows it is generated.
+      printf '%s\n' \
+        .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
+        .claude/CANDIDATES.tsv .claude/notes .claude/memory \
+        .swiftlint.yml .swiftformat \
+        Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
+        Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
+        Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
+        Scripts/scan-unused-assets.py Scripts/scan-api-map.py Scripts/check-note-links.py \
+        Scripts/detect-capabilities.sh Scripts/claude-workflows Scripts/claude-utils \
+        Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
+        Scripts/session-script.sh Scripts/ga-lifecycle.sh \
+        Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh Scripts/ga-scaffold.sh \
+        Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
         Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         Scaffold \
         docs/DECISIONS.md docs/GAPS.md docs/resources \

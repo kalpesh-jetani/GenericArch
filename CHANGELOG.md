@@ -6,10 +6,28 @@ decorative.
 
 ---
 
-## Unreleased
+## v0.4.0
 
-Continuing v0.3.0's theme — **work moves out of the session** — one step further into
-`/project-init`, the most expensive command in the sequence.
+The theme: **an empty directory is now a supported starting point**, and the command that adopts a
+repo stops paying for what a script can prove. v0.3.0 moved the note generation out of the session;
+this moves the project setup and half of `/project-init` out with it.
+
+### An empty directory is a first-class path
+
+- **`Scripts/ga-project-setup.sh`** — the part of project creation that *is* mechanical: the Xcode
+  toolchain gate, the four committed `.xcconfig` files with per-stage bundle IDs, and an exact
+  `XCODE-SETUP.md` checklist. It never creates, opens or edits an `.xcodeproj` — SPM stays the source
+  of truth (CLAUDE.md §1), and a hand-authored `pbxproj` is a binary nobody could review.
+- **`install.sh` offers it** before writing anything, so a missing toolchain costs nothing: a
+  toolchain gate failure exits 3 with the target untouched. `--project-setup` forces it,
+  `--no-project-setup` never offers it, and with no tty it is skipped rather than failing an install
+  that was otherwise fine — a bundle ID, a Team ID and a deployment floor may not be defaulted (§0).
+- **The bare-`.xcodeproj` case is caught.** An `.xcodeproj` is an Apple marker, so the compatibility
+  gate read "project you just created in Xcode" as an *existing* repo and skipped `Scaffold/` and
+  `ga-scaffold.sh` — the package layer that had not been written yet. The install now says so and
+  offers `--mode new`, reprinting the mode rather than correcting it silently.
+- `README.md` gains that path as **B. New project — from an empty directory**, and the
+  eighth of "the rules that matter most".
 
 ### Half of `/project-init` now runs offline
 
@@ -30,6 +48,72 @@ Continuing v0.3.0's theme — **work moves out of the session** — one step fur
   unblock `/gaps` against rules nobody accepted.
 - `uninstall.sh` removes the generated evidence, and `ga-roundtrip.sh` case 11 proves it — the first
   files `install.sh` creates that the manifest does not own.
+
+### A cross-repo call read the wrong repo — every time
+
+- **`detect-toolchain.sh` gains `--root`**, and no longer `cd`s to its own checkout unconditionally.
+  Every caller that installed or scaffolded *into* another repo was silently reading GenericArch's
+  own floors and reporting them as the target's. `ga-scaffold.sh` wrote them into every manifest it
+  generated; the code even read `$(cd "$TARGET" && …)` and claimed it had scanned the target.
+- `--mismatches` now documents its contract: exit 0 always, including when a BLOCKING row stands.
+  Callers gate on the rows, never on the status.
+
+### §2.12 rewritten: build to validate, ask before running
+
+- Claude **compiles on its own initiative** — usually through `./Scripts/check.sh`, whose iOS-floor
+  step is the slow part — and reports what came back. **Running and testing still need consent:**
+  `swift test`, `xcodebuild test`, any simulator or device launch. `/build` is that consent for the
+  run it names and does not carry to the next one.
+- `check.sh` is reclassified `never:compiles-the-iOS-floor` → `call` in the registry, and
+  `docs/BUILD-PROCESS.md` matches. The old rule made the repo's own gate the one thing that could
+  never be run, so a change was reported as validated by whoever remembered to ask.
+
+### The scaffold step stops blocking its own author
+
+- `ga-step.sh` derives **scaffold** as not-applicable in a GenericArch checkout, for the same reason
+  it already derived `install`: this repo *is* the structure `ga-scaffold.sh` creates. `/project-init`
+  used to refuse in the repo that authors the scaffolder, with an operator `--force` as the only
+  documented escape.
+- `ga-scaffold.sh` takes `--yes`, like `install.sh` and `uninstall.sh`. Without it, `--apply` from CI
+  or a pipe reached the confirm prompt, found no tty, and stopped.
+- `ga_confirm` stops advising `--yes` to callers that have no such flag; every non-interactive caller
+  is pointed at `GA_ASSUME_YES=1`, which works everywhere. The old remediation sent
+  `ga-scaffold`/`ga-remove`/`ga-reseal`/`adopt.sh` into an "unknown flag" exit.
+
+### Scanners survive the repos they meet
+
+- **`scan-fonts.py`** no longer aborts the whole FONTS inventory on one unparseable file. A `.ttf`
+  extension is not a promise of a parseable sfnt — Git-LFS pointers, stubs and truncated binaries all
+  carry one. Each is named on stderr and skipped.
+- **`sync-notes.sh` NAVIGATION** counted call sites wrong in both directions: it subtracted a flat 1
+  for a declaration the pattern had never matched, and counted `case .route:` in a destination switch
+  as a navigation. It now excludes the mapping lines and subtracts nothing — the old arithmetic
+  undercounted every route by one and reported a route with exactly one call site as dead.
+- Several `|| echo 0` fallbacks became `|| true`. Under `grep -c`, the first appended a literal `0`
+  to a count that already existed.
+
+### Written down rather than fixed silently
+
+`docs/GAPS.md` gains four rows, each measured rather than suspected:
+
+- **A release that does not publish its tag** poisons every installed `MAP.tsv`: `FETCH-BASE` points
+  at a tag that 404s and `bootstrap.sh` resolves the *previous* release instead. Measured on v0.3.0:
+  52 dead rows, the same paths returning 200 at v0.2.0. The one failure a local round trip cannot see.
+- **`ga-handoff.sh` resolves `.genericarch/failures/` from the working directory**, so running a
+  target's script from elsewhere writes the diagnosis into an unrelated repo.
+- **Who owes the reseal** — `sync-notes.sh --apply` and `notes-staleness.sh --stamp` rewrite installed
+  notes and reseal nothing, so uninstall preserves a note and tells the operator *"you edited it"* for
+  a write GenericArch made.
+- **What counts as "source"** — one scanner walks the filesystem, the other enumerates tracked files,
+  and nothing says which is authoritative.
+
+### Version plumbing
+
+- `GA_LATEST_VERSION` → `v0.4.0`, and v0.4.0 added to the supported list.
+- `ga_known_paths` gains a v0.4.0 entry — v0.3.0's footprint plus `ga-project-setup.sh` and
+  `ga-init-scan.sh`. The generated evidence directory is deliberately absent from it: nothing can
+  hash-prove ownership of a file the installer generated, so `uninstall.sh` removes it by name.
+- `plugin.json` 0.3.0 → 0.4.0, with a description matching what now ships.
 
 ---
 

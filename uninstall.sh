@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Remove a GenericArch install, and nothing else.
 #
-#   ./uninstall.sh v0.3.0             # plan, then ask
-#   ./uninstall.sh v0.3.0 --dry-run   # print the plan and stop
-#   ./uninstall.sh v0.3.0 --yes       # skip the confirmation prompt
+#   ./uninstall.sh v0.4.0             # plan, then ask
+#   ./uninstall.sh v0.4.0 --dry-run   # print the plan and stop
+#   ./uninstall.sh v0.4.0 --yes       # skip the confirmation prompt
 #   ./uninstall.sh v0.1.0 --force     # proceed even if a different version is recorded
 #
 #   --target DIR   the repo to clean (default: the current directory)
@@ -12,7 +12,7 @@
 # Exit 0 means the repo is back to its pre-install state. Exit 1 means files were left behind —
 # they are listed in .genericarch/orphans-<version>.txt, which outlives the terminal.
 #
-# The version argument is REQUIRED. Supported: v0.1.0, v0.2.0, v0.3.0 (latest).
+# The version argument is REQUIRED. Supported: v0.1.0, v0.2.0, v0.3.0, v0.4.0 (latest).
 #
 # What this will and will not delete:
 #
