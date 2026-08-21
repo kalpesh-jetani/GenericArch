@@ -6,6 +6,33 @@ decorative.
 
 ---
 
+## Unreleased
+
+Continuing v0.3.0's theme — **work moves out of the session** — one step further into
+`/project-init`, the most expensive command in the sequence.
+
+### Half of `/project-init` now runs offline
+
+- **`Scripts/ga-init-scan.sh`** — the deterministic half of the command, as a read-only script: the
+  mode (from the same gate `install.sh` uses), the toolchain mismatches, one evidence row per
+  `docs/ADOPTION.md` §A2 conflict with counts and example paths, the §A4 name collisions, the
+  routable-path validator that used to be 35 lines of inline bash, the orphan module docs, and which
+  of the four rule levels exist. Every count carries its method's blind spot in the same row.
+- **`install.sh` runs it** once the manifest has landed and writes
+  `.claude/notes/.evidence/INIT-SCAN.md` plus a machine-readable `INIT-CONFLICTS.tsv`. The next
+  session reads one artifact instead of paying for four rounds of grep. `--no-preflight` skips it.
+- **`install.sh` also says when the repo does not build** — a BLOCKING row from
+  `detect-toolchain.sh --mismatches` is reported rather than refused, because rules and tooling are
+  still correct in a repo whose floors need lowering. The refusal stays where it belongs:
+  `ga-init-scan.sh` exits 3, and `/project-init` inherits it.
+- **What it deliberately does not do:** classify a conflict, write a rule, touch `CLAUDE.md`,
+  remove a file, or record the `project-init` step. A script marking the asking step done would
+  unblock `/gaps` against rules nobody accepted.
+- `uninstall.sh` removes the generated evidence, and `ga-roundtrip.sh` case 11 proves it — the first
+  files `install.sh` creates that the manifest does not own.
+
+---
+
 ## v0.3.0
 
 The theme: **work moves out of the session.** A release ago the model ran the scans, wrote the

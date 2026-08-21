@@ -19,7 +19,7 @@ The order the commands run in, what each one must leave behind, and what enforce
 | # | Step | Run by | Must leave behind |
 |---|---|---|---|
 | 1 | `install` | `./install.sh` (or `./bootstrap.sh`) | The manifest. Recorded automatically — no command records it |
-| 2 | `scaffold` | `./Scripts/ga-scaffold.sh` | **New repos only.** The directory structure, the Core+DIKit floor, and the layers chosen. On an existing repo `install.sh` records it *not applicable*, so nothing waits on it |
+| 2 | `scaffold` | `./Scripts/ga-scaffold.sh` | **New repos only.** The directory structure, the Core+DIKit floor, and the layers chosen. Recorded *not applicable* automatically in the two cases where it can never run: an existing repo (by `install.sh`, which has a structure to keep) and a GenericArch checkout or template copy (derived by `ga-step.sh` from `.claude-plugin/`, which already *is* the structure). So nothing waits on it in either |
 | 3 | `project-init` | `/project-init` | A reconciled `CLAUDE.md`, `docs/DECISIONS.md` rows for every answer, declined files tombstoned |
 | 4 | `gaps` | `/gaps` | Every `docs/GAPS.md` row at ✅ ⏸ or ⛔, each ⛔ with a *Do not re-propose* row |
 | 5 | `sync-app-notes` | `/sync-app-notes` | Nine inventories in `.claude/notes/`, each with a `Last synced` line |
@@ -30,8 +30,8 @@ any order, as often as needed. They are not steps; they are the work.
 
 ## Why the order is load-bearing
 
-Each step reads a repo state the previous one creates. Out of order, they do not fail — they
-succeed against the wrong input, which is worse:
+Each step reads a repo state the previous one creates. Ungated, they would not fail out of order —
+they would succeed against the wrong input, which is worse. That is what exit 5 buys:
 
 - **`gaps` before `project-init`** triages capabilities against rules nobody has accepted yet, and
   writes ⛔ rows citing decisions that do not exist.
@@ -63,6 +63,7 @@ These run whenever the situation calls for them, and gate on `install` only:
 
 | Operation | Tool | Why it is not a step |
 |---|---|---|
+| Gather what `/project-init` can establish without asking | `Scripts/ga-init-scan.sh` | Preflight, not a step: read-only, records nothing, and `install.sh` runs it once the manifest lands. `project-init` is still the step, because the asking is the step |
 | Take a base update | `Scripts/adopt-review.sh` | Reacts to upstream moving, not to a phase |
 | Decline a file (moves it to `safetodelete/`) | `Scripts/ga-remove.sh` | A decision, recordable at any point |
 | Re-seal after editing installed files | `Scripts/ga-reseal.sh` | Runs *after* any command that rewrote them |

@@ -11,5 +11,9 @@ public enum Route: Hashable, Sendable {
 /// The navigation state, owned as data so it can be restored and deep-linked into.
 public struct NavigationState: Sendable {
     public var path: [Route]
+
+    /// Creates a navigation state, empty unless a path is being restored.
+    /// - Parameter path: the stack to start from, root first. Pass a saved path to restore a
+    ///   session or open a deep link; the default empty array starts at the root.
     public init(path: [Route] = []) { self.path = path }
 }

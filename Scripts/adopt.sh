@@ -98,6 +98,7 @@ Scripts/ga-lifecycle.sh
 Scripts/ga-step.sh
 Scripts/ga-remove.sh
 Scripts/ga-reseal.sh
+Scripts/ga-init-scan.sh
 uninstall.sh
 "
 
@@ -116,7 +117,12 @@ OPTIONAL_LINT=".swiftlint.yml .swiftformat"
 OPTIONAL_META="Scripts/claude-workflows"
 # The new-repo set. Not "optional" in the same sense — it is decided by what the target IS, not by
 # preference, which is why install.sh derives it from the compatibility gate rather than asking.
-OPTIONAL_FRESH="Scaffold Scripts/ga-scaffold.sh"
+#
+# ga-project-setup.sh belongs here rather than in BASE for the same reason as the rest: an existing
+# repo already has its .xcodeproj and its build settings, so a tool that prepares them is a lookup
+# that never fires. Its --adopt mode is still there for a repo that wants its .xcconfig files
+# regenerated — run from the GenericArch checkout, which is where install.sh calls it from anyway.
+OPTIONAL_FRESH="Scaffold Scripts/ga-scaffold.sh Scripts/ga-project-setup.sh"
 # ── The architecture layer ─────────────────────────────────────────────────
 # Not a subset of the tooling — a different thing. `new-feature` scaffolds Packages/Features with
 # ContentState and a DIKit registration; `/review` checks the §2 rules. Both are useful exactly when

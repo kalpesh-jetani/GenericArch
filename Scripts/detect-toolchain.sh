@@ -3,10 +3,10 @@
 #@platform  macos
 #@claude    call
 #@purpose   Resolve the actual stack: min iOS/macOS, Xcode, Swift, language mode. Never quote these from memory.
-#@usage     detect-toolchain.sh [--markdown]
-#@in        --markdown:flag(emit PROJECT.md rows)
+#@usage     detect-toolchain.sh [--markdown|--options|--mismatches] [--root DIR]
+#@in        --markdown:flag(emit PROJECT.md rows) --options:flag(machine-derived choice lists for /project-init) --mismatches:flag(one SEVERITY|id|what|current|available|remediation row per finding, severity BLOCKING|OPPORTUNITY|DRIFT) --root:dir(repo whose manifests answer the project half; default this checkout — cd-ing before the call does NOT work)
 #@out       stdout:resolved stack values
-#@exit      0=ok
+#@exit      0=ok — always, including when --mismatches reports BLOCKING. Callers gate on the BLOCKING rows, never on status
 #@effects   read-only
 #@when      what is the stack|min ios version|which xcode|swift version|toolchain
 # Determine the tech stack this repo actually uses — never assume one.
@@ -25,13 +25,29 @@
 # Nothing here is hardcoded to SwiftUI/SPM/Swift 6. Those are this repo's *resolved* answers, not
 # the tool's assumptions.
 set -o pipefail
-cd "$(dirname "$0")/.."
 
 RED=$'\033[31m'; YEL=$'\033[33m'; GRN=$'\033[32m'; DIM=$'\033[2m'; BLD=$'\033[1m'; OFF=$'\033[0m'
 MODE=report
-[ "${1:-}" = "--markdown" ] && MODE=markdown
-[ "${1:-}" = "--options" ] && MODE=options
-[ "${1:-}" = "--mismatches" ] && MODE=mismatches
+# The repo whose manifests answer the "project" half. Defaults to this checkout, because that is the
+# common case — but a caller installing or scaffolding INTO another repo must be able to ask about
+# THAT repo. Changing directory before the call does not do it: the cd below is unconditional, so
+# every such caller silently read this checkout's floors and reported them as the target's.
+ROOT=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --markdown)   MODE=markdown; shift ;;
+    --options)    MODE=options; shift ;;
+    --mismatches) MODE=mismatches; shift ;;
+    --root)       ROOT="${2:-}"; shift 2 || true ;;
+    *)            shift ;;
+  esac
+done
+if [ -n "$ROOT" ]; then
+  [ -d "$ROOT" ] || { echo "no such directory: $ROOT" >&2; exit 2; }
+  cd "$ROOT" || exit 2
+else
+  cd "$(dirname "$0")/.."
+fi
 
 # ── Machine ────────────────────────────────────────────────────────────────
 SWIFT=$(swift --version 2>/dev/null | sed -n 's/.*Apple Swift version \([0-9.]*\).*/\1/p' | head -1)

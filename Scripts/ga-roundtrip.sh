@@ -21,6 +21,8 @@
 #   8. offline notes         sync-notes.sh classifies every note and needs no network
 #   6. the two directions    a fresh repo gets the module material and the scaffold; an existing one
 #                            gets neither, and its scaffold step is recorded not-applicable
+#  11. preflight evidence   install writes the /project-init evidence, records no step for it, and
+#                           uninstall takes the generated files back out
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -280,6 +282,40 @@ if install_into "$T"; then
   fi
 else
   fail "case 10: install failed"
+fi
+
+# ── 11. the install-time preflight writes evidence, and uninstall takes it ─
+# install.sh runs ga-init-scan.sh once the manifest has landed, so for the first time it creates
+# files the manifest does not own. Those must not survive the uninstall: nothing can prove ownership
+# of a generated file, so a survivor is reported as an orphan forever and "back to its pre-install
+# state" stops being true.
+T="$(new_repo case11)"
+if install_into "$T"; then
+  if [ ! -f "$T/.claude/notes/.evidence/INIT-SCAN.md" ]; then
+    fail "the install-time preflight wrote no evidence — /project-init pays for the scans again"
+  elif ! grep -q '^## conflicts' "$T/.claude/notes/.evidence/INIT-SCAN.md"; then
+    fail "the evidence artifact has no conflicts section — the generator wrote a partial file"
+  elif [ ! -f "$T/.claude/notes/.evidence/INIT-CONFLICTS.tsv" ]; then
+    fail "the machine-readable conflict rows are missing"
+  else
+    pass "the install-time preflight writes the /project-init evidence"
+  fi
+  # It must not have touched the ledger: the asking step is not done because a script ran. Match a
+  # real row, not the header — line 2 lists the whole step order in a comment.
+  if awk -F'\t' '!/^#/ && $1=="project-init"{found=1} END{exit !found}' \
+       "$T/.genericarch/STEPS.tsv" 2>/dev/null; then
+    fail "the preflight recorded the project-init step — /gaps is now unblocked with nothing decided"
+  else
+    pass "the preflight leaves the project-init step unrecorded"
+  fi
+  uninstall_in "$T" "$VERSION"
+  if [ -d "$T/.claude/notes/.evidence" ]; then
+    fail "uninstall left the generated evidence behind: $(ls "$T/.claude/notes/.evidence" | tr '\n' ' ')"
+  else
+    pass "uninstall removes the evidence it generated"
+  fi
+else
+  fail "case 11: install failed"
 fi
 
 echo

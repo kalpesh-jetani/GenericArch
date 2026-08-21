@@ -90,10 +90,13 @@ Where the floors come from, and why "no `platforms:` line" means unanswered rath
 11. **Never `commit` or `push`** — not to "save progress", not because the work looks finished.
     Leave it in the working tree and say what changed. Only an explicit "commit"/"push" counts; a
     release or `/project-init` run is not one.
-12. **Never build, run, or test the app.** No `swift build`, `swift test`, `xcodebuild`, no
-    simulator or device launch, nothing that invokes the compiler — including `./Scripts/check.sh`,
-    whose iOS-floor step compiles. Say what to run and let the user run it. Reading, grepping and
-    editing are free; minutes of their machine are not.
+12. **Build to validate on your own initiative; ask before you run or test.** Compiling is how a
+    change gets checked, so build freely — prefer the repo's own `./Scripts/check.sh`, whose
+    iOS-floor step compiles, over a hand-rolled invocation, and report what it printed rather than
+    what it should have. **Running and testing need the user's consent** — `swift test`,
+    `xcodebuild test`, any simulator or device launch. Typing `/build` is that consent for the run
+    it names; consent is per request and never standing. Don't rebuild gratuitously: minutes of
+    their machine are not free.
 13. **Follow the matching skill and name it before starting.** Skipping one of its steps means
     saying which step and why. If none fits, say that — a wrong skill is worse than none.
 14. **Stop on a vague instruction.** If a request admits readings that lead to materially different
@@ -162,9 +165,9 @@ grep -i lint .claude/SCRIPTS.tsv       # which script does this, and its contrac
 ./Scripts/ga-step.sh show              # which step is next, and why a command refused
 ```
 
-Commands run in a fixed order — install → `/project-init` → `/gaps` → `/sync-app-notes` → ready —
-enforced by each command's first step. Exit 5 means an earlier one has not run →
-[SEQUENCE.md](docs/SEQUENCE.md).
+Commands run in a fixed order — install → scaffold (new repos only) → `/project-init` → `/gaps` →
+`/sync-app-notes` → ready — enforced by each command's first step. Exit 5 means an earlier one has
+not run → [SEQUENCE.md](docs/SEQUENCE.md).
 
 [`MAP.tsv`](.claude/MAP.tsv) carries every doc, note, pattern and skill; **read the module doc
 before

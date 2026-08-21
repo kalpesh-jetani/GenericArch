@@ -77,16 +77,20 @@ ga_die() {
 # Returns 0 to proceed, non-zero to abort. --yes sets GA_ASSUME_YES=1.
 # Reads from /dev/tty rather than stdin: both scripts may be driven from a pipe, and a prompt that
 # silently consumed piped stdin would answer itself.
+# Only install.sh and uninstall.sh implement a --yes flag; every other caller reaches this through
+# GA_ASSUME_YES=1. So both messages below name the environment variable, which works everywhere —
+# advising --yes sent non-interactive callers of ga-scaffold/ga-remove/ga-reseal/adopt.sh into an
+# "unknown flag" exit, with the script's own remediation as the cause.
 ga_confirm() {
   if [ "${GA_ASSUME_YES:-0}" = "1" ]; then
-    ga_dim "  (--yes given — proceeding without asking)"
+    ga_dim "  (assuming yes — proceeding without asking)"
     return 0
   fi
   # `[ -r /dev/tty ]` is not enough: in a sandbox or under a detached process the node exists and
   # tests readable, then fails on open with "Device not configured". Probe by actually opening it,
   # with the failure suppressed, so a declined install reports "aborted" and not a shell error.
   if ! { exec 3<>/dev/tty; } 2>/dev/null; then
-    ga_warn "no terminal to ask on — re-run with --yes to confirm, or --dry-run to preview"
+    ga_warn "no terminal to ask on — re-run with GA_ASSUME_YES=1 to confirm, or --dry-run to preview"
     return 1
   fi
   printf '%s%s%s [y/N] ' "$GA_BLD" "$1" "$GA_OFF" >&3
