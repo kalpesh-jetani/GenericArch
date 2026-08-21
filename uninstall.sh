@@ -47,6 +47,9 @@ while [ $# -gt 0 ]; do
     -y|--yes)     GA_ASSUME_YES=1; shift ;;
     -n|--dry-run) DRY_RUN=1; shift ;;
     -f|--force)   FORCE=1; shift ;;
+    '#')          ga_die "a '#' comment reached this script as an argument — your shell did not
+  strip it (zsh does not, by default). Paste the command without its trailing comment, or run:
+      setopt interactive_comments" "$GA_EX_USAGE" ;;
     --target)     [ $# -ge 2 ] || { usage >&2; ga_die "--target needs a directory" "$GA_EX_USAGE"; }
                   TARGET="$2"; shift 2 ;;
     --base)       [ $# -ge 2 ] || { usage >&2; ga_die "--base needs a directory" "$GA_EX_USAGE"; }

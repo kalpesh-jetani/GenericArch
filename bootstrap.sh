@@ -15,6 +15,8 @@
 #   GA_REF=<tag|branch>      which version to pin  (default: the newest semver tag on the remote)
 #   --ref <tag>              same, as a flag — usable through `curl ... | bash -s -- --ref <tag>`
 #   --yes                    passed through to install.sh, skipping its confirmation prompt
+#   --root-ok · --force · --with-architecture · --project-setup · --no-project-setup ·
+#   --no-preflight            install.sh's own flags, forwarded verbatim
 #
 # This is the ONLY script in the lifecycle that touches the network, and all it does is fetch.
 # Every decision about what lands in your repo — the compatibility gate, the plan, the manifest,
@@ -33,8 +35,22 @@ while [ $# -gt 0 ]; do
     --apply) APPLY=1; shift ;;
     --yes|-y) PASS_THROUGH="$PASS_THROUGH --yes"; shift ;;
     --ref)   GA_REF="$2"; shift 2 || { echo "--ref needs a tag" >&2; exit 2; } ;;
-    --help|-h) sed -n '2,22p' "$0" 2>/dev/null || echo "see the header of bootstrap.sh"; exit 0 ;;
-    *) echo "unknown argument: $1" >&2; exit 2 ;;
+    --help|-h) sed -n '2,24p' "$0" 2>/dev/null || echo "see the header of bootstrap.sh"; exit 0 ;;
+    # install.sh's own flags, forwarded verbatim. Rejecting them made its advice unreachable: its
+    # multi-root refusal says "re-run with --root-ok", and through here that was an unknown argument.
+    --root-ok|--with-architecture|--project-setup|--no-project-setup|--no-preflight|--force|-f)
+             PASS_THROUGH="$PASS_THROUGH $1"; shift ;;
+    # A trailing `# comment` pasted from the README arrives as arguments in zsh, whose
+    # interactive_comments is off by default. Say that, rather than reporting `#` as a typo.
+    '#') echo "${YEL}⚠${OFF} a '#' comment reached this script as an argument — your shell did not" >&2
+         echo "  strip it (zsh does not, by default). Paste the command without its trailing" >&2
+         echo "  comment, or run:  setopt interactive_comments" >&2
+         exit 2 ;;
+    *) echo "unknown argument: $1" >&2
+       echo "  bootstrap flags: --apply --yes --ref <tag> --help" >&2
+       echo "  forwarded to install.sh: --root-ok --with-architecture --project-setup" >&2
+       echo "                           --no-project-setup --no-preflight --force" >&2
+       exit 2 ;;
   esac
 done
 
@@ -142,11 +158,18 @@ esac
 
 # Everything from here is offline and belongs to install.sh: the gate, the plan, the confirmation,
 # the manifest, the rollback. Duplicating any of it here is how the two would disagree.
+# install.sh's remediation advice names a command to run. Reached from here, `./install.sh` is not
+# one the caller has — the clone this used is a temp dir that is about to go away — so tell it which
+# entry point to name.
+export GA_VIA_BOOTSTRAP=1
+# PASS_THROUGH goes to BOTH branches. Dropping it on the dry run meant `bootstrap.sh --root-ok`
+# without --apply was refused for the very reason --root-ok exists to allow, and the plan the
+# operator was trying to read never printed.
+# shellcheck disable=SC2086
 if [ "$APPLY" -eq 1 ]; then
-  # shellcheck disable=SC2086
   "$TMP/base/install.sh" "$TARGET" $PASS_THROUGH
 else
-  "$TMP/base/install.sh" "$TARGET" --dry-run
+  "$TMP/base/install.sh" "$TARGET" --dry-run $PASS_THROUGH
 fi
 rc=$?
 
