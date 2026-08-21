@@ -36,7 +36,6 @@ APPLY=0
 QUIET_NEXT=0
 WITH_LINT=0
 WITH_META=0
-FRESH=0
 WITH_ARCH=0
 for a in "$@"; do
   [ "$a" = "--apply" ] && APPLY=1
@@ -44,11 +43,6 @@ for a in "$@"; do
   [ "$a" = "--quiet-next" ] && QUIET_NEXT=1
   [ "$a" = "--with-lint" ] && WITH_LINT=1
   [ "$a" = "--with-meta" ] && WITH_META=1
-  # install.sh passes this for a repo with no structure yet. It is the ONE difference between the
-  # two installs: the predefined module material — the scaffold layout, its templates and the
-  # architecture notes — is exactly what a new repo needs and exactly what an existing one must not
-  # be given.
-  [ "$a" = "--fresh" ] && FRESH=1
   [ "$a" = "--with-architecture" ] && WITH_ARCH=1
 done
 [ "${1:-}" = "--apply" ] && { echo "${RED}pass the target path first${OFF}"; exit 2; }
@@ -95,6 +89,7 @@ Scripts/find-script.sh
 Scripts/session-script.sh
 Scripts/adopt-review.sh
 Scripts/ga-lifecycle.sh
+Scripts/ga-project-setup.sh
 Scripts/ga-step.sh
 Scripts/ga-remove.sh
 Scripts/ga-reseal.sh
@@ -117,12 +112,6 @@ OPTIONAL_LINT=".swiftlint.yml .swiftformat"
 OPTIONAL_META="Scripts/claude-workflows"
 # The new-repo set. Not "optional" in the same sense — it is decided by what the target IS, not by
 # preference, which is why install.sh derives it from the compatibility gate rather than asking.
-#
-# ga-project-setup.sh belongs here rather than in BASE for the same reason as the rest: an existing
-# repo already has its .xcodeproj and its build settings, so a tool that prepares them is a lookup
-# that never fires. Its --adopt mode is still there for a repo that wants its .xcconfig files
-# regenerated — run from the GenericArch checkout, which is where install.sh calls it from anyway.
-OPTIONAL_FRESH="Scaffold Scripts/ga-scaffold.sh Scripts/ga-project-setup.sh"
 # ── The architecture layer ─────────────────────────────────────────────────
 # Not a subset of the tooling — a different thing. `new-feature` scaffolds Packages/Features with
 # ContentState and a DIKit registration; `/review` checks the §2 rules. Both are useful exactly when
@@ -130,19 +119,15 @@ OPTIONAL_FRESH="Scaffold Scripts/ga-scaffold.sh Scripts/ga-project-setup.sh"
 # Packages/, new-feature produces a package the app cannot consume, and /review reports violations of
 # rules the product recorded as declined.
 #
-# So it travels with the NEW-repo install (starting from this base IS the consent) or on an explicit
-# --with-architecture, which /project-init offers after the rule-conflict table — the point where
-# consent is actually given. An existing repo arrives lean and has nothing to decline afterwards.
+# So it travels only on an explicit --with-architecture, which /project-init offers after the
+# rule-conflict table — the point where consent is actually given. Otherwise the target arrives lean
+# and has nothing to decline afterwards.
 OPTIONAL_ARCH=".claude/skills/new-feature .claude/commands/review.md"
-OPTIONAL_ALL="$OPTIONAL_LINT $OPTIONAL_META $OPTIONAL_FRESH $OPTIONAL_ARCH"
+OPTIONAL_ALL="$OPTIONAL_LINT $OPTIONAL_META $OPTIONAL_ARCH"
 [ "$WITH_LINT" -eq 1 ] && BASE="$BASE
 $(printf '%s\n' $OPTIONAL_LINT)"
 [ "$WITH_META" -eq 1 ] && BASE="$BASE
 $(printf '%s\n' $OPTIONAL_META)"
-[ "$FRESH" -eq 1 ] && BASE="$BASE
-$(printf '%s\n' $OPTIONAL_FRESH)"
-# Starting a repo from this base is itself the decision to use this architecture.
-[ "$FRESH" -eq 1 ] && WITH_ARCH=1
 [ "$WITH_ARCH" -eq 1 ] && BASE="$BASE
 $(printf '%s\n' $OPTIONAL_ARCH)"
 
@@ -185,7 +170,7 @@ KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|
 unaccounted=""
 for f in $(ls -d docs/*.md docs/modules docs/patterns docs/resources .claude/INDEX.md .claude/*.tsv \
                  .claude/memory Scripts/* .swiftlint.yml .swiftformat .gitignore \
-                 install.sh uninstall.sh bootstrap.sh README.md CLAUDE.md OPERATORS-GUIDE.md CHANGELOG.md Scaffold \
+                 install.sh uninstall.sh bootstrap.sh README.md CLAUDE.md OPERATORS-GUIDE.md CHANGELOG.md \
                  .claude/skills .claude/commands .claude/notes \
                  Packages App 2>/dev/null); do
   case "$KNOWN" in *" $f "*) continue ;; esac
@@ -418,50 +403,15 @@ if [ "$APPLY" -eq 1 ]; then
   printf '  %s+%s genericarch.installation.md %s— the index; the only file added%s\n' "$GRN" "$OFF" "$DIM" "$OFF"
 fi
 
-# ── The seed packages, for a new repo only ─────────────────────────────────
-# Core and DIKit are real, tested packages, and a new repo wants them as its floor. They cannot be
-# installed straight into the target's Packages/ — the manifest would then own the product's own
-# package layer, and uninstall would delete it. So they travel under Scaffold/seed/ and ga-scaffold.sh
-# copies them OUT into Packages/, where they belong to the product and nothing here tracks them.
-if [ "$FRESH" -eq 1 ]; then
-  echo
-  echo "${BLD}── Seed packages (Scaffold/seed → the product copies them out) ──${OFF}"
-  # The scoped package rules travel with the seed for the same reason the packages do: ga-scaffold
-  # copies them OUT into the product's Packages/, where they belong to the product.
-  #
-  # Seeded as PACKAGES-CLAUDE.md, never as CLAUDE.md: a file with that exact name sitting inside the
-  # consumer's tree is one the harness may load as real, scoped rules — from a staging directory that
-  # describes packages the product has not created yet.
-  for pkg in Packages/Core Packages/DIKit Packages/CLAUDE.md:PACKAGES-CLAUDE.md; do
-    as="${pkg##*:}"; pkg="${pkg%%:*}"
-    [ "$as" = "$pkg" ] && as="$(basename "$pkg")"
-    [ -e "$SRC/$pkg" ] || { echo "  ${YEL}missing in source: $pkg${OFF}"; continue; }
-    dest_rel="Scaffold/seed/$as"
-    if [ -e "$TARGET/$dest_rel" ]; then
-      printf '  %scollision%s  %s %s(exists — kept)%s\n' "$YEL" "$OFF" "$dest_rel" "$DIM" "$OFF"
-      collided=$((collided + 1))
-    else
-      printf '  %s+%s %s %s(from %s)%s\n' "$GRN" "$OFF" "$dest_rel" "$DIM" "$pkg" "$OFF"
-      copied=$((copied + 1))
-      if [ "$APPLY" -eq 1 ]; then
-        mkdir -p "$TARGET/Scaffold/seed"
-        cp -R "$SRC/$pkg" "$TARGET/$dest_rel"
-      fi
-    fi
-  done
-fi
-
 echo
 echo "${BLD}── Optional, off unless asked for ──────────────────────${OFF}"
 for pair in "--with-lint|$OPTIONAL_LINT|only if the target adopted GenericArch's §2 conventions" \
             "--with-meta|$OPTIONAL_META|the CLAUDE.md authoring pipeline — not needed to build a product" \
-            "--fresh|$OPTIONAL_FRESH|the predefined structure and seed packages — a NEW repo only" \
             "--with-architecture|$OPTIONAL_ARCH|only once the product adopted §2/§3 — /project-init offers it"; do
   flag="${pair%%|*}"; rest="${pair#*|}"; items="${rest%%|*}"; why="${rest#*|}"
   case "$flag" in
     --with-lint) on=$WITH_LINT ;;
     --with-meta) on=$WITH_META ;;
-    --fresh)     on=$FRESH ;;
     --with-architecture) on=$WITH_ARCH ;;
   esac
   if [ "$on" -eq 1 ]; then

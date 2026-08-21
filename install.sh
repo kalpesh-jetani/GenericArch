@@ -48,7 +48,6 @@ TARGET=""
 DRY_RUN=0
 FORCE_COMPAT=0
 ROOT_OK=0
-MODE=""
 WITH_ARCH=0
 PROJECT_SETUP=""   # "" ask when it applies · yes always · no never
 PREFLIGHT=1        # run the /project-init evidence scan once the install has landed
@@ -63,7 +62,9 @@ while [ $# -gt 0 ]; do
     --no-project-setup) PROJECT_SETUP="no"; shift ;;
     --no-preflight)     PREFLIGHT=0; shift ;;
     --mode)        [ $# -ge 2 ] || ga_die "--mode needs existing or new" "$GA_EX_USAGE"
-                   case "$2" in existing|new) MODE="$2" ;; *) ga_die "--mode takes existing or new, not $2" "$GA_EX_USAGE" ;; esac
+                   ga_die "--mode is gone: this base installs into a repo that already has its own
+  structure, and there is nothing else to be. A repo with no shape yet gets its package layout from
+  GenericXCodeSetup instead: https://github.com/kalpesh-jetani/GenericXCodeSetup" "$GA_EX_USAGE"
                    shift 2 ;;
     --target)      [ $# -ge 2 ] || ga_die "--target needs a directory" "$GA_EX_USAGE"
                    TARGET="$2"; shift 2 ;;
@@ -202,9 +203,9 @@ fi
 if [ "$GA_COMPAT_KIND" = "foreign" ]; then
   : # already reported above; only reachable with --force, and claiming a Swift project here would lie
 elif [ "$GA_COMPAT_KIND" = "fresh" ]; then
-  ga_ok "no conflicting project type found — treating this as a fresh repo"
-  ga_dim "  Nothing identifies this repo yet. That is a supported starting point: install, then"
-  ga_dim "  run /project-init to scaffold the project itself."
+  # Reported, not welcomed: the refusal follows a few lines down. Saying "supported starting point"
+  # here and then refusing would read as a bug in the gate.
+  ga_warn "nothing identifies this repo yet — no project, no structure"
 else
   printf '  %s✓%s Apple-platform Swift project —' "$GA_GRN" "$GA_OFF"
   # shellcheck disable=SC2086  # space-separated marker list, split on purpose
@@ -223,27 +224,21 @@ fi
 #              codebase that already has one is the adoption failure /project-init exists to avoid,
 #              and a module doc for a package the repo does not have is a dead lookup forever.
 #
-#   new      — a repo with no shape yet. The module material is exactly what it needs, so it also
-#              gets Scaffold/ and ga-scaffold.sh: the predefined structure, the seed packages, and
-#              the notes that turn "which layers?" into a decision instead of a guess.
-#
-# Derived from the same compatibility gate above, so the two can never disagree. --mode overrides it
-# for the case the markers get wrong — a repo cleared out to be rebuilt, say.
-if [ -z "$MODE" ]; then
-  case "$GA_COMPAT_KIND" in
-    fresh) MODE="new" ;;
-    *)     MODE="existing" ;;
-  esac
-  MODE_WHY="derived from the compatibility gate"
-else
-  MODE_WHY="given with --mode"
+# There is no second kind. A repo with no shape yet has nothing for these rules to reconcile
+# against, and the package layout it needs is a different tool's job.
+if [ "$GA_COMPAT_KIND" = "fresh" ]; then
+  ga_die "$TARGET has no project and no structure yet — nothing here to install into.
+
+  This base installs into a repo that ALREADY has its Xcode project: it reconciles rules against
+  what is true there and records a manifest of every file it wrote, so the install is reversible.
+  Neither means anything in an empty directory.
+
+  Create the project and its package layout first:
+      https://github.com/kalpesh-jetani/GenericXCodeSetup
+
+  Then run this again. Nothing was written." "$GA_EX_COMPAT"
 fi
-printf '\n  %sinstall mode%s  %s%s%s  %s(%s)%s\n' \
-  "$GA_BLD" "$GA_OFF" "$GA_BLD" "$MODE" "$GA_OFF" "$GA_DIM" "$MODE_WHY" "$GA_OFF"
-if [ "$MODE" = "new" ]; then
-  ga_dim "  Adds the scaffold: Scaffold/LAYOUT.tsv, its templates, the architecture notes, and"
-  ga_dim "  ga-scaffold.sh — the predefined structure and seed packages, applied when you run it."
-elif [ "$WITH_ARCH" -eq 1 ]; then
+if [ "$WITH_ARCH" -eq 1 ]; then
   ga_dim "  --with-architecture given: new-feature and /review come too. Take this only once the"
   ga_dim "  product has actually adopted §2/§3 — /project-init is where that is decided."
 else
@@ -263,7 +258,7 @@ fi
 #
 # Only for an existing repo: a fresh one has no project settings to mismatch yet, and
 # ga-project-setup.sh below asks for its floors against the installed SDK anyway.
-if [ "$MODE" = "existing" ] && [ "$DRY_RUN" -eq 0 ] && [ -x "$SRC/Scripts/detect-toolchain.sh" ]; then
+if [ "$DRY_RUN" -eq 0 ] && [ -x "$SRC/Scripts/detect-toolchain.sh" ]; then
   TC_BLOCKING="$(NO_COLOR=1 "$SRC/Scripts/detect-toolchain.sh" --mismatches --root "$TARGET" 2>/dev/null \
                  | grep '^BLOCKING' || true)"
   if [ -n "$TC_BLOCKING" ]; then
@@ -284,29 +279,21 @@ fi
 # committed .xcconfig files, the checklist — is ga-project-setup.sh, and this is where it belongs:
 # after the mode is known, before a single file is written, so a missing toolchain costs nothing.
 #
-# Two situations reach it, and the second is the one the markers get wrong:
-#   new           — an empty directory. No project yet, so prepare its inputs.
-#   bare .xcodeproj — someone created the project in Xcode first. The compatibility gate sees an
-#                   Apple marker and calls this an EXISTING repo, which would skip Scaffold/ and
-#                   ga-scaffold.sh — the packages that have not been written yet. So it is offered
-#                   here together with the mode correction, rather than silently installing the
-#                   wrong half.
+# One situation reaches it: a project whose build settings have never been written down. An
+# .xcodeproj is an Apple marker, so nothing else here would notice. Offered, never assumed.
 PROJECT_SETUP_DONE=0
 if [ "$PROJECT_SETUP" != "no" ] && [ -x "$SRC/Scripts/ga-project-setup.sh" ]; then
+  # A project with no Packages/ yet: the .xcconfig files are worth offering, because nothing else
+  # in the repo has written its build settings down.
   BARE_XCODE=0
-  if [ "$MODE" = "existing" ] && [ ! -d "$TARGET/Packages" ] && [ ! -f "$TARGET/Package.swift" ]; then
-    for _p in "$TARGET"/*.xcodeproj "$TARGET"/*.xcworkspace; do
-      [ -e "$_p" ] && { BARE_XCODE=1; break; }
-    done
-  fi
+  ga_is_xcode_first "$TARGET" && BARE_XCODE=1
 
-  if [ "$MODE" = "new" ] || [ "$BARE_XCODE" -eq 1 ] || [ "$PROJECT_SETUP" = "yes" ]; then
+  if [ "$BARE_XCODE" -eq 1 ] || [ "$PROJECT_SETUP" = "yes" ]; then
     ga_hdr "── Xcode project ──────────────────────────────────────"
     if [ "$BARE_XCODE" -eq 1 ]; then
-      ga_warn "an .xcodeproj is here but no Packages/ — this looks like a project you just created.
-  The gate reads any Xcode marker as an existing repo, so this install would skip Scaffold/ and
-  ga-scaffold.sh and leave you without the package layer. Answering yes below switches to
-  --mode new and keeps your project untouched."
+      ga_warn "an .xcodeproj is here but no Packages/ yet. This writes the .xcconfig files your
+  project should reference and never opens the project itself. The package layout is a separate
+  tool: https://github.com/kalpesh-jetani/GenericXCodeSetup"
     else
       ga_dim "  Nothing here generates an .xcodeproj — SPM stays the source of truth (CLAUDE.md §1)."
       ga_dim "  This checks the Xcode toolchain, asks what the project needs, and writes the four"
@@ -335,15 +322,7 @@ if [ "$PROJECT_SETUP" != "no" ] && [ -x "$SRC/Scripts/ga-project-setup.sh" ]; th
       "$SRC/Scripts/ga-project-setup.sh" "$TARGET" --apply
       _ps=$?
       case "$_ps" in
-        0) PROJECT_SETUP_DONE=1
-           # The mode line was already printed above, so a silent correction here would leave the
-           # transcript saying "existing" while the install does "new". Reprint it.
-           if [ "$BARE_XCODE" -eq 1 ]; then
-             MODE="new"; MODE_WHY="corrected — bare Xcode project, package layer still needed"
-             printf '\n  %sinstall mode%s  %s%s%s  %s(%s)%s\n' \
-               "$GA_BLD" "$GA_OFF" "$GA_BLD" "$MODE" "$GA_OFF" "$GA_DIM" "$MODE_WHY" "$GA_OFF"
-           fi
-           ;;
+        0) PROJECT_SETUP_DONE=1 ;;
         # 3 is the toolchain gate. Installing on top of a machine that cannot open the project it
         # just described is how a session gets spent on a repo nobody can build — so this stops,
         # and nothing has been written yet.
@@ -354,10 +333,6 @@ if [ "$PROJECT_SETUP" != "no" ] && [ -x "$SRC/Scripts/ga-project-setup.sh" ]; th
       esac
     else
       ga_dim "  skipped — run it later with ./Scripts/ga-project-setup.sh . --apply"
-    fi
-    if [ "$BARE_XCODE" -eq 1 ] && [ "$MODE" = "existing" ]; then
-      ga_warn "still installing as an existing repo — no Scaffold/, no ga-scaffold.sh.
-  Re-run with --mode new if you did want the package layer."
     fi
   fi
 fi
@@ -410,9 +385,6 @@ trap 'rollback; cleanup_temp' EXIT
 
 ga_hdr "── Staging ────────────────────────────────────────────"
 ADOPT_ARGS="--apply --quiet-next"
-[ "$MODE" = "new" ] && ADOPT_ARGS="$ADOPT_ARGS --fresh"
-# --fresh implies it inside adopt.sh — starting a repo from this base IS the decision — so this only
-# ever adds it for an existing repo whose operator asked.
 [ "$WITH_ARCH" -eq 1 ] && ADOPT_ARGS="$ADOPT_ARGS --with-architecture"
 # shellcheck disable=SC2086  # deliberate word splitting of a flag list
 if ! "$SRC/Scripts/adopt.sh" "$STAGE" $ADOPT_ARGS > "$ADOPT_LOG" 2>&1; then
@@ -630,12 +602,7 @@ trap 'cleanup_temp' EXIT
 
 # The first step in the ledger. Every command gates on this, so an install that did not record it
 # would block the whole sequence it just enabled.
-ga_step_record "$TARGET" install "$MODE install of $GA_VERSION from $SOURCE_REF"
-if [ "$MODE" = "existing" ]; then
-  # Not applicable rather than pending: this repo has a structure, so the step will never run and a
-  # gate that waits for it forever would block every command behind it.
-  ga_step_record "$TARGET" scaffold "not applicable: existing repo keeps its own structure"
-fi
+ga_step_record "$TARGET" install "$GA_VERSION from $SOURCE_REF"
 
 # ── 6. The /project-init preflight ─────────────────────────────────────────
 # About half of /project-init is a deterministic scan of files on disk — the mode, the conflict
@@ -665,33 +632,19 @@ if [ "$PREFLIGHT" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ -x "$SRC/Scripts/ga-init-
   fi
 fi
 
-if [ "$MODE" = "new" ]; then
-  # Every escape passed as an argument: the here-doc below expands $SCAFFOLD_STEP but does not
-  # re-expand what is inside it, so a ${GA_BLD} written into the format string arrives literally.
-  SCAFFOLD_STEP="$(printf '%s./Scripts/ga-scaffold.sh . --list%s
-       Read %sScaffold/ARCHITECTURE-OPTIONS.md%s, choose your layers, then:
-         ./Scripts/ga-scaffold.sh . --with navigation,design,storage,messaging --apply
-       It creates the structure, seeds Core and DIKit, and records what you chose.' \
-    "$GA_BLD" "$GA_OFF" "$GA_BLD" "$GA_OFF")"
-else
-  SCAFFOLD_STEP="$(printf '%sscaffold — not applicable%s
-       Your repo has its own structure. Recorded, so nothing waits on it.' "$GA_DIM" "$GA_OFF")"
-fi
-
-ga_hdr "Installed $GA_VERSION ($MODE$([ "$WITH_ARCH" -eq 1 ] && printf ', with architecture'))"
+ga_hdr "Installed $GA_VERSION$([ "$WITH_ARCH" -eq 1 ] && printf ' (with architecture)')"
 cat <<NEXT
 
   The commands run ${GA_BLD}in this order${GA_OFF} — each one leaves the repo in the state the next assumes.
   ${GA_DIM}./Scripts/ga-step.sh show${GA_OFF} at any point says where you are and what is next.
 
-  1. ${SCAFFOLD_STEP}
-  2. ${GA_BLD}/project-init${GA_OFF}
+  1. ${GA_BLD}/project-init${GA_OFF}
        Reads your CLAUDE.md in full, builds the rule-conflict table, and asks per conflict.
        Your rules win by default; nothing is overwritten without an explicit yes.
        ${GA_DIM}${PREFLIGHT_NOTE}${GA_OFF}
-  3. ${GA_BLD}/gaps${GA_OFF}
+  2. ${GA_BLD}/gaps${GA_OFF}
        Derives each gap's status from your code instead of asking.
-  4. ${GA_BLD}/sync-app-notes${GA_OFF}
+  3. ${GA_BLD}/sync-app-notes${GA_OFF}
        Builds the nine inventories every later lookup reads instead of searching.
 
   Then the repo is ${GA_BLD}ready${GA_OFF}: skills, /find, /decide, /learn, /review, /verify, /build.

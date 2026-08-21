@@ -15,9 +15,9 @@ import glob, struct, sys
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
 skipped = []
 for p in sorted(glob.glob(ROOT + "/**/*.ttf", recursive=True) + glob.glob(ROOT + "/**/*.otf", recursive=True)):
-    # A font extension is not a promise of a parseable sfnt. Git-LFS pointers, placeholder
-    # stubs and truncated binaries all carry one, and any of them used to abort the run and
-    # cost the whole FONTS inventory. Name the file and keep going instead.
+    # A font extension is not a promise of a parseable sfnt: Git-LFS pointers, placeholder stubs
+    # and truncated binaries all carry one. One unparseable file must not cost the whole FONTS
+    # inventory, so name it and keep going.
     try:
         d = open(p, "rb").read()
         off = next(struct.unpack(">I", d[12+i*16+8:12+i*16+12])[0]

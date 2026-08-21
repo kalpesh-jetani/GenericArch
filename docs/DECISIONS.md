@@ -28,15 +28,18 @@ Add a row when a §0 decision is made; never remove one.
 | Snapshot scope | Full matrix for DesignSystem components; screens get `loaded` + one failure | The full matrix per screen is 40+ each and becomes the flakiest suite | §9 |
 | Contrast | Asserted by token test, **not** tabulated in a note | A hand-maintained duplicate of a test result drifts, then gets believed | [ASSETS-COLORS.md](../.claude/notes/ASSETS-COLORS.md) |
 | Dependency graph | **No `DEPENDENCY-GRAPH.md`** | Would drift; the DEBUG container dump + per-package key tests are automatic | [DIKit.md](modules/DIKit.md) |
+| Repo boundary | **Two repos.** This one installs into a repo that already has its Xcode project; the project checklist and the package layout live in [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup) | They answer different questions. Every guarantee here comes from the installer — a manifest, hashes, a reversible uninstall — and none of it means anything in an empty directory. Keeping the layout here meant carrying a code path for a repo that does not exist yet | [SHARING.md](SHARING.md) |
+| Install shapes | **One.** `install.sh` refuses a target with no project and no structure, and `--mode` is gone | Two modes meant every gate, every ledger row and every doc had to say which one it meant. The second one was for a repo this base has nothing to reconcile against | [SEQUENCE.md](SEQUENCE.md) |
+| Lifecycle steps | **No `scaffold` step** — install → project-init → gaps → sync-app-notes → ready | Nothing here creates a package layout any more, so a step that could never run was a gate everything else waited behind | §5 |
 
 ## Ask every time — never assume
 
 Presentation pattern (per feature/screen) · persistence engine (only if data is stored) · caching
 and offline policy (any remote fetch) · any new external dependency · extracting a package ·
-**deployment floors** (before any `platforms:` line — never defaulted) · **which layers exist on day
-one** (scaffolding a new repo only).
-Options and phrasing: the `new-feature` skill carries the first five;
-[Scaffold/ARCHITECTURE-OPTIONS.md](../Scaffold/ARCHITECTURE-OPTIONS.md) carries the last two.
+**deployment floors** (before any `platforms:` line — never defaulted).
+Options and phrasing: the `new-feature` skill carries the first five; deployment floors are
+`Packages/FLOORS.md` in the target. *Which layers exist on day one* is not asked here — it is settled
+before this base is installed, by [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup).
 Record the answer below.
 
 ## Do not re-propose

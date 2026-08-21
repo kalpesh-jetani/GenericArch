@@ -85,9 +85,8 @@ usage() { usage_text >&2; exit "${1:-$EX_USAGE}"; }
 # `#@` metadata rows dropped, comment markers stripped, stopping at the first line
 # that is not a comment.
 #
-# Replaces the hardcoded `sed -n '2,17p'` each script used to carry. Those ranges
-# silently truncated the moment a line was added above them, and a help text that
-# quietly loses its last three lines is worse than one that is missing.
+# Derived, never a fixed line range: a range truncates the moment a line is added
+# above it, and help text that quietly loses its last lines is worse than none.
 usage_from() {
   awk '
     NR == 1 && /^#!/ { next }

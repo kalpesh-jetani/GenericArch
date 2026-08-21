@@ -199,7 +199,7 @@ grep '"path":' .genericarch/manifest-v0.2.0.json \
 
 ## When there is no manifest
 
-**What the fallback can and cannot reach, as of v0.4.0.** Ownership is proven by hashing against the
+**What the fallback can and cannot reach, as of v0.4.2.** Ownership is proven by hashing against the
 blobs the release shipped, so it only reaches files that are *byte-identical to what was shipped*.
 Several files are deliberately transformed at install time — `MAP.tsv` gains a `FETCH-BASE` header
 and `:remote` marks, `SCRIPTS.tsv` is pruned, and `notes/`, `DECISIONS.md` and `GAPS.md` are

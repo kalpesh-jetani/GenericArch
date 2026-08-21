@@ -28,7 +28,6 @@ docs/STRUCTURE.md	cross	where guidance belongs doc placement approval gate skill
 Packages/CLAUDE.md	cross	package manifest extraction wrapper vendor testing standalone swift test mock contract snapshot boundaries scoped rules	Working inside Packages/ — the scoped detail behind root §4, §7 and §9
 docs/REPO.md	cross	package version local override spm dependency add package resolved	Adding a package, or overriding an extracted one locally
 docs/SHARING.md	cross	publish share template plugin installer distribute uninstall flags exitcodes manifest preserved updating adoptreview	Publishing this base for someone else, and the installer reference — flags, exit codes, preserved files, updating an install
-Scaffold/ARCHITECTURE-OPTIONS.md	cross	scaffold new repo layers choose architecture presentation persistence caching floors platforms day one	Scaffolding a new repo — what each layer and each choice costs before you take it
 OPERATORS-GUIDE.md	cross	operator human what every file does run own read recipes token cost where knowledge lives	A person asks what a file is for, what to run, or where knowledge lives
 docs/SEQUENCE.md	cross	sequence order step ledger prerequisite out of order cannot run yet project-init gaps sync ready	A command refused as out of order, adopting into an existing repo, or adding a command
 docs/INSTALL-MANIFEST.md	cross	install uninstall manifest sha256 ownership backup restore lifecycle removal plan	Inspecting what an install did, or changing install.sh / uninstall.sh

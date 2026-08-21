@@ -86,8 +86,10 @@ Skills and commands from the GenericArch Apple-platform architecture. **Generate
 ## What it does NOT add
 
 `CLAUDE.md`, `docs/`, `.claude/notes/`, or any Swift code. Those are a product's own rules, design
-notes, and state. Get them with `Scripts/adopt.sh` from the GenericArch repo, or by using it as a
-template for a new repo.
+notes, and state. Get them by installing GenericArch into the repo — `install.sh` or `bootstrap.sh`,
+which record a manifest so the install stays reversible. Copying the tree instead (a fork, or the
+template the repo no longer offers) skips that record and there is nothing for `uninstall.sh` to
+prove ownership against.
 
 Because of that split, the commands reference `docs/…` paths that only exist once the docs are
 adopted. The skills work standalone; `/verify`, `/decide`, and `/gaps` need their target files.
