@@ -2,9 +2,9 @@
 #@kind      tool
 #@platform  macos
 #@claude    call
-#@purpose   Gate and record the lifecycle steps so commands run in order: install → scaffold → project-init → gaps → sync-app-notes → ready.
+#@purpose   Gate and record the lifecycle steps so commands run in order: install → project-init → gaps → sync-app-notes → ready.
 #@usage     ga-step.sh show|next|require <step>|after <step>|record <step> [note]|reset
-#@in        step:enum(install scaffold project-init gaps sync-app-notes ready) --target:dir(default: the repo above Scripts/) --force:flag(operator override, never Claude)
+#@in        step:enum(install project-init gaps sync-app-notes ready) --target:dir(default: the repo above Scripts/) --force:flag(operator override, never Claude)
 #@out       stdout:for show, the ledger and what is next; for require, ok or the unmet prerequisites
 #@exit      0=clear to proceed 2=usage 5=out of order, nothing written
 #@effects   record appends one row to .genericarch/STEPS.tsv; show/next/require are read-only
@@ -12,8 +12,8 @@
 #
 # Why this exists: every command in .claude/commands assumes a repo state an earlier command was
 # supposed to leave behind. /gaps before /project-init triages items nobody has decided.
-# /sync-app-notes before either writes nine inventories off a tree nobody surveyed. The order was
-# documented and unenforced, so it was not followed — and the recovery cost more than the work.
+# /sync-app-notes before either writes nine inventories off a tree nobody surveyed. Documented order
+# is not enough — a gate is.
 #
 # The gate is advisory to the OPERATOR and binding on CLAUDE: --force exists for a human who knows
 # why they are skipping a step, and a command file must never pass it.
@@ -60,19 +60,19 @@ derive_steps() {
   # template copy of it, which carries the same files.
   if ga_is_source_checkout "$TARGET"; then
     ga_step_record "$TARGET" install "GenericArch source repo — nothing to install"
-    # scaffold is derivable here for exactly the same reason install is, and leaving it pending
-    # blocked every command behind it: /project-init reported "these have not run: scaffold" in the
-    # repo that authors the scaffolder, and the only documented escape was an operator --force.
-    # This checkout already HAS the structure ga-scaffold.sh creates — it is the source of it.
-    ga_step_record "$TARGET" scaffold "not applicable: GenericArch source repo is the scaffold source"
     return 0
   fi
-  # A template copy is a PRODUCT that starts as a copy of the base, so install has nothing left to
-  # do — but scaffold does: a copy carries the Core+DIKit floor and none of the layers, no App/ and
-  # no Packages/Features. Recording scaffold here (the old marker check did) left the product unable
-  # to take a single layer, because ga-scaffold.sh then had no reason to run.
+  # A copy of the base is a PRODUCT that starts with the base already in its tree, so install has
+  # nothing left to do here.
   if ga_is_template_copy "$TARGET"; then
-    ga_step_record "$TARGET" install "template copy of GenericArch — the base is already in the tree"
+    # Once, on the first command to run here — not on every derive, which would warn on every
+    # gate check for the life of the repo.
+    ga_step_done "$TARGET" install || ga_warn "this repo is a COPY of GenericArch, not an install of it.
+  No installer ran, so there is no manifest, and uninstall.sh cannot prove ownership of any file.
+  Usable — but it is a fork: clear the inherited decisions, gaps, notes, memory and floors
+  (docs/SHARING.md). The package layout a copy never carried lives in
+  https://github.com/kalpesh-jetani/GenericXCodeSetup"
+    ga_step_record "$TARGET" install "copy of GenericArch, not an install — the base is already in the tree"
     return 0
   fi
   for _m in $(ga_manifest_find "$TARGET"); do

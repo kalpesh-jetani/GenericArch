@@ -12,8 +12,8 @@ different document.
 
 ## 1. The eight rules that matter most
 
-1. **Commands run in a fixed order.** `install → scaffold* → /project-init → /gaps →
-   /sync-app-notes → ready` — *scaffold is new repos only.* Run `./Scripts/ga-step.sh show` any time
+1. **Commands run in a fixed order.** `install → /project-init → /gaps → /sync-app-notes → ready`.
+   Run `./Scripts/ga-step.sh show` any time
    to see where you are. Out of order, a command refuses with exit 5 and writes nothing — because the
    failure it prevents is the silent one: it would otherwise succeed against the wrong input.
 2. **Never delete an installed file with `rm`.** Use `./Scripts/ga-remove.sh <path> --reason "…"`.
@@ -50,8 +50,7 @@ that write anything need `--apply` or a confirmation.
 | Run this | When you want to |
 |---|---|
 | `./bootstrap.sh --apply` | Install into a repo when you have no local checkout (fetches from GitHub) |
-| `./install.sh <target>` | Install into a repo from this checkout. `--dry-run` for the plan, `--mode existing\|new` to override what it detected, `--root-ok` to force a second root |
-| `./Scripts/ga-scaffold.sh <target> --list` | **New repos only.** See the layers on offer; `--with a,b --apply` creates them |
+| `./install.sh <target>` | Install into a repo from this checkout. `--dry-run` for the plan, `--root-ok` to force a second root |
 | `./Scripts/ga-step.sh show` | See which step is next, and what has already run |
 | `./Scripts/ga-remove.sh <path> --reason "…" --apply` | Retire a file: moves it to `.genericarch/safetodelete/`, tombstones it, prunes its index rows, records the reason. `--list` shows what is declined, `--revive <path>` puts it back |
 | `./Scripts/ga-reseal.sh --apply` | After a command rewrote installed files — keeps them removable |
@@ -100,29 +99,25 @@ that write anything need `--apply` or a confirmation.
 
 ---
 
-## 2b. The two installs
+## 2b. What the install adds
 
-`install.sh` works out which one you are doing and says so. The only difference is whether the repo
-gets the **predefined module material**.
+You get the tooling and the lookup layer: skills, commands, the indexes, the scan and lifecycle
+scripts, `ga-project-setup.sh`, `uninstall.sh`. You do **not** get `Packages/`, `docs/modules/` or
+any Swift — your structure is yours, and a doc for a layer you do not have is a dead lookup.
 
-| | Existing repo | New repo |
-|---|---|---|
-| How it decides | any Swift or Xcode marker present | nothing identifies the repo yet |
-| You get | skills, commands, indexes, tooling | the same, plus `Scaffold/` and `ga-scaffold.sh` |
-| `Packages/`, `docs/modules/` | never — your structure is yours, and a doc for a layer you do not have is a dead lookup | the scaffold creates the layers you pick and brings each one's doc |
-| The architecture layer — `new-feature`, `/review` | not installed; `/project-init` offers it after the conflict table, or `--with-architecture` up front | included |
-| Wrong guess? | `--mode new` | `--mode existing` |
+The **architecture layer** — `new-feature` and `/review` — waits for a yes: `/project-init` offers it
+after the conflict table, or `--with-architecture` takes it up front. In a repo with no `Packages/`,
+`new-feature` would scaffold a package the app cannot consume and `/review` would report violations
+of rules the product declined. A command that cannot fire is worse than a missing one — it still gets
+grepped, offered and believed.
 
-**Why the architecture layer waits for a yes:** in a repo with no `Packages/`, `new-feature` would
-scaffold a package the app cannot consume, and `/review` would report violations of rules the
-product
-declined. A command that cannot fire is worse than a missing one — it still gets grepped, offered
-and
-believed.
+**A repo with no project yet is refused**, with a pointer to [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup): that is where
+the project checklist and the package layout live. This base has nothing to reconcile against an
+empty directory, and no manifest to make reversible.
 
-For a new repo, the install offers **project setup** before it writes anything: the Xcode toolchain
-gate, then the four `.xcconfig` files and an `XCODE-SETUP.md` checklist. It never generates the
-`.xcodeproj` — you create that in Xcode, following the checklist.
+The install offers **project setup** before writing anything: the Xcode toolchain check, then the
+five `.xcconfig` files and an `XCODE-SETUP.md` checklist for pointing your project at them. It never
+generates, opens or edits the `.xcodeproj`.
 
 ```bash
 ./Scripts/ga-project-setup.sh .                          # dry run — the plan
@@ -131,29 +126,10 @@ gate, then the four `.xcconfig` files and an `XCODE-SETUP.md` checklist. It neve
 ./install.sh . --no-project-setup                        # skip the offer entirely
 ```
 
-Missing Command Line Tools is a **stop**, before any file is written — as is a prepare-mode run on a
-machine with only the CLT and no full Xcode, since creating a project needs Xcode itself. Nothing is
-defaulted: bundle ID, Team ID and both deployment floors are asked, and an unknown Team ID stays
-blank rather than invented. With no tty the step is skipped and the install continues.
-
-**If you created the project in Xcode first, pass `--mode new`.** An `.xcodeproj` is an Apple marker,
-so the gate would call the directory an existing repo and skip `Scaffold/` and `ga-scaffold.sh`. The
-install detects the case — a project but no `Packages/` — and offers the correction instead of
-installing half of what you need.
-
-Then, after installing:
-
-```bash
-./Scripts/ga-scaffold.sh . --list                            # what is on offer
-./Scripts/ga-scaffold.sh . --with navigation,design          # dry run — the plan
-./Scripts/ga-scaffold.sh . --with navigation,design --apply  # create it
-```
-
-Read `Scaffold/ARCHITECTURE-OPTIONS.md` first — one short section per choice, with what each one
-costs. Add a layer later with the same command.
-
-`--apply` confirms before writing. From CI, a pipe, or an agent there is no terminal to ask on and it
-stops rather than guessing — pass `--yes`, or set `GA_ASSUME_YES=1`, which every tool here honours.
+Nothing is defaulted: bundle ID, Team ID and both deployment floors are asked, and an unknown Team ID
+stays blank rather than invented. With no tty the step is skipped and the install continues. `--apply`
+confirms before writing; from CI or a pipe pass `--yes`, or set `GA_ASSUME_YES=1`, which every tool
+here honours.
 
 **No version number is ever written for you.** Floors come from `detect-toolchain.sh` reading your
 own
@@ -161,11 +137,10 @@ manifests, or from `--ios`/`--macos`. With neither, the manifests carry a commen
 `platforms:` line, and `Packages/FLOORS.md` explains how to choose. A floor a tool picked reads, six
 months on, as a decision somebody made.
 
-**The exception is a repo started from the template rather than installed into.** There, the seed
+**The exception is a repo *copied* from this one rather than installed into** — the GitHub template
+path, now withdrawn ([docs/SHARING.md](docs/SHARING.md)), or any fork made by hand. There the seed
 manifests arrive already carrying *this* repo's floors, so `detect-toolchain.sh` finds them and
-reports them as the *project's* answer. (`ga-scaffold.sh` will not propagate them: in a template copy
-it writes no `platforms:` line at all rather than launder a number nobody chose into a new layer.)
-Check before anything else, and reset them along with the decisions, gaps, notes and memory:
+reports them as the *project's* answer. Check before anything else, and reset them along with the decisions, gaps, notes and memory:
 
 ```bash
 ./Scripts/detect-toolchain.sh --mismatches   # BLOCKING|macos-target-above-sdk means it cannot build
@@ -274,7 +249,6 @@ Nothing here is loaded automatically. Open one when the situation calls for it �
 | `.claude/CANDIDATES.tsv` | Things repeated once, watched to see if they repeat again | `/learn` writes it |
 | `.claude/memory/` | What earlier sessions learned about this repo. In-repo so it survives a clone | `Scripts/memory-add.py` |
 | `.genericarch/` | The install record: `manifest-<version>.json`, `TOMBSTONES.tsv` (which files were declined and why), `STEPS.tsv` (which steps ran), `orphans-*.txt` (what an uninstall could not remove) | Tooling owns all of it. Deleting the manifest makes a clean uninstall impossible |
-| `Scaffold/` *(new repos)* | The layout, the templates, the architecture notes, and the `Core`/`DIKit` seed | `ga-scaffold.sh` reads it. Once your structure exists it has done its job — declining it with `ga-remove.sh` is reasonable |
 | `.genericarch/safetodelete/` | The declined files themselves, at their original relative paths | **The one exception — this you may delete.** That is what the name means: it costs only the ability to `--revive`. Restore a file with `ga-remove.sh --revive <path> --apply`, not by moving it back by hand, or the tombstone will still be blocking it. It is **tracked**, so a teammate can see what was declined and reverse it; add it to `.gitignore` if you would rather keep retired files local |
 
 ---
@@ -296,7 +270,6 @@ Not secret — just not useful to a human, and not worth reading to understand t
 | `Scripts/adopt.sh` | The copy engine. `install.sh` drives it — call it directly only to see what travels |
 | `uninstallv0.1.0.sh` | Removes a pre-manifest v0.1.0 install. Keep it until no v0.1.0 installs remain |
 | `.claude-plugin/plugin.json` | Plugin metadata for `build-plugin.sh` |
-| `Packages/Core`, `Packages/DIKit` | Reference implementations of two layers. Real code, deliberately small |
 
 ---
 
@@ -325,10 +298,7 @@ that would have looked complete.
 ./install.sh /path/to/YourApp
 ```
 
-It prints which of the two installs it is doing. Then, in that repo:
-
-- **new repo** — `./Scripts/ga-scaffold.sh . --list`, choose layers, `--apply`
-- either way — type `/project-init` → `/gaps` → `/sync-app-notes` to Claude, in that order
+Then, in that repo, type `/project-init` → `/gaps` → `/sync-app-notes` to Claude, in that order.
 
 **A command said "cannot run yet"**
 

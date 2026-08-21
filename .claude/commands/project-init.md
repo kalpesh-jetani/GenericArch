@@ -23,7 +23,7 @@ overridden without an explicit yes.
 
 ## Step 0 — Read the evidence, then branch
 
-Everything this step used to grep for is gathered offline. `install.sh` runs the scan itself once
+Everything this step needs is gathered offline. `install.sh` runs the scan itself once
 the manifest lands, so read the artifact; run the script only if it is missing or stale:
 
 ```bash

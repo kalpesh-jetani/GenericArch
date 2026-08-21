@@ -19,8 +19,8 @@
 #   4. orphans are reported edit without reseal → uninstall keeps it, reports it, exits 1
 #   5. one root only        installing into a nested dir of an installed repo is refused
 #   8. offline notes         sync-notes.sh classifies every note and needs no network
-#   6. the two directions    a fresh repo gets the module material and the scaffold; an existing one
-#                            gets neither, and its scaffold step is recorded not-applicable
+#   6. the install stays lean an existing repo gets no module material, no architecture layer, and
+#                            no MAP rows that cannot resolve
 #  11. preflight evidence   install writes the /project-init evidence, records no step for it, and
 #                           uninstall takes the generated files back out
 #
@@ -45,14 +45,6 @@ new_repo() {   # new_repo <name> → path to a fresh Swift-looking git repo
   d="$WORK/$1"; mkdir -p "$d"
   ( cd "$d" && git init -q . && : > App.swift && git add -A \
       && git -c user.email=t@t -c user.name=t commit -qm init ) >/dev/null 2>&1
-  printf '%s' "$d"
-}
-# A repo with NO Swift file: the compatibility gate reads it as fresh, which is what selects the
-# new-repo install. new_repo() seeds App.swift on purpose and would be read as an existing one.
-new_empty_repo() {
-  d="$WORK/$1"; mkdir -p "$d"
-  ( cd "$d" && git init -q . \
-      && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m init ) >/dev/null 2>&1
   printf '%s' "$d"
 }
 install_into() { ( cd "$SRC" && GA_ASSUME_YES=1 ./install.sh "$1" ) >"$WORK/last.log" 2>&1; }
@@ -139,36 +131,13 @@ else
   fail "case 5: install failed"
 fi
 
-# ── 6. existing vs new: the module material travels one way only ───────────
-T="$(new_empty_repo case6new)"
-if install_into "$T"; then
-  missing=""
-  for x in Scaffold/LAYOUT.tsv Scaffold/ARCHITECTURE-OPTIONS.md Scaffold/seed/Core Scripts/ga-scaffold.sh; do
-    [ -e "$T/$x" ] || missing="$missing $x"
-  done
-  for x in .claude/skills/new-feature .claude/commands/review.md; do
-    [ -e "$T/$x" ] || missing="$missing $x"
-  done
-  [ -z "$missing" ] && pass "a new repo gets the scaffold, the seed packages and the architecture layer" \
-                    || fail "a new repo is missing:$missing"
-  ( cd "$T" && GA_ASSUME_YES=1 ./Scripts/ga-scaffold.sh . --with navigation --apply ) >/dev/null 2>&1
-  if [ ! -f "$T/Packages/Navigation/Package.swift" ]; then
-    fail "the scaffold produced no manifest"
-  elif grep -qE '\.iOS\(\.v|macOS\("' "$T/Packages/Navigation/Package.swift"; then
-    fail "the scaffold wrote a deployment floor nobody chose"
-  else
-    pass "the scaffold writes no version — floors are detected or left unset"
-  fi
-else
-  fail "case 6: install into a fresh repo failed"
-fi
-
+# ── 6. the install stays lean ──────────────────────────────────────────────
 T="$(new_repo case6existing)"
 : > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
 ( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
 if install_into "$T"; then
   leaked=""
-  for x in Scaffold Packages docs/modules Scripts/ga-scaffold.sh; do
+  for x in Packages docs/modules; do
     [ -e "$T/$x" ] && leaked="$leaked $x"
   done
   for x in .claude/skills/new-feature .claude/commands/review.md; do
@@ -178,14 +147,12 @@ if install_into "$T"; then
     leaked="$leaked MAP.tsv:module/pattern-rows"
   fi
   if [ -n "$leaked" ]; then
-    fail "an existing repo was given material that cannot fire:$leaked"
-  elif ! grep -q "not applicable" "$T/.genericarch/STEPS.tsv" 2>/dev/null; then
-    fail "the scaffold step was left pending on an existing repo — every later command is blocked"
+    fail "the target was given material that cannot fire:$leaked"
   else
-    pass "an existing repo gets no module material, and nothing waits on the scaffold step"
+    pass "the install stays lean — no module material, no architecture layer, no dead MAP rows"
   fi
 else
-  fail "case 6: install into an existing repo failed"
+  fail "case 6: install failed"
 fi
 
 # ── 7. the architecture layer is opt-in, and the opt-in works ──────────────
@@ -267,21 +234,6 @@ if install_into "$T"; then
   fi
 else
   fail "case 9: install failed"
-fi
-
-# ── 10. the scoped package rules reach a scaffolded repo ───────────────────
-T="$(new_empty_repo case10)"
-if install_into "$T"; then
-  ( cd "$T" && GA_ASSUME_YES=1 ./Scripts/ga-scaffold.sh . --apply ) >/dev/null 2>&1
-  if [ ! -f "$T/Packages/CLAUDE.md" ]; then
-    fail "the scoped package rules never reached Packages/ — a session there loses §4, §7 and §9"
-  elif [ -f "$T/Scaffold/seed/CLAUDE.md" ]; then
-    fail "a bare CLAUDE.md sits in the staging tree — the harness may load it as real scoped rules"
-  else
-    pass "Packages/CLAUDE.md lands in a scaffolded repo, and nothing stray is named CLAUDE.md"
-  fi
-else
-  fail "case 10: install failed"
 fi
 
 # ── 11. the install-time preflight writes evidence, and uninstall takes it ─

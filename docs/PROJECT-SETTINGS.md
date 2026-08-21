@@ -38,7 +38,7 @@ in silently.
 
 Reading the answer, and why an SDK version is not a floor:
 [.claude/notes/PROJECT.md](../.claude/notes/PROJECT.md). What the choice costs either way:
-[Scaffold/ARCHITECTURE-OPTIONS.md](../Scaffold/ARCHITECTURE-OPTIONS.md).
+[ARCHITECTURE-OPTIONS.md](https://github.com/kalpesh-jetani/GenericXCodeSetup/blob/main/Scaffold/ARCHITECTURE-OPTIONS.md).
 
 **Shared code compiles against the lower floor** (CLAUDE.md §1.1). Reach a newer API with
 `#if os(macOS)` or `if #available` and a working fallback — never by raising a floor, and never in a

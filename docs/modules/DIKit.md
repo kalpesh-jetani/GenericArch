@@ -98,10 +98,6 @@ is worse than none:
   at launch in DEBUG ([AppShell.md](AppShell.md)).
 - A test per package asserts every key it owns resolves, and that `testValue` is not a live type.
 
-> A hand-written `DEPENDENCY-GRAPH.md` was previously required here and has been dropped. Across a
-> dozen packages it would drift within weeks, and the two checks above cover the same need without
-> anyone maintaining them.
-
 ## Always
 
 - The composition root is the only place concrete **live** types are constructed.

@@ -2,23 +2,22 @@
 #@kind      tool
 #@platform  macos
 #@claude    needs-approval
-#@purpose   Gate the Xcode toolchain and prepare a new repo's project inputs — the five .xcconfig files and the checklist for creating the .xcodeproj itself.
-#@usage     ga-project-setup.sh <target-dir> [--apply] [--yes] [--product NAME] [--bundle-id ID] [--team-id ID] [--org NAME] [--targets ios,macos] [--ios N] [--macos V] [--adopt|--prepare]
-#@in        target:dir --apply:flag(without it, dry run) --yes:flag(skip the prompt; same as GA_ASSUME_YES=1) --product:string(product name, default the target's basename) --bundle-id:string(base reverse-DNS id, no stage suffix) --team-id:string(10-char Apple Team ID; never invented, omit if unknown) --org:string(organization name for file headers) --targets:csv(ios,macos) --ios:int(iOS deployment floor) --macos:string(macOS deployment floor) --prepare:flag(force prepare mode) --adopt:flag(force adopt mode)
+#@purpose   Write the five .xcconfig files an EXISTING Xcode project should reference, and the checklist for pointing it at them.
+#@usage     ga-project-setup.sh <target-dir> [--apply] [--yes] [--product NAME] [--bundle-id ID] [--team-id ID] [--org NAME] [--targets ios,macos] [--ios N] [--macos V]
+#@in        target:dir --apply:flag(without it, dry run) --yes:flag(skip the prompt; same as GA_ASSUME_YES=1) --product:string(product name, default the target's basename) --bundle-id:string(base reverse-DNS id, no stage suffix) --team-id:string(10-char Apple Team ID; never invented, omit if unknown) --org:string(organization name for file headers) --targets:csv(ios,macos) --ios:int(iOS deployment floor) --macos:string(macOS deployment floor)
 #@out       stdout:the toolchain verdict, the answers, and the plan; with --apply the Configurations/ files and XCODE-SETUP.md exist
-#@exit      0=ok 2=usage 3=Xcode toolchain missing or incomplete — nothing written 4=declined at the prompt 1=other error
+#@exit      0=ok 2=usage 3=no Xcode toolchain, or no project here — nothing written 4=declined at the prompt 1=other error
 #@effects   with --apply: writes Configurations/{Base,DEV,TEST,BETA,PROD}.xcconfig and XCODE-SETUP.md under the TARGET. NEVER creates, opens or edits an .xcodeproj
-#@when      xcode project setup|new repo project|xcconfig files|bundle id per stage|team id|command line tools missing|create the xcode project
+#@when      xcode project setup|xcconfig files|bundle id per stage|team id|point my project at the configs|build settings as text
 #
-# Why this exists: GenericArch installs rules, skills and packages, but the .xcodeproj is the one
-# thing it has never produced. Generating it would mean either a second build-system-of-record or a
-# hand-authored pbxproj that nothing here can verify opens. Which generators were considered, and
-# why none was taken: docs/REPO.md.
+# Why this exists: build settings held inside an .xcodeproj are a diff nobody can review. This
+# writes the five committed .xcconfig files that CLAUDE.md §2.10 and .claude/notes/SCHEMES.md
+# specify, plus the exact steps for pointing an existing project at them.
 #
-# So this script prepares everything that IS mechanical — the toolchain gate, the four committed
-# .xcconfig files that CLAUDE.md §2.10 and .claude/notes/SCHEMES.md specify, and an exact checklist
-# — and leaves the two minutes of File > New > Project to a human with Xcode open. What it writes is
-# reviewable text; what it declines to write is a binary nobody could review.
+# It never creates, opens or edits an .xcodeproj: that would mean either a second
+# build-system-of-record or a hand-authored pbxproj nothing here can verify opens (docs/REPO.md).
+# A repo with no project yet is a different tool's job:
+# https://github.com/kalpesh-jetani/GenericXCodeSetup
 #
 # It runs BEFORE the GenericArch install, so it depends on nothing the install provides.
 set -o pipefail
@@ -28,7 +27,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/ga-lifecycle.sh"
 SRC="$(cd "$HERE/.." && pwd)"
 
-TARGET=""; APPLY=0; MODE=""
+TARGET=""; APPLY=0
 PRODUCT=""; BUNDLE_ID=""; TEAM_ID=""; ORG=""; TARGETS=""; IOS=""; MACOS=""
 
 while [ $# -gt 0 ]; do
@@ -42,8 +41,6 @@ while [ $# -gt 0 ]; do
     --targets)   TARGETS="${2:-}"; shift 2 || true ;;
     --ios)       IOS="${2:-}"; shift 2 || true ;;
     --macos)     MACOS="${2:-}"; shift 2 || true ;;
-    --prepare)   MODE="prepare"; shift ;;
-    --adopt)     MODE="adopt"; shift ;;
     -h|--help)   sed -n '5,8p' "$0"; exit "$GA_EX_USAGE" ;;
     -*)          ga_die "unknown flag: $1" "$GA_EX_USAGE" ;;
     *)           [ -z "$TARGET" ] || ga_die "one target only" "$GA_EX_USAGE"; TARGET="$1"; shift ;;
@@ -103,33 +100,23 @@ for p in "$TARGET"/*.xcodeproj "$TARGET"/*.xcworkspace; do
 done
 FOUND_PROJ="${FOUND_PROJ# }"
 
-if [ -z "$MODE" ]; then
-  if [ -n "$FOUND_PROJ" ]; then MODE="adopt"; else MODE="prepare"; fi
-fi
+if [ -z "$FOUND_PROJ" ]; then
+  ga_die "no .xcodeproj or .xcworkspace in $TARGET — nothing to point these files at.
 
-if [ "$MODE" = "prepare" ] && [ "$HAS_XCODE_APP" -eq 0 ]; then
-  ga_die "only the Command Line Tools are installed — $DEVDIR
+  This writes the build settings an EXISTING project should reference. Creating the project, and
+  the package layout it consumes, is a different tool:
+      https://github.com/kalpesh-jetani/GenericXCodeSetup
 
-  Preparing the inputs would succeed, but the next step it prints (File > New > Project) needs full
-  Xcode, so this would hand you a checklist you cannot follow. Nothing was written.
-
-  Install Xcode from the App Store, then:
-      sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-
-  Already have a project and only want its .xcconfig files refreshed?  --adopt" "$GA_EX_COMPAT"
+  Nothing was written." "$GA_EX_COMPAT"
 fi
 [ "$HAS_XCODE_APP" -eq 1 ] && ga_ok "full Xcode: $DEVDIR" \
-  || ga_warn "Command Line Tools only — enough to adopt, not to create a project"
+  || ga_dim "  Command Line Tools only — enough for this; the project already exists"
 
-ga_hdr "── Project setup ($MODE) ──────────────────────────────"
+ga_hdr "── Project setup ────────────────────────────────────────"
 printf '  into     %s\n' "$TARGET"
-if [ "$MODE" = "adopt" ]; then
-  printf '  found    %s%s%s\n' "$GA_BLD" "${FOUND_PROJ:-<none — forced with --adopt>}" "$GA_OFF"
-  ga_dim "  Your project stays exactly as it is. This only writes the .xcconfig files it should"
-  ga_dim "  reference, and never opens or edits the .xcodeproj."
-else
-  printf '  found    %sno .xcodeproj — you will create it after this\n' "$GA_DIM$GA_OFF"
-fi
+printf '  found    %s%s%s\n' "$GA_BLD" "$FOUND_PROJ" "$GA_OFF"
+ga_dim "  Your project stays exactly as it is. This only writes the .xcconfig files it should"
+ga_dim "  reference, and never opens or edits the .xcodeproj."
 echo
 
 # ── 3. The answers ─────────────────────────────────────────────────────────
@@ -280,11 +267,11 @@ done
 if [ -e "$TARGET/XCODE-SETUP.md" ]; then
   printf '  %skeep%s XCODE-SETUP.md %s(exists — not overwritten)%s\n' "$GA_YEL" "$GA_OFF" "$GA_DIM" "$GA_OFF"
 else
-  printf '  %s+%s    XCODE-SETUP.md %s(the checklist for creating the project)%s\n' \
+  printf '  %s+%s    XCODE-SETUP.md %s(the checklist for pointing the project at these)%s\n' \
     "$GA_GRN" "$GA_OFF" "$GA_DIM" "$GA_OFF"
 fi
 echo
-ga_dim "  No .xcodeproj is created, opened or edited — the project shell stays yours to make."
+ga_dim "  No .xcodeproj is created, opened or edited — your project stays exactly as it is."
 echo
 
 if [ "$APPLY" -eq 0 ]; then
@@ -360,29 +347,16 @@ write_stage TEST Test    '.test' "$PRODUCT QA"   'TEST'  YES '-O'     'dwarf-wit
 write_stage BETA Beta    '.beta' "$PRODUCT Beta" 'BETA'  NO  '-O'     'dwarf-with-dsym' beta
 write_stage PROD Release ''      "$PRODUCT"      ''      NO  '-Owholemodule' 'dwarf-with-dsym' prod
 
-# The checklist. This is the deliverable in prepare mode: everything a person needs to make the
-# project match the files above, in the order Xcode asks for it.
+# The checklist: everything a person needs to make the project match the files above, in the order
+# Xcode asks for it. Only steps an existing project can actually follow.
 if [ ! -e "$TARGET/XCODE-SETUP.md" ]; then
   {
-    printf '# Creating the Xcode project\n\n'
-    printf 'Generated by `Scripts/ga-project-setup.sh`. Delete this file once the project exists.\n\n'
-    printf 'Nothing in GenericArch generates an `.xcodeproj`. The four `.xcconfig` files beside\n'
-    printf 'this one are already written — this is how to point a project at them.\n\n'
-    printf '## 1. Create the project\n\n'
-    printf 'Xcode > File > New > Project, in `%s`:\n\n' "$TARGET"
-    printf '| Field | Value |\n|---|---|\n'
-    printf '| Product Name | `%s` |\n' "$PRODUCT"
-    printf '| Organization Identifier | `%s` |\n' "${BUNDLE_ID%.*}"
-    [ -n "$ORG" ] && printf '| Organization Name | `%s` |\n' "$ORG"
-    printf '| Interface | SwiftUI |\n| Language | Swift |\n| Testing System | Swift Testing |\n'
-    printf '| Storage | None |\n\n'
-    printf 'Uncheck "Create Git repository" — this directory already is one.\n\n'
-    printf '## 2. Targets\n\n'
-    [ "$WANT_IOS" -eq 1 ]   && printf -- '- **iOS** target `%s` — one target covers iPhone and iPad. Min deploy **iOS %s**.\n' "$PRODUCT" "$IOS"
-    [ "$WANT_MACOS" -eq 1 ] && printf -- '- **macOS** target `%s` — a native SwiftUI target. **Not** Mac Catalyst (CLAUDE.md §1). Min deploy **macOS %s**.\n' "$PRODUCT" "$MACOS"
-    printf '\nPut the iOS target'"'"'s files under `App/iOS/` and the macOS target'"'"'s under `App/macOS/`.\n'
-    printf 'The app shell stays thin: `@main`, the composition root, no logic (CLAUDE.md §3).\n\n'
-    printf '## 3. Configurations\n\n'
+    printf '# Pointing this project at its .xcconfig files\n\n'
+    printf 'Generated by `Scripts/ga-project-setup.sh`. Delete this file once the steps are done.\n\n'
+    printf 'The five `.xcconfig` files under `Configurations/` are already written. Nothing here\n'
+    printf 'opens or edits `%s` — these are the steps only you can take.\n\n' "$FOUND_PROJ"
+    printf 'Floors these files carry: **%s**.\n\n' "${IOS:+iOS $IOS}${MACOS:+${IOS:+ · }macOS $MACOS}"
+    printf '## 1. Configurations\n\n'
     printf 'Project > Info > Configurations. Rename `Debug` to keep it, add the other three, then\n'
     printf 'set each one'"'"'s `Based on Configuration File` for **both** the project and every target:\n\n'
     printf '| Configuration | File | Scheme to create |\n|---|---|---|\n'
@@ -392,16 +366,16 @@ if [ ! -e "$TARGET/XCODE-SETUP.md" ]; then
     printf '| Release | `Configurations/PROD.xcconfig` | PROD |\n\n'
     printf 'Delete every build setting Xcode wrote into the project itself — if a value is in both\n'
     printf 'places the project wins silently, and the `.xcconfig` stops being the record.\n\n'
-    printf '## 4. Info.plist\n\n'
+    printf '## 2. Info.plist\n\n'
     printf 'Add one key so the stage reaches Swift as a value rather than a `#if`:\n\n'
     printf '```\nAppEnvironment = $(APP_ENVIRONMENT)\n```\n\n'
     printf 'Read it **once**, at the composition root, into a typed `AppEnvironment`\n'
     printf '(`.claude/notes/SCHEMES.md`). A feature that reads a build flag cannot be tested for the\n'
     printf 'other three configurations.\n\n'
-    printf '## 5. Add the packages\n\n'
+    printf '## 3. Add the packages\n\n'
     printf 'File > Add Package Dependencies > Add Local, for each package under `Packages/`, then add\n'
     printf 'each one to the target'"'"'s Frameworks list. Add by **path** — never a version.\n\n'
-    printf '## 6. Check it\n\n'
+    printf '## 4. Check it\n\n'
     printf '```bash\n'
     printf './Scripts/detect-toolchain.sh          # floors should read %s\n' "${IOS:+iOS $IOS}${MACOS:+ / macOS $MACOS}"
     printf 'xcodebuild -list                      # four configurations, four schemes\n'
@@ -420,17 +394,9 @@ else
 fi
 
 ga_hdr "── Next ───────────────────────────────────────────────"
-if [ "$MODE" = "prepare" ]; then
-  printf '  1. %sOpen XCODE-SETUP.md and create the project%s — steps 1-4, about two minutes\n' "$GA_BLD" "$GA_OFF"
-  printf '  2. Install GenericArch, then scaffold the packages the project will consume:\n'
-  printf '       %s/install.sh %s\n' "$SRC" "$TARGET"
-  printf '       ./Scripts/ga-scaffold.sh . --list\n'
-  printf '  3. Come back to XCODE-SETUP.md step 5 to add those packages to the target\n'
-else
-  printf '  1. Point your existing configurations at the files above — XCODE-SETUP.md step 3\n'
-  printf '  2. %s/install.sh %s --mode new\n' "$SRC" "$TARGET"
-  ga_dim "     --mode new matters: an .xcodeproj makes the installer read this as an existing repo,"
-  ga_dim "     which skips Scaffold/ and ga-scaffold.sh — the packages you have not written yet."
-fi
+printf '  1. %sOpen XCODE-SETUP.md%s — four steps: configurations, the AppEnvironment key, the\n' "$GA_BLD" "$GA_OFF"
+printf '     packages, and how to check it\n'
+printf '  2. %s%s/install.sh %s%s — the rules, skills, commands and indexes\n' "$GA_BLD" "$SRC" "$TARGET" "$GA_OFF"
+printf '  3. Then, in Claude Code: /project-init → /gaps → /sync-app-notes\n'
 echo
 exit "$GA_EX_OK"

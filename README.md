@@ -17,171 +17,47 @@ and `/project-init` tells you which rules that changes.
 
 ## Install
 
-Four ways in. Pick the row that matches what you have — all of them are non-destructive:
-**nothing overwrites your `CLAUDE.md`, your skills, or your commands.**
+**This repo is not a project you build in — it is a setup process, and `install.sh` or
+`bootstrap.sh` is how it runs.** Everything the install promises follows from that one act: it
+records every file it wrote with a hash in `.genericarch/manifest-v<version>.json`, which is what
+makes the install reversible, re-sealable and updatable per file. A copy of this tree that no
+installer wrote has none of that.
+
+**This installs into a repo that already has its Xcode project.** That is the only shape it
+supports: it reconciles rules against what is already true in your repo, and records a manifest of
+every file it wrote so the install stays reversible. Neither means anything in an empty directory —
+`install.sh` refuses one and points you at [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup), which creates the project and the
+package layout. Come back here afterwards.
+
+Two ways in, both non-destructive: **nothing overwrites your `CLAUDE.md`, your skills, or your
+commands.**
 
 | You have | Use | You get |
 |---|---|---|
-| Nothing yet, and nothing to unlearn | **Empty directory** → `install.sh` + `ga-scaffold.sh` — path **B** below | Rules, docs, tooling, and only the layers you pick. **No deployment floor is written for you** — the §0 default |
-| Nothing yet, but you want a GitHub repo in one command | **Template repo** — path **A** below | The same tree without a local checkout to install from — **but carrying this product's answers**, which you then reset (floors included). The layers are still yours to pick: a copy brings the Core+DIKit floor and no more |
-| An existing app | **`bootstrap.sh`** → `install.sh` | Skills, commands, indexes and tooling — your code and your rules untouched, every file hashed, fully reversible with `uninstall.sh` |
-| Several repos | **Plugin** | Only the skills and commands, updated centrally |
+| An existing app | **`bootstrap.sh`** → `install.sh` — path **A** below | Skills, commands, indexes and tooling — your code and your rules untouched, every file hashed, fully reversible with `uninstall.sh` |
+| Several repos | **Plugin** — path **B** below | Only the skills and commands, updated centrally |
 
 **Do not build your app inside a GenericArch checkout.** `install.sh` refuses a target that is its
 own source, and a clone you work in directly inherits this product's decisions — floors included —
 while looking like a fresh start. Clone it anywhere, install *out* of it into your repo.
+
+**There is deliberately no "start from the template" path.** GitHub's template feature copies the
+tracked tree, which means no installer ran — and with no manifest, `uninstall.sh` refuses the repo
+outright (*"no manifest — treating this as an incomplete install"*) because nothing can prove which
+files were ours. `ga-reseal.sh` likewise has nothing to keep honest. A copy also arrives holding this
+product's decisions, gaps, notes, memory and **deployment floors** as if they were its own. The
+template flag on the repo is off for that reason. Already holding a copy made while it was on? It is
+a fork, not an install, and it is usable as one — reset the inherited state
+([docs/SHARING.md](docs/SHARING.md)) and take the package layout from
+[GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup). [Updating an install](#updating-an-install) still works for you:
+`adopt-review.sh` compares content against a base checkout and never reads a manifest.
 
 Reference docs are fetched on demand rather than copied, and two groups are **opt-in** — see
 [What travels](#what-travels-and-what-does-not) below.
 
 ---
 
-### A. New project — from the template
-
-```bash
-gh repo create <you>/MyApp --template kalpesh-jetani/GenericArch --private --clone
-cd MyApp
-./Scripts/detect-toolchain.sh --mismatches   # do this BEFORE anything else
-```
-
-**Clear any `BLOCKING` row first.** `/project-init` refuses to do anything while one stands — a
-deployment floor above your installed SDK cannot build, and reconciling rules onto a repo that does
-not build wastes the session. On this path the usual offender is an inherited floor; see step 1
-below, and `/upgrade-stack` if you would rather be walked through it.
-
-**A template copy is not an install.** It is this product's entire *tracked* tree with your repo's
-name on it — GitHub copies every tracked file — so three things are true at once, and the order of
-the steps below follows from them:
-
-- the base is already in the tree, so there is nothing to install: `ga-step.sh` records that for you;
-- this product's **answers** came with it, and they are not yours — step 1 clears them;
-- the **structure** did not. `Packages/` holds the Core+DIKit floor, there is no `App/`, and no layer
-  beyond the floor, because the base keeps none of those as product content
-  ([docs/SHARING.md](docs/SHARING.md)). So `scaffold` stays pending here, and `/project-init` waits
-  on it ([docs/SEQUENCE.md](docs/SEQUENCE.md)) — step 2 is not optional.
-
-#### 1. Reset the state you inherited
-
-The per-product rows in `docs/DECISIONS.md`, the statuses in `docs/GAPS.md` (then `/gaps`), the
-`.claude/notes/` table bodies, and every `.claude/memory/` file except `INDEX.md` — **including its
-`## Index` table**, since deleting the files and leaving their rows is the usual slip.
-
-```bash
-./Scripts/detect-toolchain.sh              # your machine sets the baseline, not this repo's
-./Scripts/detect-toolchain.sh --mismatches # BLOCKING rows first — see the floors note below
-./Scripts/verify-memory.sh                 # 0 once the store is yours; 1 lists what is still inherited
-```
-
-**Drop `.genericarch/` from `.gitignore`.** It is ignored *here* because this repo is never installed
-into, so the ledger is local noise. In a product it is the opposite: the manifest, the tombstones and
-the step ledger are the record of what was installed and what was declined, and they belong in git
-([docs/INSTALL-MANIFEST.md](docs/INSTALL-MANIFEST.md)).
-
-**Reset the deployment floors too — this is the one inherited answer that stops the build, not just
-misleads.** The template carries this product's floors in code, in the two seed manifests:
-
-```bash
-grep -rn 'platforms:' Packages/Core/Package.swift Packages/DIKit/Package.swift
-```
-
-They read `.macOS("26.6")`, which is *this* repo's answer to a question your product has not been
-asked ([docs/DECISIONS.md](docs/DECISIONS.md)). If your Xcode ships an older macOS SDK, an app target
-refuses that floor outright — `--mismatches` reports it as
-`BLOCKING|macos-target-above-sdk`, and `/project-init` stops on it before doing anything else. Fix it
-in three places, or the next reader takes it for a decision somebody made: both `platforms:` lines,
-the *Deployment targets* row in `docs/DECISIONS.md`, and `/decide` to record what you chose instead.
-Nothing here defaults a floor for you — that is CLAUDE.md §0, and it applies to an inherited number
-exactly as it applies to a blank one.
-
-#### 2. Scaffold the structure the copy does not carry
-
-```bash
-./Scripts/ga-scaffold.sh . --list                            # the layers on offer
-./Scripts/ga-scaffold.sh . --with navigation,design --apply  # everything already here is kept
-```
-
-It creates the `App/iOS` and `App/macOS` shells, `Packages/Features`, and each layer you name; every
-file the copy brought is reported as kept and left alone. Read
-[Scaffold/ARCHITECTURE-OPTIONS.md](Scaffold/ARCHITECTURE-OPTIONS.md) before choosing — a layer costs
-something the day you take it.
-
-**It writes no `platforms:` line into the new manifests.** Reading a floor out of the inherited ones
-would launder this repo's answer into your product as if you had chosen it (§0), so each generated
-manifest carries the `Packages/FLOORS.md` note instead. Pass `--ios`/`--macos` once you have decided,
-or do the floor reset in step 1 first.
-
-#### 3. Then, in Claude Code
-
-```
-/project-init MyApp
-/gaps
-/sync-app-notes
-```
-
-`/project-init` asks for what it cannot infer — bundle ID, Team ID, the languages you ship at v1,
-which rules you want as *hard* vs *base*, and which permissions to allow. Nothing is written before
-you answer. **In that order — it is enforced**, not advisory
-([the order](#the-commands-run-in-order)).
-
-Paths B and C need no step 1 at all: `install.sh` copies the base and never this product's state, and
-`Scripts/adopt.sh` refuses to run if a file is in neither list. Only the template path, which copies
-the whole tracked tree, carries state that has to be cleared by hand.
-
-### B. New project — from an empty directory *(recommended for a genuinely new app)*
-
-The template hands you this product's answers; an empty directory hands you none. For a new app that
-is the difference that matters, because **no floor is written for you** — the generated manifests
-carry a comment where the `platforms:` line would be, which is what CLAUDE.md §0 asks for.
-
-```bash
-mkdir MyApp && cd MyApp && git init
-/path/to/GenericArch/install.sh .            # dry run first — it prints every file
-/path/to/GenericArch/install.sh . --yes
-./Scripts/ga-scaffold.sh . --list            # the layers on offer
-./Scripts/ga-scaffold.sh . --with navigation,design --apply
-```
-
-Then `/project-init` in Claude Code. Nothing to reset: the decisions, gaps, notes and memory arrive
-empty, and the floors arrive unset.
-
-**The install offers to set up the Xcode project first.** On an empty directory it checks the Xcode
-toolchain, asks what the project needs, and writes the five `.xcconfig` files —
-`Configurations/{Base,DEV,TEST,BETA,PROD}.xcconfig` exactly as
-[SCHEMES.md](.claude/notes/SCHEMES.md) specifies them — plus an `XCODE-SETUP.md` checklist. It stops
-before the `.xcodeproj` itself, because nothing here generates one. You do the two minutes of
-File > New > Project, following the checklist.
-
-To run it yourself, or re-run it later — without `--apply` it prints the plan and writes nothing:
-
-```bash
-./Scripts/ga-project-setup.sh .                       # dry run, prompts for anything not given
-./Scripts/ga-project-setup.sh . --product MyApp --bundle-id com.acme.myapp \
-    --targets ios,macos --ios 17 --macos 26.5 --apply
-```
-
-**If the Command Line Tools are missing it stops and says so, before writing anything.** Only full
-Xcode can create a project, so a Command-Line-Tools-only machine is also a stop in prepare mode —
-being handed a checklist you cannot follow is worse than being told why.
-
-Nothing is defaulted: the bundle ID, the Team ID and both floors are asked, and a Team ID you do not
-have stays blank rather than invented. With no terminal to ask on — CI, a pipe — the step is skipped
-and the install continues; pass every answer as a flag to run it there.
-
-#### Already created the project in Xcode?
-
-That works too, and the order does not matter — but **pass `--mode new`**:
-
-```bash
-/path/to/GenericArch/install.sh . --mode new
-```
-
-An `.xcodeproj` is an Apple marker, so the compatibility gate reads the directory as an *existing*
-repo and would skip `Scaffold/` and `ga-scaffold.sh` — the package layer you have not written yet.
-The install now spots this case (a project, but no `Packages/`), says so, and offers the correction
-rather than quietly installing half. `ga-project-setup.sh` switches to `--adopt`: it writes the
-`.xcconfig` files for your existing project and never opens or edits the `.xcodeproj`.
-
-### C. Existing project — from inside your repo
+### A. Existing project — from inside your repo
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/bootstrap.sh
@@ -232,12 +108,31 @@ Your rules win by default. For a hard conflict — CocoaPods vs SPM, UIKit vs Sw
 answer is *adopt for new code only*, because a codebase that already violates a rule cannot adopt it
 by editing a doc ([docs/ADOPTION.md](docs/ADOPTION.md)).
 
+#### Build settings as reviewable text
+
+Settings held inside an `.xcodeproj` are a diff nobody reads. The install offers to write the five
+`.xcconfig` files your project should reference instead — `Configurations/{Base,DEV,TEST,BETA,PROD}`
+exactly as [SCHEMES.md](.claude/notes/SCHEMES.md) specifies them — plus `XCODE-SETUP.md`, the four
+steps only you can take: point each configuration at its file, add the `AppEnvironment` key, add the
+packages, check it. To run it yourself, or again later:
+
+```bash
+./Scripts/ga-project-setup.sh .                       # dry run, prompts for anything not given
+./Scripts/ga-project-setup.sh . --product MyApp --bundle-id com.acme.myapp \
+    --targets ios,macos --ios 17 --macos 15 --apply
+```
+
+**It never creates, opens or edits an `.xcodeproj`** — no project of yours is touched, and a repo
+with no project at all is refused with a pointer to [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup). Nothing is defaulted:
+the bundle ID, the Team ID and both floors are asked, and a Team ID you do not have stays blank
+rather than invented.
+
 | Override | Effect |
 |---|---|
 | `--ref <tag>` or `GA_REF=<tag>` | Pin a version instead of taking the newest tag. Copy tag names from `git ls-remote --tags --refs <repo>` rather than reconstructing them — prefixed and unprefixed forms both exist and are not guaranteed to be the same commit. Don't pin `v0.1.0`: it predates the script registry, `docs/patterns/` and `.claude/memory/` |
 | `GA_REPO=/path/to/checkout` | A local clone or your fork — also the way in when the repo is private and `curl` cannot reach it |
 
-### D. Several repos — just the tooling
+### B. Several repos — just the tooling
 
 ```
 /plugin marketplace add kalpesh-jetani/genericarch-plugin
@@ -249,47 +144,21 @@ and tooling fixes reach every repo by updating one plugin.
 
 ---
 
-## Two installs, one difference
+## What the install does and does not add
 
-`install.sh` runs in one of two modes, derived from the compatibility gate and overridable with
-`--mode existing|new`. They differ in exactly one thing: **whether the target gets the predefined
-module material.**
+It adds the tooling and the lookup layer: skills, commands, the indexes, the scan and lifecycle
+scripts, `uninstall.sh`. It does **not** add `Packages/`, `docs/modules/`, or any Swift — your repo
+has its own shape, and a module doc for a layer you do not have is a dead lookup forever.
 
-| | Existing repo | New repo |
-|---|---|---|
-| Detected by | any Apple/Swift marker | nothing identifies the repo yet |
-| Gets | skills, commands, indexes, tooling | the same, **plus** `Scaffold/` and `ga-scaffold.sh` |
-| `Packages/`, `docs/modules/` | **never** — the repo has its own shape, and a module doc for a layer it lacks is a dead lookup forever | the scaffold creates the layers you choose and brings each one's doc |
-| The architecture layer — `new-feature`, `/review`, the module and pattern index rows | **not installed.** Both enforce §2/§3: in a repo with no `Packages/`, `new-feature` scaffolds something the app cannot consume and `/review` reports rules the product declined. `/project-init` offers it once the rule-conflict table is settled, or `--with-architecture` takes it up front | included — starting from this base *is* the decision to use it |
-| `scaffold` step | recorded *not applicable* at install time, so nothing waits on it | pending until you run it |
+The **architecture layer** — the `new-feature` skill, `/review`, and the module and pattern rows in
+`MAP.tsv` — is held back by default. Both enforce §2/§3: in a repo that has not adopted them,
+`new-feature` produces a package the app cannot consume and `/review` reports rules the product
+declined. `/project-init` offers the layer once the rule-conflict table is settled, or
+`--with-architecture` takes it up front.
 
 Imposing a layout on a codebase that already has one is the adoption mistake `/project-init` exists
-to avoid — so the existing-repo install has nothing to impose.
-
-### The new-repo scaffold
-
-```bash
-./Scripts/ga-scaffold.sh . --list                       # the layers on offer
-./Scripts/ga-scaffold.sh . --with navigation,design     # dry run — the plan
-./Scripts/ga-scaffold.sh . --with navigation,design --apply
-./Scripts/ga-scaffold.sh . --with navigation,design --apply --yes   # CI, or any run with no tty
-```
-
-`--apply` asks before writing. With no terminal to ask on — CI, a pipe, an agent — it stops instead
-of guessing; add `--yes` (or `GA_ASSUME_YES=1`) to confirm up front.
-
-It creates the app shells, copies `Core` and `DIKit` in as real tested packages, adds only the
-layers
-you ask for, brings each one's module doc, and records what you chose in `docs/DECISIONS.md`. Layers
-can be added later with the same command. What each choice costs:
-[Scaffold/ARCHITECTURE-OPTIONS.md](Scaffold/ARCHITECTURE-OPTIONS.md).
-
-**It writes no version numbers.** Deployment floors come from `detect-toolchain.sh` reading your
-repo's own manifests, or from `--ios`/`--macos`. With neither, the generated manifests carry a
-comment
-instead of a `platforms:` line and `Packages/FLOORS.md` explains how to choose — because a floor a
-tool picked compiles today, breaks on the first shared-code change, and by then reads as a decision
-somebody made.
+to avoid — so the install has nothing to impose. The layout for a repo with no shape yet lives in
+[GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup), which writes it and stops.
 
 ## What travels, and what does not
 
@@ -297,11 +166,10 @@ somebody made.
 
 | | What | Why |
 |---|---|---|
-| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · the scan and lookup scripts · the lifecycle tools (`ga-step`, `ga-remove`, `ga-reseal`) · `uninstall.sh` | They must be local to work |
+| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · the scan and lookup scripts · the lifecycle tools (`ga-step`, `ga-remove`, `ga-reseal`) · `ga-project-setup.sh` · `uninstall.sh` | They must be local to work |
 | **Scaffolded empty** | `docs/DECISIONS.md` · `docs/GAPS.md` · `.claude/notes/` · `.claude/memory/` · `.claude/CANDIDATES.tsv` | The prose is ours, the answers are yours |
 | **Fetched on demand** | `docs/modules/` · `docs/patterns/` · the cross-cutting reference docs | A product should not carry docs for layers it does not have. `genericarch.installation.md` indexes them; a missing `docs/…` link is a fetch instruction |
-| **New repos only** | `Scaffold/` · `Scripts/ga-scaffold.sh` · `Scripts/ga-project-setup.sh` · the `Core`/`DIKit` seed under `Scaffold/seed/` | Decided by what the target *is*, not by preference — see above. An existing repo already has its project and its build settings, so a tool that prepares them is a lookup that never fires |
-| **On consent** | `--with-architecture` → the `new-feature` skill, `/review`, and the module and pattern rows in `MAP.tsv` | A surface that cannot fire is worse than a missing one: it is grepped, offered and trusted. Implied by a new-repo install |
+| **On consent** | `--with-architecture` → the `new-feature` skill, `/review`, and the module and pattern rows in `MAP.tsv` | A surface that cannot fire is worse than a missing one: it is grepped, offered and trusted |
 | **Opt-in** | `--with-lint` → `.swiftlint.yml`, `.swiftformat` · `--with-meta` → `Scripts/claude-workflows/` | Lint enforces conventions a product may have declined; the pipeline authors `CLAUDE.md` files rather than building apps |
 | **Never** | `CLAUDE.md` · this repo's decisions, gaps, notes and memory · `install.sh`, `bootstrap.sh` · `README.md` · `.claude/settings.json` | Your rules are yours; re-installing means fetching again |
 
@@ -319,8 +187,7 @@ exits 5
 without writing anything.
 
 ```
-install → scaffold* → /project-init → /gaps → /sync-app-notes → ready
-                                                    * new repos only
+install → /project-init → /gaps → /sync-app-notes → ready
 ```
 
 ```bash
@@ -387,17 +254,17 @@ Run it yourself after editing an installed file by hand.
 removal is a verified operation, not a guess at which files were probably ours.
 
 ```bash
-./uninstall.sh v0.4.0              # plan, then ask
-./uninstall.sh v0.4.0 --dry-run    # print the plan and stop
-./uninstall.sh v0.4.0 --yes        # skip the confirmation prompt
+./uninstall.sh v0.4.2              # plan, then ask
+./uninstall.sh v0.4.2 --dry-run    # print the plan and stop
+./uninstall.sh v0.4.2 --yes        # skip the confirmation prompt
 ```
 
-**The version argument is required.** Supported: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0` (latest). Defaulting it would
+**The version argument is required.** Supported: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.4.1`, `v0.4.2` (latest). Defaulting it would
 mean guessing which release's footprint to delete, and a wrong guess deletes the wrong files.
 
 **Exit 0 means the repo is back to its pre-install state; exit 1 means files were left behind** —
 listed in `.genericarch/orphans-<version>.txt`, which outlives the terminal. A partial removal that
-reported success is how one repo ended up half-installed with nobody aware of it.
+reported success leaves a repo half-installed with nobody aware of it.
 
 Flags, exit codes, what *user-edited file preserved* means, and recovering an install that failed
 part-way: [docs/SHARING.md](docs/SHARING.md). Manifest format:
@@ -445,7 +312,7 @@ them.
 
 `.claude/MAP.tsv` is one grep-able row per doc, note, pattern, skill and command: its topics and
 when
-to read it. It replaces a table of contents that used to be re-read every session.
+to read it — one grep instead of a table of contents re-read every session.
 
 ```bash
 grep -i navigation .claude/MAP.tsv           # what covers this topic
@@ -754,10 +621,14 @@ codebase ([docs/REPO.md](docs/REPO.md)).
 
 ## Build
 
+**There is no Swift in this repo.** It ships rules, docs and tooling; the packages live in the repo
+you install into, and the reference implementations of `Core` and `DIKit` live in
+[GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup), which copies them into a product. In your own repo:
+
 ```bash
 swift build --package-path Packages/Core     # any package, standalone
 swift test  --package-path Packages/Core
-./Scripts/check.sh                           # rule enforcement
+./Scripts/check.sh                           # rule enforcement, and the iOS floor
 ```
 
 Apps build per stage — DEV / TEST / BETA / PROD
@@ -766,13 +637,11 @@ or via `/build`, which picks the scheme and destination for you.
 
 ## Status
 
-The architecture is documented and a vertical slice (`Core`, `DIKit`) builds and tests clean. Most
-packages are specified but not yet implemented; [docs/GAPS.md](docs/GAPS.md) tracks what is
-deliberately absent.
+The architecture is documented; most packages are specified rather than implemented, and
+[docs/GAPS.md](docs/GAPS.md) tracks what is deliberately absent. The worked examples of `Core` and
+`DIKit` moved to [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup) with the layout that places them, so `check.sh` here has no
+package to typecheck — it does that work in the repo you install into.
 
-`./Scripts/check.sh` is currently red on one item: the recorded minimum macOS is above the installed
-macOS SDK. `/upgrade-stack` reviews that and asks before changing anything.
-
-The install lifecycle has its own gate, and it is green: `./Scripts/ga-roundtrip.sh` — six cases,
-each against a repo built from nothing. Run it before tagging a release; a lifecycle that cannot
-round-trip is how an adoption ends up half-installed with nobody aware of it.
+The install lifecycle has its own gate: `./Scripts/ga-roundtrip.sh`, each case against a repo built
+from nothing. **Run it before tagging a release** — a lifecycle that cannot round-trip leaves an
+adoption half-installed with nobody aware of it.

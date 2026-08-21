@@ -6,6 +6,66 @@ decorative.
 
 ---
 
+## v0.4.2
+
+The theme: **this base installs into a repo that already has its Xcode project, and nothing else.**
+The package layout it used to write moved to its own repo, and with it every code path that existed
+for a directory with no shape yet.
+
+### Two repos, because they answer different questions
+
+- **[GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup)** now owns
+  `Scaffold/` and its templates, `ga-scaffold.sh`, the `Core`+`DIKit` reference packages, and the
+  pre-project checklist. It stands alone on a 141-line `gxs-common.sh` vendored from this repo's
+  711-line `ga-lifecycle.sh`: no manifest, no tombstones, no step ledger, because it installs
+  nothing.
+- **This repo** keeps the rules, docs, skills, commands, indexes and lifecycle tooling. Every
+  guarantee here comes from the installer — a manifest, hashes, a reversible uninstall — and none of
+  it means anything in an empty directory, so `install.sh` now **refuses** one and points at the
+  other repo.
+
+### One install shape
+
+- `--mode existing|new` is gone, along with `--fresh` in `adopt.sh`, the two-install table, and the
+  20 `MODE` branches that asked which one this was.
+- **The `scaffold` step is gone from the ledger**: `install → /project-init → /gaps →
+  /sync-app-notes → ready`. A consumer ledger written earlier may still carry a `scaffold` row; it is
+  ignored, because the gate iterates the step list and not the file.
+- `ga-project-setup.sh` is **adopt-only** and now part of every install: it writes the five
+  `.xcconfig` files an existing project should reference, and its checklist dropped the two
+  "create the project" sections — steps you cannot follow are worse than steps you do not get.
+- `ga_known_paths` gains a `v0.4.2` entry (44 paths — v0.4.1's 46 without `Scaffold` and
+  `ga-scaffold.sh`). **The v0.1.0–v0.4.1 entries are untouched**: a repo that installed one of those
+  still needs them to uninstall cleanly.
+
+### Postmortem comments removed
+
+Thirteen comments and sentences that narrated what a *previous* version got wrong are gone from the
+scripts and the docs — the defects were fixed, so the notes described code that no longer existed.
+`docs/CONVENTIONS.md`'s *Doc comments, not meta comments* rule now says it applies to every file the
+repo ships rather than only Swift `///`, carries a shell example of the failing shape, and names the
+test: **tense**. A rule about what must hold stays; an account of what once failed belongs to the
+commit that fixed it. `DECISIONS.md`, `.claude/memory/` and `CHANGELOG.md` are exempt — recording
+history is their contract, and the three rows this release adds to `DECISIONS.md` are where its
+history went.
+
+### Also
+
+- The GitHub template path is **withdrawn** — the repo's template flag is off. A copy no installer
+  wrote has no manifest, so `uninstall.sh` refuses it and `ga-reseal.sh` has nothing to keep honest.
+  `ga_is_source_checkout` still tells a copy from this checkout, by **history** rather than by
+  marker files, because copies made while the flag was on still exist.
+- `.claude/memory/` lost the memory whose whole subject was the removed scaffolder; `verify-memory.sh`
+  reports a bijective index of 2.
+- `plugin.json` 0.4.0 → 0.4.2, description matching what now ships.
+
+## v0.4.1
+
+Docs and tooling caught up with the withdrawn template path: `README.md` dropped it as an install
+route, `SHARING.md` gained the reason, and `ga_is_source_checkout` / `ga_is_template_copy` replaced
+the marker-file check that had made every template copy answer to it. No footprint change, so
+`ga_known_paths` treats v0.4.1 exactly as v0.4.0.
+
 ## v0.4.0
 
 The theme: **an empty directory is now a supported starting point**, and the command that adopts a

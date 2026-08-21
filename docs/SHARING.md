@@ -64,61 +64,43 @@ reaches every consumer by bumping a version.
 `App/`, `README.md`, `CLAUDE.md` and `.claude-plugin/` all land in the new repo, and no list here
 stops them. Two consequences worth knowing before relying on either:
 
-- **No file can identify this repo.** Treating `.claude-plugin/` as the marker for "this is
-  GenericArch itself" made every template copy answer to it, which recorded `scaffold` as
-  not-applicable in a brand-new product and then refused to scaffold it. The tree is identical; the
-  **history** is not, which is what `ga_is_source_checkout` reads instead
-  ([Scripts/ga-lifecycle.sh](../Scripts/ga-lifecycle.sh)).
+- **No file can identify this repo.** A copy's tree is identical, marker files included, so no
+  marker can stand in for identity. The **history** is what differs, and it is what
+  `ga_is_source_checkout` reads ([Scripts/ga-lifecycle.sh](../Scripts/ga-lifecycle.sh)).
 - **A template copy inherits this product's state**, including its floors and its `.gitignore`. The
-  reset is manual and it is listed in [README.md](../README.md) path A step 1.
+  reset is manual — see *The template path is withdrawn* below.
 
 ---
 
-## Option 1 — Template repository · for a **new** product
+## The template path is withdrawn
 
-Best when the product starts from nothing. One command, no local checkout to install from, no
-history — but **not everything present**: GitHub copies the tracked tree, and `Packages/` holds only
-the `Core`+`DIKit` floor while `App/` does not exist here at all. The structure is still scaffolded,
-and this product's state still has to be cleared. Full sequence: [README.md](../README.md) path A.
+This repo was briefly a GitHub template. It no longer is (`gh repo edit … --template=false`), because
+a copy is made by GitHub rather than by an installer, and **removability comes from the installer**:
+no manifest means `uninstall.sh` refuses the repo as an incomplete install — nothing can prove which
+files were ours — and `ga-reseal.sh` has nothing to keep honest. A copy also arrives holding this
+product's decisions, gaps, notes, memory and deployment floors as if they were its own.
 
-```bash
-# once, on the base repo
-gh repo create kalpesh-jetani/GenericArch --private --source=. --push
-gh repo edit kalpesh-jetani/GenericArch --template
+One thing a copy does **not** lose: *Updating an install* below. `adopt-review.sh` classifies by
+comparing content against a base checkout and never reads a manifest, so a fork can still pull an
+upstream fix per file.
 
-# per new product
-gh repo create kalpesh-jetani/MyApp --template kalpesh-jetani/GenericArch --private --clone
-cd MyApp
-```
-
-**Reset the inherited state first** — a template copies it wholesale, and `/project-init` reconciles
-rules against whatever it finds:
+**If you already have a copy**, it is a fork, not an install. It is usable — nothing about it is
+broken — but treat it as one:
 
 ```bash
-./Scripts/detect-toolchain.sh     # §1 must describe THIS machine, not GenericArch's
-# drop this product's answers from DECISIONS.md
-# reset GAPS.md statuses to ▶ Open
-# clear .claude/notes/ table bodies
-# drop .genericarch/ from .gitignore — in a product that state is tracked
+./Scripts/detect-toolchain.sh --mismatches   # inherited floors first: BLOCKING cannot build
 ```
 
-**Then scaffold**, because `scaffold` is genuinely pending in a copy (`ga-step.sh` records only
-`install`):
+Then clear the inherited state by hand: the per-product rows in `docs/DECISIONS.md`, the `docs/GAPS.md`
+statuses, the `.claude/notes/` table bodies, every `.claude/memory/` file **and its `## Index` row**,
+the two seed `platforms:` lines, and `.genericarch/` in `.gitignore` — ignored correctly in this repo,
+wrong in a product. `Scripts/ga-lifecycle.sh` recognises a copy for what it is
+(`ga_is_template_copy`), so the lifecycle commands still sequence correctly there.
 
-```bash
-./Scripts/ga-scaffold.sh . --list
-./Scripts/ga-scaffold.sh . --with navigation,design --apply
-```
+For a genuinely new product, start from [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup) — the project checklist and the
+package layout — and install this afterwards.
 
-Then in Claude Code: **`/project-init MyApp`** — asks for bundle ID, Team ID, v1 languages, the open
-§1.1 visual-language decision, and permissions per group. Then `/gaps`, then `/sync-app-notes`.
-
-| Good | Bad |
-|---|---|
-| One command to a working repo; rules, docs and tooling included | Inherits state that must be reset by hand — floors included |
-| No sync obligation — the fork is yours | Divergence is permanent; later base fixes don't reach it |
-
-## Option 2 — Plugin · for the **tooling layer**, across many repos
+## Option 1 — Plugin · for the **tooling layer**, across many repos
 
 Ships only skills and commands, installable anywhere, updated centrally. This is the right answer
 when several products should share the *tooling* while keeping their own rules.
@@ -146,7 +128,7 @@ than none.
 | One install; central updates reach every repo | Tooling only — no rules, docs, or code |
 | Each product keeps its own CLAUDE.md | `/verify`, `/decide`, `/gaps` need the docs adopted too |
 
-## Option 3 — Installer · for an **existing** codebase
+## Option 2 — Installer · for an **existing** codebase
 
 Consumers run `install.sh` from inside their own repo — it fetches a pinned tag and delegates to
 `adopt.sh`, so the "what travels" list lives in exactly one place:
@@ -165,8 +147,8 @@ cd /path/to/GenericArch
 ./Scripts/adopt.sh /path/to/ExistingApp --apply
 ```
 
-Installs the tooling, writes `genericarch.installation.md` for the reference docs, scaffolds what
-gets written to, and **never overwrites** — an existing file is reported as a collision and kept.
+Installs the tooling, writes `genericarch.installation.md` for the reference docs, creates the
+per-product files empty, and **never overwrites** — an existing file is reported as a collision and kept.
 Then:
 
 1. **`/project-init`** — follows [ADOPTION.md](ADOPTION.md): reads their CLAUDE.md in full, builds the rule-conflict table (CocoaPods vs
@@ -315,7 +297,7 @@ Don't try to sync all of it. Three layers, three honest answers:
 | Layer | Strategy |
 |---|---|
 | `GenericArch-{NetworkKit,ImageCache}` | **Already solved** — separate repos, semver over SPM. A consumer bumps a version; no files move. Category 2 above |
-| Skills, commands, lint config | **Genuinely shared** → Option 2, the plugin |
+| Skills, commands, lint config | **Genuinely shared** → Option 1, the plugin |
 | `CLAUDE.md`, `docs/` | **Let them diverge** |
 
 That last row is a recommendation, not a shrug. These are a product's rules. The moment two products

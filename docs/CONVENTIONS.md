@@ -90,6 +90,26 @@ it, and has no place in the source:
 If a note is about the *change* rather than the *code*, it belongs in the commit message or
 [DECISIONS.md](DECISIONS.md) — not in a comment that outlives the change.
 
+**This applies to every file the repo ships, not just Swift** — shell `#` comments, Python comments,
+and doc prose alike. The failing shape is a comment or sentence that narrates what a *previous*
+version got wrong:
+
+```bash
+# ❌ a postmortem — the defect is fixed, so this describes code that no longer exists
+# --root, not a cd. This read "$(cd "$TARGET" && …)" and claimed it scanned the target; it did
+# not, so scaffolding from a checkout wrote GenericArch's floors into every manifest it generated.
+
+# ✅ the constraint the current code obeys, and what breaks if you undo it
+# --root, not a cd: detect-toolchain.sh resolves against its own root, so a cd here would scan
+# THIS checkout and write its floors into the target's manifests.
+```
+
+Both are the same length; only one still describes the code in front of you. **The test is tense,**
+not subject matter: a rule about what must hold stays, an account of what once failed goes to the
+commit that fixed it. Two homes are exempt because recording history *is* their contract —
+[DECISIONS.md](DECISIONS.md) and `.claude/memory/` — plus `CHANGELOG.md`. No linter catches this
+one; it is caught in review.
+
 **Two exceptions, both because the description already exists elsewhere:**
 
 - A `@Test("…")` case whose string already describes it. A `///` above it would only duplicate.

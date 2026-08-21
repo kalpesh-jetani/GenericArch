@@ -19,11 +19,10 @@ The order the commands run in, what each one must leave behind, and what enforce
 | # | Step | Run by | Must leave behind |
 |---|---|---|---|
 | 1 | `install` | `./install.sh` (or `./bootstrap.sh`) | The manifest. Recorded automatically — no command records it |
-| 2 | `scaffold` | `./Scripts/ga-scaffold.sh` | **New repos only.** The directory structure, the Core+DIKit floor, and the layers chosen. Recorded *not applicable* automatically in the two cases where it can never run: an existing repo (by `install.sh`, which has a structure to keep) and the GenericArch authoring checkout (derived by `ga-step.sh`, which is the source of the scaffold). A **template copy** is neither — it carries the floor and no layers, so this step stays pending there and is real work; `ga_is_source_checkout` in `Scripts/ga-lifecycle.sh` is what tells the copy from the checkout, and why files alone cannot |
-| 3 | `project-init` | `/project-init` | A reconciled `CLAUDE.md`, `docs/DECISIONS.md` rows for every answer, declined files tombstoned |
-| 4 | `gaps` | `/gaps` | Every `docs/GAPS.md` row at ✅ ⏸ or ⛔, each ⛔ with a *Do not re-propose* row |
-| 5 | `sync-app-notes` | `/sync-app-notes` | Nine inventories in `.claude/notes/`, each with a `Last synced` line |
-| 6 | `ready` | recorded by step 5 | Nothing — it is the gate everything else waits on |
+| 2 | `project-init` | `/project-init` | A reconciled `CLAUDE.md`, `docs/DECISIONS.md` rows for every answer, declined files tombstoned |
+| 3 | `gaps` | `/gaps` | Every `docs/GAPS.md` row at ✅ ⏸ or ⛔, each ⛔ with a *Do not re-propose* row |
+| 4 | `sync-app-notes` | `/sync-app-notes` | Nine inventories in `.claude/notes/`, each with a `Last synced` line |
+| 5 | `ready` | recorded by step 4 | Nothing — it is the gate everything else waits on |
 
 After `ready`: `/find`, `/decide`, `/learn`, `/review`, `/verify`, `/build` and every skill run in
 any order, as often as needed. They are not steps; they are the work.
@@ -39,11 +38,15 @@ they would succeed against the wrong input, which is worse. That is what exit 5 
   nine inventories record a layout that changes the same day.
 - **`sync-app-notes` before `gaps`** cannot mark an inventory row as deliberately empty, because
   nothing has yet decided that the capability was skipped.
-- **`project-init` before `scaffold`** reconciles rules against a repo whose structure does not exist
-  yet, so half the conflicts it finds are about files nobody has created.
 - **anything before `install`** runs a command file that is not there.
 
-The order was documented before it was enforced, and was not followed. Enforcement is the fix.
+Documented order is not enough. Enforcement is what makes it hold.
+
+**There is no `scaffold` step.** This base installs into a repo that already has its Xcode project;
+the package layout for a repo with no shape yet is written by [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup) before any of
+this runs, and it records what it chose in the target's `docs/DECISIONS.md` rather than in this
+ledger. A consumer ledger written before that split may still carry a `scaffold` row — it is ignored,
+because the gate iterates the steps above, not the file.
 
 ## Skipping a step
 
@@ -54,8 +57,8 @@ a reason. Claude never passes `--force`:
 ./Scripts/ga-step.sh record gaps "not applicable: docs-and-tooling adoption, no capabilities to triage"
 ```
 
-`install.sh` does exactly this for `scaffold` on an existing repo — the step is settled at install
-time rather than left to block everything behind it.
+`install` is the one step no command records: the manifest *is* the record, and `ga-step.sh` derives
+it — so a repo installed before this ledger existed does not look like one that never ran it.
 
 ## Maintenance operations — outside the sequence
 

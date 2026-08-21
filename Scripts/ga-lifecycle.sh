@@ -79,7 +79,7 @@ ga_die() {
 # silently consumed piped stdin would answer itself.
 # Only install.sh and uninstall.sh implement a --yes flag; every other caller reaches this through
 # GA_ASSUME_YES=1. So both messages below name the environment variable, which works everywhere —
-# advising --yes sent non-interactive callers of ga-scaffold/ga-remove/ga-reseal/adopt.sh into an
+# advising --yes sent non-interactive callers of ga-remove/ga-reseal/adopt.sh into an
 # "unknown flag" exit, with the script's own remediation as the cause.
 ga_confirm() {
   if [ "${GA_ASSUME_YES:-0}" = "1" ]; then
@@ -337,11 +337,11 @@ ga_check_compatible() {
     _ga_hit=$(find "$_ga_dir" -maxdepth 2 -name "$_ga_m" -not -path '*/.git/*' -print -quit 2>/dev/null)
     [ -n "$_ga_hit" ] && GA_COMPAT_FOUND="$GA_COMPAT_FOUND ${_ga_hit#"$_ga_dir"/}"
   done
-  # Scaffold/ and the state dir are GenericArch's own footprint. Counting the seed packages under
-  # Scaffold/seed/ as the target's Swift code would make a re-install of a fresh repo read as an
+  # The state dir is GenericArch's own footprint, not the target's. Counting anything under it as
+  # the target's Swift code would make a re-install read as an
   # existing one, and silently stop staging the material that repo was installed with.
   _ga_hit=$(find "$_ga_dir" -name '*.swift' -not -path '*/.git/*' \
-              -not -path '*/Scaffold/*' -not -path "*/$GA_STATE_DIR/*" -print -quit 2>/dev/null)
+              -not -path "*/$GA_STATE_DIR/*" -print -quit 2>/dev/null)
   [ -n "$_ga_hit" ] && GA_COMPAT_FOUND="$GA_COMPAT_FOUND *.swift"
 
   for _ga_m in build.gradle build.gradle.kts settings.gradle settings.gradle.kts \
@@ -414,8 +414,8 @@ ga_is_version_stamp() {
 # The releases whose footprint uninstall.sh knows how to clean without a manifest. A version
 # absent here is refused rather than guessed at: removing files by a list invented at runtime is
 # exactly the failure mode the manifest exists to prevent.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0"
-GA_LATEST_VERSION="v0.4.0"
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2"
+GA_LATEST_VERSION="v0.4.2"
 
 ga_is_supported_version() {
   case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) return 0 ;; *) return 1 ;; esac
@@ -476,7 +476,7 @@ ga_known_paths() {
         uninstall.sh genericarch.installation.md \
         .genericarch-version
       ;;
-    v0.4.0)
+    v0.4.0|v0.4.1)
       # v0.3.0 plus the two tools the empty-directory path needs: ga-project-setup.sh (the Xcode
       # toolchain gate and the four .xcconfig files) and ga-init-scan.sh (the offline half of
       # /project-init, which install.sh now runs itself). Both are copied, so both are removable.
@@ -499,6 +499,32 @@ ga_known_paths() {
         Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
         Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         Scaffold \
+        docs/DECISIONS.md docs/GAPS.md docs/resources \
+        uninstall.sh genericarch.installation.md \
+        .genericarch-version
+      ;;
+    v0.4.2)
+      # v0.4.1 minus what left for GenericXCodeSetup — Scaffold/ and ga-scaffold.sh — because this
+      # base no longer writes a package layout. ga-project-setup.sh stays: it writes the .xcconfig
+      # files an existing project should reference, so it is now part of every install rather than
+      # of a new-repo one.
+      #
+      # NOT listed, on purpose: .claude/notes/.evidence/. install.sh generates it rather than
+      # copying it, so no hash can prove ownership — uninstall.sh removes it by name instead.
+      printf '%s\n' \
+        .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
+        .claude/CANDIDATES.tsv .claude/notes .claude/memory \
+        .swiftlint.yml .swiftformat \
+        Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
+        Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
+        Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
+        Scripts/scan-unused-assets.py Scripts/scan-api-map.py Scripts/check-note-links.py \
+        Scripts/detect-capabilities.sh Scripts/claude-workflows Scripts/claude-utils \
+        Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
+        Scripts/session-script.sh Scripts/ga-lifecycle.sh \
+        Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh \
+        Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
+        Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         docs/DECISIONS.md docs/GAPS.md docs/resources \
         uninstall.sh genericarch.installation.md \
         .genericarch-version
@@ -585,25 +611,26 @@ ga_tombstone_drop() {
 # product lifecycle:
 #
 #   authoring checkout   a clone or fork of GenericArch — the repo where this file is edited
-#   template copy        `gh repo create --template` — a PRODUCT repo that merely starts as a
-#                        byte-for-byte copy of the base
+#   copy                 a PRODUCT repo that merely starts as a byte-for-byte copy of the base: the
+#                        GitHub template path (WITHDRAWN — the repo's template flag is off, because a
+#                        copy no installer wrote has no manifest, so uninstall.sh cannot prove
+#                        ownership of anything), or the same thing done by hand. The detection stays
+#                        regardless: copies made while that flag was on exist, and a hand fork is
+#                        indistinguishable from one
 #   consumer repo        install.sh wrote the base into it; `.claude-plugin/` never travels there
 #
 # The files cannot tell the first two apart. A GitHub template copies every TRACKED file, so
-# `.claude-plugin/`, `Scripts/adopt.sh`, `Scaffold/` and `Packages/` are all present in MyApp too —
-# "never travels" (docs/SHARING.md) is a statement about install.sh, not about a template. Reading
-# their presence as "this is GenericArch itself" recorded `scaffold` as not-applicable in a
-# brand-new product and then had ga-scaffold.sh refuse it: the product was left holding the
-# Core+DIKit floor with no app shells, no layers, and no way to ask for either.
+# `.claude-plugin/`, `Scripts/adopt.sh` and `README.md` are all present in MyApp too —
+# "never travels" (docs/SHARING.md) is a statement about install.sh, not about a template. So no
+# marker file can stand in for identity here, however specific it looks.
 #
 # What does differ is the HISTORY. A template copy starts at one fresh commit with no tags; a clone
 # or a fork carries the base's release tags. With no git at all — an unpacked tarball — the
 # directory name is all that is left, and the PRODUCT reading is the safe default there: a product
-# mistaken for the base is silently blocked, while the base mistaken for a product still has to get
-# past ga-scaffold.sh's confirm prompt.
+# mistaken for the base is silently blocked, while the base mistaken for a product changes nothing
+# on its own — every write here asks first.
 ga_has_base_markers() {
-  [ -f "$1/.claude-plugin/plugin.json" ] && [ -f "$1/Scripts/adopt.sh" ] \
-    && [ -f "$1/Scaffold/LAYOUT.tsv" ]
+  [ -f "$1/.claude-plugin/plugin.json" ] && [ -f "$1/Scripts/adopt.sh" ]
 }
 
 # ga_is_source_checkout <dir> — the repo that AUTHORS the base, not a copy of it
@@ -624,16 +651,33 @@ ga_is_template_copy() {
   ga_has_base_markers "$1" && ! ga_is_source_checkout "$1"
 }
 
+# ── Xcode-first: the project exists, the packages do not ───────────────────
+# The user creates the .xcodeproj in Xcode — the one artifact nothing here generates (docs/REPO.md
+# rejected Tuist and XcodeGen) — and only then installs. An .xcodeproj is an Apple marker, so every
+# gate reads that directory as an EXISTING repo and skips the package layer that has not been
+# written down anywhere. install.sh uses this to decide whether to offer the .xcconfig files, which
+# is worth asking about rather than assuming either way.
+#
+# Judged on the PACKAGES, never on Swift files: a project created in Xcode ships MyApp/MyAppApp.swift
+# and ContentView.swift, so "no .swift anywhere" would never match the case it is meant to catch.
+ga_is_xcode_first() {
+  [ -d "$1/Packages" ] && return 1
+  [ -f "$1/Package.swift" ] && return 1
+  for _ga_m in "$1"/*.xcodeproj "$1"/*.xcworkspace; do
+    [ -e "$_ga_m" ] && return 0
+  done
+  return 1
+}
+
 # ── Step ledger ────────────────────────────────────────────────────────────
 # The order commands must run in, and the record of which have run. A command that reorders itself
 # reads a repo that is not yet in the state it assumes — /gaps before /project-init triages items
 # nobody has decided, /sync-app-notes before either one writes nine notes off an unsurveyed tree.
 #
-# Canonical order. Position is the gate: a step requires every LOWER step to be recorded.
-# `scaffold` applies to a NEW repo only. install.sh records it as not-applicable on an existing one,
-# so the gate never blocks a repo that already has a structure — and the ledger says which kind of
-# install this was, months later, without anyone having to remember.
-GA_STEPS="install scaffold project-init gaps sync-app-notes ready"
+# Canonical order. Position is the gate: a step requires every LOWER step to be recorded. There is
+# no scaffold step: this base installs into a repo that already has an Xcode project, and the
+# package layout for a repo that has none lives in GenericXCodeSetup.
+GA_STEPS="install project-init gaps sync-app-notes ready"
 GA_STEP_LEDGER="STEPS.tsv"
 
 ga_step_path() { printf '%s/%s/%s' "$1" "$GA_STATE_DIR" "$GA_STEP_LEDGER"; }

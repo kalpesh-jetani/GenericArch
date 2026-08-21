@@ -165,9 +165,9 @@ grep -i lint .claude/SCRIPTS.tsv       # which script does this, and its contrac
 ./Scripts/ga-step.sh show              # which step is next, and why a command refused
 ```
 
-Commands run in a fixed order — install → scaffold (new repos only) → `/project-init` → `/gaps` →
-`/sync-app-notes` → ready — enforced by each command's first step. Exit 5 means an earlier one has
-not run → [SEQUENCE.md](docs/SEQUENCE.md).
+Commands run in a fixed order — install → `/project-init` → `/gaps` → `/sync-app-notes` → ready —
+enforced by each command's first step. Exit 5 means an earlier one has not run →
+[SEQUENCE.md](docs/SEQUENCE.md).
 
 [`MAP.tsv`](.claude/MAP.tsv) carries every doc, note, pattern and skill; **read the module doc
 before
