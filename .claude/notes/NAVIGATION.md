@@ -51,15 +51,21 @@ graph TD
     homeFeed --> itemDetail[".itemDetail(id:)"]
     homeFeed --> settings[".settings(section:)"]
 
-    click authLogin  "../../Packages/Features/FeatureAuth/Sources/FeatureAuth/Views/LoginView.swift" "Login form — email/password, owns field state"
-    click homeFeed   "../../Packages/Features/FeatureHome/Sources/FeatureHome/Views/FeedView.swift" "Paged feed — ContentState<Paged<Item>>"
-    click itemDetail "../../Packages/Features/FeatureHome/Sources/FeatureHome/Views/DetailView.swift" "Item detail — loads by id"
-    click settings   "../../Packages/Features/FeatureSettings/Sources/FeatureSettings/Views/SettingsView.swift" "Settings — sectioned, no remote data"
+    click authLogin  "…/FeatureAuth/Sources/FeatureAuth/Views/LoginView.swift" "Login form — email/password, owns field state"
+    click homeFeed   "…/FeatureHome/Sources/FeatureHome/Views/FeedView.swift" "Paged feed — ContentState<Paged<Item>>"
+    click itemDetail "…/FeatureHome/Sources/FeatureHome/Views/DetailView.swift" "Item detail — loads by id"
+    click settings   "…/FeatureSettings/Sources/FeatureSettings/Views/SettingsView.swift" "Settings — sectioned, no remote data"
 ```
 
 <!-- The example above is illustrative; replace it wholesale on the first real route.
      Regenerate whenever a route is added or removed, and keep every `click` line — they are what
-     make the graph findable by grep. Real edges only; an aspirational flow chart is worse than none. -->
+     make the graph findable by grep. Real edges only; an aspirational flow chart is worse than none.
+
+     Its `click` targets start `…/` on purpose. A real row carries the repo-relative path, but an
+     illustrative one must not look like one: `check.sh` reads these notes as indexes and reports a
+     path that does not resolve, which an example never will. Write the full path on the first real
+     route. The block cannot simply be commented out instead — a mermaid `-->` would close the
+     comment early. -->
 
 ## Container structure
 

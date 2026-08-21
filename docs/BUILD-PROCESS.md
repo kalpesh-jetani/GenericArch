@@ -11,11 +11,12 @@
 
 ## The rule that shapes everything below
 
-**Claude never builds, runs or tests** (CLAUDE.md §2.12) — including `./Scripts/check.sh`, whose
-iOS-floor step compiles. It says what to run; you run it. Reading, grepping and editing are free;
-minutes of your machine are not.
+**Claude builds to validate; running and testing need your consent** (CLAUDE.md §2.12). Compiling is
+how a change gets checked, so it compiles on its own initiative — usually through
+`./Scripts/check.sh`, whose iOS-floor step is the slow part — and reports what came back. It does not
+run the app, launch a simulator or device, or run the test suite without being asked.
 
-`/build` is the single sanctioned exception, because typing it *is* the instruction.
+`/build` is that consent for the run it names, and it does not carry to the next one.
 
 ## Choosing a stage
 

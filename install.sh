@@ -6,6 +6,9 @@
 #   ./install.sh --dry-run            # print the plan and stop
 #   ./install.sh --yes                # skip the confirmation prompt
 #   ./install.sh --force              # install even if the repo identifies as non-Apple
+#   ./install.sh --project-setup      # always run the Xcode project setup step first
+#   ./install.sh --no-project-setup   # never offer it
+#   ./install.sh --no-preflight       # skip the /project-init evidence scan at the end
 #
 # This script runs from a GenericArch CHECKOUT and touches the network never. To install straight
 # from GitHub, use bootstrap.sh, which clones a pinned tag and then calls this.
@@ -36,7 +39,7 @@ fi
 . "$SRC/Scripts/ga-lifecycle.sh"
 
 usage() {
-  sed -n '2,15p' "$0"
+  sed -n '2,16p' "$0"
   echo
   echo "Exit codes: 0 ok · 1 error · 2 usage · 3 incompatible target · 4 declined · 78 not macOS"
 }
@@ -47,6 +50,8 @@ FORCE_COMPAT=0
 ROOT_OK=0
 MODE=""
 WITH_ARCH=0
+PROJECT_SETUP=""   # "" ask when it applies · yes always · no never
+PREFLIGHT=1        # run the /project-init evidence scan once the install has landed
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes)      GA_ASSUME_YES=1; shift ;;
@@ -54,6 +59,9 @@ while [ $# -gt 0 ]; do
     -f|--force)    FORCE_COMPAT=1; shift ;;
     --root-ok)     ROOT_OK=1; shift ;;
     --with-architecture) WITH_ARCH=1; shift ;;
+    --project-setup)    PROJECT_SETUP="yes"; shift ;;
+    --no-project-setup) PROJECT_SETUP="no"; shift ;;
+    --no-preflight)     PREFLIGHT=0; shift ;;
     --mode)        [ $# -ge 2 ] || ga_die "--mode needs existing or new" "$GA_EX_USAGE"
                    case "$2" in existing|new) MODE="$2" ;; *) ga_die "--mode takes existing or new, not $2" "$GA_EX_USAGE" ;; esac
                    shift 2 ;;
@@ -243,6 +251,115 @@ else
   ga_dim "  or /review, because both enforce an architecture this repo has not adopted: new-feature"
   ga_dim "  would scaffold a package the app cannot consume, /review would report rules you declined."
   ga_dim "  /project-init offers them once the rule-conflict table is settled."
+fi
+
+# ── 1a. The build the target already has ───────────────────────────────────
+# A deployment floor above the installed SDK, or a language mode the compiler cannot provide, means
+# that repo does not build as configured — and /project-init refuses to adopt docs onto it
+# (Scripts/ga-init-scan.sh exits 3 on the same row). This install is not refused for it: rules,
+# indexes and tooling are still correct in a repo whose floors need lowering, and blocking a
+# docs-and-tooling adoption on an unrelated build problem would leave --force as the only way past.
+# So it is said out loud, here, before the operator spends a session on the next step.
+#
+# Only for an existing repo: a fresh one has no project settings to mismatch yet, and
+# ga-project-setup.sh below asks for its floors against the installed SDK anyway.
+if [ "$MODE" = "existing" ] && [ "$DRY_RUN" -eq 0 ] && [ -x "$SRC/Scripts/detect-toolchain.sh" ]; then
+  TC_BLOCKING="$(NO_COLOR=1 "$SRC/Scripts/detect-toolchain.sh" --mismatches --root "$TARGET" 2>/dev/null \
+                 | grep '^BLOCKING' || true)"
+  if [ -n "$TC_BLOCKING" ]; then
+    echo
+    ga_warn "this repo does not build as configured — the install continues, /project-init will not:"
+    printf '%s\n' "$TC_BLOCKING" | while IFS='|' read -r _sev _id _what _cur _avail _fix; do
+      printf '    %s%s%s — %s, available %s\n' "$GA_BLD" "$_what" "$GA_OFF" "$_cur" "$_avail"
+      printf '      fix: %s\n' "$_fix"
+    done
+    ga_dim "  /upgrade-stack applies a fix like these, and asks twice before changing any setting."
+  fi
+fi
+
+# ── 1b. Project setup — the one thing this installer cannot generate ───────
+# GenericArch installs rules, skills, tooling and packages. It has never produced the .xcodeproj,
+# and CLAUDE.md §1 is the reason: SPM stays the source of truth, and docs/REPO.md rejects both
+# generators that would do it properly. What IS mechanical — the Xcode toolchain gate, the four
+# committed .xcconfig files, the checklist — is ga-project-setup.sh, and this is where it belongs:
+# after the mode is known, before a single file is written, so a missing toolchain costs nothing.
+#
+# Two situations reach it, and the second is the one the markers get wrong:
+#   new           — an empty directory. No project yet, so prepare its inputs.
+#   bare .xcodeproj — someone created the project in Xcode first. The compatibility gate sees an
+#                   Apple marker and calls this an EXISTING repo, which would skip Scaffold/ and
+#                   ga-scaffold.sh — the packages that have not been written yet. So it is offered
+#                   here together with the mode correction, rather than silently installing the
+#                   wrong half.
+PROJECT_SETUP_DONE=0
+if [ "$PROJECT_SETUP" != "no" ] && [ -x "$SRC/Scripts/ga-project-setup.sh" ]; then
+  BARE_XCODE=0
+  if [ "$MODE" = "existing" ] && [ ! -d "$TARGET/Packages" ] && [ ! -f "$TARGET/Package.swift" ]; then
+    for _p in "$TARGET"/*.xcodeproj "$TARGET"/*.xcworkspace; do
+      [ -e "$_p" ] && { BARE_XCODE=1; break; }
+    done
+  fi
+
+  if [ "$MODE" = "new" ] || [ "$BARE_XCODE" -eq 1 ] || [ "$PROJECT_SETUP" = "yes" ]; then
+    ga_hdr "── Xcode project ──────────────────────────────────────"
+    if [ "$BARE_XCODE" -eq 1 ]; then
+      ga_warn "an .xcodeproj is here but no Packages/ — this looks like a project you just created.
+  The gate reads any Xcode marker as an existing repo, so this install would skip Scaffold/ and
+  ga-scaffold.sh and leave you without the package layer. Answering yes below switches to
+  --mode new and keeps your project untouched."
+    else
+      ga_dim "  Nothing here generates an .xcodeproj — SPM stays the source of truth (CLAUDE.md §1)."
+      ga_dim "  This checks the Xcode toolchain, asks what the project needs, and writes the four"
+      ga_dim "  .xcconfig files plus a checklist. The project itself you create in Xcode."
+    fi
+    echo
+
+    # A bundle ID, a Team ID and a deployment floor are answers only a person has, so with no
+    # terminal this step cannot run — and letting it fail would abort an install that was otherwise
+    # fine. Skip it instead, unless the operator asked for it explicitly and can see the error.
+    PS_HAS_TTY=1
+    { exec 3<>/dev/tty; } 2>/dev/null && exec 3>&- || PS_HAS_TTY=0
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+      ga_dim "  dry run — skipped. It would run:"
+      ga_dim "    ./Scripts/ga-project-setup.sh \"$TARGET\" --apply"
+    elif [ "$PS_HAS_TTY" -eq 0 ] && [ "$PROJECT_SETUP" != "yes" ]; then
+      ga_warn "no terminal to ask on — project setup skipped, the install continues.
+  It needs a bundle ID, a Team ID and a deployment floor, none of which may be defaulted
+  (CLAUDE.md §0). Run it yourself, or pass every answer as a flag:
+    ./Scripts/ga-project-setup.sh . --product NAME --bundle-id com.you.app \\
+        --targets ios,macos --ios 17 --macos 26.5 --apply --yes"
+    elif [ "$PROJECT_SETUP" = "yes" ] || ga_confirm "Set up the Xcode project inputs first?"; then
+      # Run it directly rather than reimplementing the gate: one source of truth for what a usable
+      # Apple toolchain is, and it prompts for its own answers.
+      "$SRC/Scripts/ga-project-setup.sh" "$TARGET" --apply
+      _ps=$?
+      case "$_ps" in
+        0) PROJECT_SETUP_DONE=1
+           # The mode line was already printed above, so a silent correction here would leave the
+           # transcript saying "existing" while the install does "new". Reprint it.
+           if [ "$BARE_XCODE" -eq 1 ]; then
+             MODE="new"; MODE_WHY="corrected — bare Xcode project, package layer still needed"
+             printf '\n  %sinstall mode%s  %s%s%s  %s(%s)%s\n' \
+               "$GA_BLD" "$GA_OFF" "$GA_BLD" "$MODE" "$GA_OFF" "$GA_DIM" "$MODE_WHY" "$GA_OFF"
+           fi
+           ;;
+        # 3 is the toolchain gate. Installing on top of a machine that cannot open the project it
+        # just described is how a session gets spent on a repo nobody can build — so this stops,
+        # and nothing has been written yet.
+        3) ga_die "Xcode toolchain check failed above — nothing was installed.
+  Fix the toolchain and re-run, or skip this step with --no-project-setup." "$GA_EX_COMPAT" ;;
+        4) ga_warn "project setup declined — continuing with the install only" ;;
+        *) ga_die "project setup failed (exit $_ps) — nothing was installed." "$GA_EX_ERR" ;;
+      esac
+    else
+      ga_dim "  skipped — run it later with ./Scripts/ga-project-setup.sh . --apply"
+    fi
+    if [ "$BARE_XCODE" -eq 1 ] && [ "$MODE" = "existing" ]; then
+      ga_warn "still installing as an existing repo — no Scaffold/, no ga-scaffold.sh.
+  Re-run with --mode new if you did want the package layer."
+    fi
+  fi
 fi
 
 # ── 2. Stage into a temp tree ──────────────────────────────────────────────
@@ -520,6 +637,34 @@ if [ "$MODE" = "existing" ]; then
   ga_step_record "$TARGET" scaffold "not applicable: existing repo keeps its own structure"
 fi
 
+# ── 6. The /project-init preflight ─────────────────────────────────────────
+# About half of /project-init is a deterministic scan of files on disk — the mode, the conflict
+# evidence for docs/ADOPTION.md §A2, the name collisions, the routable-path validator, the orphan
+# module docs. Running it here means the next session reads one bounded artifact instead of paying
+# for four rounds of grep, exactly as sync-notes.sh --evidence does for /sync-app-notes.
+#
+# It has to be HERE and not earlier: §routes checks .claude/MAP.tsv against the disk, so the map
+# must already be installed. And it is past the rollback point on purpose — the files have landed,
+# so a scan that fails costs a session, not an install. Never fatal.
+PREFLIGHT_NOTE="Gather the evidence offline first:  ./Scripts/ga-init-scan.sh . --write"
+if [ "$PREFLIGHT" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ -x "$SRC/Scripts/ga-init-scan.sh" ]; then
+  ga_hdr "── Preflight ──────────────────────────────────────────"
+  ga_dim "  Gathering what /project-init can establish without asking. Read-only; nothing is decided."
+  if "$SRC/Scripts/ga-init-scan.sh" "$TARGET" --write --quiet; then
+    PREFLIGHT_NOTE="Evidence is already gathered: .claude/notes/.evidence/INIT-SCAN.md"
+  else
+    _pf=$?
+    case "$_pf" in
+      # 3 is a BLOCKING toolchain row, already reported above and by the scan itself. The evidence
+      # file is still written, so the note stands.
+      3) PREFLIGHT_NOTE="Evidence gathered, with a BLOCKING toolchain row: .claude/notes/.evidence/INIT-SCAN.md" ;;
+      *) ga_warn "the preflight scan did not complete (exit $_pf) — the install is unaffected.
+  /project-init will run its own scans instead. A failure report, if one was written, is in
+  $GA_STATE_DIR/failures/." ;;
+    esac
+  fi
+fi
+
 if [ "$MODE" = "new" ]; then
   # Every escape passed as an argument: the here-doc below expands $SCAFFOLD_STEP but does not
   # re-expand what is inside it, so a ${GA_BLD} written into the format string arrives literally.
@@ -543,6 +688,7 @@ cat <<NEXT
   2. ${GA_BLD}/project-init${GA_OFF}
        Reads your CLAUDE.md in full, builds the rule-conflict table, and asks per conflict.
        Your rules win by default; nothing is overwritten without an explicit yes.
+       ${GA_DIM}${PREFLIGHT_NOTE}${GA_OFF}
   3. ${GA_BLD}/gaps${GA_OFF}
        Derives each gap's status from your code instead of asking.
   4. ${GA_BLD}/sync-app-notes${GA_OFF}

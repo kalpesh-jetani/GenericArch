@@ -125,7 +125,7 @@ gen_ASSETS-IMAGES() {
   find "$SRC" -type d -name '*.imageset' -not -path '*/.git/*' 2>/dev/null | LC_ALL=C sort |
   while IFS= read -r d; do
     n="$(basename "$d" .imageset)"
-    v="$(find "$d" -type f \( -name '*.png' -o -name '*.pdf' -o -name '*.svg' \) 2>/dev/null | grep -c . || echo 0)"
+    v="$(find "$d" -type f \( -name '*.png' -o -name '*.pdf' -o -name '*.svg' \) 2>/dev/null | grep -c . || true)"
     dark='no'
     grep -q '"appearances"' "$d/Contents.json" 2>/dev/null && dark='yes'
     printf '| `%s` | `%s` | %s | %s |\n' "$n" "${d#"$SRC"/}" "$v" "$dark"
@@ -166,8 +166,16 @@ gen_NAVIGATION() {
       [ -n "$c" ] || continue
       # A route is a case that is navigated TO — counting declarations alone overcounts 4×
       # (docs/SCAN-TRAPS.md). The call-site count is the evidence, and 0 is a finding.
-      n=$(grep -rho "\.$c\b" --include='*.swift' "$SRC" 2>/dev/null | grep -c . || echo 0)
-      n=$((n > 0 ? n - 1 : 0))
+      #
+      # Two shapes are NOT navigations and must not be counted. The declaration excludes
+      # itself: `case placeholder` carries no dot, so the pattern never matched it — which is
+      # why nothing is subtracted here. A destination switch's `case .placeholder:` MAPS the
+      # route rather than navigating to it, so those lines are dropped instead. Subtracting a
+      # flat 1 for it undercounted every route by one and reported a route with exactly one
+      # call site as dead.
+      n=$(grep -rh --include='*.swift' "\.$c\b" "$SRC" 2>/dev/null \
+            | grep -v "case[[:space:]]*\.$c\b" \
+            | grep -o "\.$c\b" | grep -c . || true)
       printf '| `%s` | `%s` | %s |\n' "$c" "${f#"$SRC"/}" "$([ "$n" -eq 0 ] && echo '**0 — never navigated to**' || echo "$n")"
     done
   done
@@ -275,7 +283,7 @@ if [ "$MODE" = "evidence" ]; then
         raw="$EVID/API-MAP.json"
         python3 "$HERE/scan-api-map.py" "$SRC" > "$raw" 2>/dev/null || true
         declared="$(sed -n 's/.*"declared": *\([0-9]*\).*/\1/p' "$raw" | head -1)"
-        shapes="$(grep -rl 'var path' --include='*.swift' "$SRC" 2>/dev/null | grep -c . || echo 0)"
+        shapes="$(grep -rl 'var path' --include='*.swift' "$SRC" 2>/dev/null | grep -c . || true)"
         printf 'scanner-output\t%s\n' "${raw#"$ROOT"/}" >> "$f"
         printf 'endpoints-found\t%s\n' "${declared:-0}" >> "$f"
         printf 'files-with-a-path-property\t%s\n' "$shapes" >> "$f"
@@ -303,7 +311,7 @@ if [ "$MODE" = "evidence" ]; then
           | sed "s|$SRC/||; s/^/config-file\t/" | LC_ALL=C sort >> "$f" || true ;;
     esac
     printf '  %s→%s %-14s %s candidate(s)  %s%s%s\n' "$DIM" "$OFF" "$note" \
-      "$(awk '!/^#/' "$f" | grep -c . || echo 0)" "$DIM" "${why:0:52}" "$OFF"
+      "$(awk '!/^#/' "$f" | grep -c . || true)" "$DIM" "${why:0:52}" "$OFF"
   done
   printf '\n%s.claude/notes/.evidence/ — candidates, not rows. /sync-app-notes reviews these instead%s\n' "$DIM" "$OFF"
   printf '%sof re-running the scans, which is where the saving is.%s\n' "$DIM" "$OFF"
@@ -333,7 +341,7 @@ for n in $MECHANICAL $PARTIAL; do
     handoff "Scripts/sync-notes.sh (gen_$n)" "the $n generator failed on inputs that exist — a shape it does not know" "$f"
     continue
   fi
-  gen_rows=$(awk '/^\|/ && $0 !~ /^\| *-+/ && NR > 2' "$TMP" | grep -c . || echo 0)
+  gen_rows=$(awk '/^\|/ && $0 !~ /^\| *-+/ && NR > 2' "$TMP" | grep -c . || true)
   case " $PARTIAL " in
     *" $n "*)
       # Inside the managed block, so it is impossible to read the table without it.

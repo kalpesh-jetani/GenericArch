@@ -17,14 +17,19 @@ and `/project-init` tells you which rules that changes.
 
 ## Install
 
-Three ways in. Pick the row that matches what you have — all of them are non-destructive:
+Four ways in. Pick the row that matches what you have — all of them are non-destructive:
 **nothing overwrites your `CLAUDE.md`, your skills, or your commands.**
 
 | You have | Use | You get |
 |---|---|---|
-| Nothing yet | **Template repo** | Everything: rules, docs, tooling, starter packages |
+| Nothing yet, and you want to choose your layers | **Empty directory** → `install.sh` + `ga-scaffold.sh` — path **B** below | Rules, docs, tooling, and only the layers you pick. **No deployment floor is written for you** — the §0 default |
+| Nothing yet, and you want everything at once | **Template repo** — path **A** below | The same, plus every layer this repo has — and this product's answers, which you then reset (including its floors) |
 | An existing app | **`bootstrap.sh`** → `install.sh` | Skills, commands, indexes and tooling — your code and your rules untouched, every file hashed, fully reversible with `uninstall.sh` |
 | Several repos | **Plugin** | Only the skills and commands, updated centrally |
+
+**Do not build your app inside a GenericArch checkout.** `install.sh` refuses a target that is its
+own source, and a clone you work in directly inherits this product's decisions — floors included —
+while looking like a fresh start. Clone it anywhere, install *out* of it into your repo.
 
 Reference docs are fetched on demand rather than copied, and two groups are **opt-in** — see
 [What travels](#what-travels-and-what-does-not) below.
@@ -36,7 +41,13 @@ Reference docs are fetched on demand rather than copied, and two groups are **op
 ```bash
 gh repo create <you>/MyApp --template kalpesh-jetani/GenericArch --private --clone
 cd MyApp
+./Scripts/detect-toolchain.sh --mismatches   # do this BEFORE /project-init
 ```
+
+**Clear any `BLOCKING` row first.** `/project-init` refuses to do anything while one stands — a
+deployment floor above your installed SDK cannot build, and reconciling rules onto a repo that does
+not build wastes the session. On this path the usual offender is an inherited floor; see the reset
+below, and `/upgrade-stack` if you would rather be walked through it.
 
 Then, in Claude Code:
 
@@ -54,13 +65,92 @@ structure: the per-product rows in `docs/DECISIONS.md`, the statuses in `docs/GA
 slip.
 
 ```bash
-./Scripts/detect-toolchain.sh   # your machine sets the baseline, not this repo's
-./Scripts/verify-memory.sh      # 0 once the store is yours; 1 lists what is still inherited
+./Scripts/detect-toolchain.sh              # your machine sets the baseline, not this repo's
+./Scripts/detect-toolchain.sh --mismatches # BLOCKING rows first — see the floors note below
+./Scripts/verify-memory.sh                 # 0 once the store is yours; 1 lists what is still inherited
 ```
 
-`./Scripts/adopt.sh` (path C) does this reset for you. Only the template path needs the manual step.
+**Reset the deployment floors too — this is the one inherited answer that stops the build, not just
+misleads.** The template carries this product's floors in code, in the two seed manifests:
 
-### B. Existing project — from inside your repo
+```bash
+grep -rn 'platforms:' Packages/Core/Package.swift Packages/DIKit/Package.swift
+```
+
+They read `.macOS("26.6")`, which is *this* repo's answer to a question your product has not been
+asked ([docs/DECISIONS.md](docs/DECISIONS.md)). If your Xcode ships an older macOS SDK, an app target
+refuses that floor outright — `--mismatches` reports it as
+`BLOCKING|macos-target-above-sdk`, and `/project-init` stops on it before doing anything else. Fix it
+in three places, or the next reader takes it for a decision somebody made: both `platforms:` lines,
+the *Deployment targets* row in `docs/DECISIONS.md`, and `/decide` to record what you chose instead.
+Nothing here defaults a floor for you — that is CLAUDE.md §0, and it applies to an inherited number
+exactly as it applies to a blank one.
+
+Two more things the template path does differently from an install:
+
+- **`scaffold` is recorded *not applicable* automatically.** A template copy already has the
+  structure `ga-scaffold.sh` would create — `ga-step.sh` derives that from the checkout itself, so
+  `/project-init` clears its gate without an operator override.
+- **You inherit the layer set, not a choice of one.** Every layer this repo has arrives whether your
+  product needs it or not. If that is not what you want, take path B instead and pick.
+
+`./Scripts/adopt.sh` (path D) does this reset for you. Only the template path needs the manual step.
+
+### B. New project — from an empty directory *(recommended for a genuinely new app)*
+
+The template hands you this product's answers; an empty directory hands you none. For a new app that
+is the difference that matters, because **no floor is written for you** — the generated manifests
+carry a comment where the `platforms:` line would be, which is what CLAUDE.md §0 asks for.
+
+```bash
+mkdir MyApp && cd MyApp && git init
+/path/to/GenericArch/install.sh .            # dry run first — it prints every file
+/path/to/GenericArch/install.sh . --yes
+./Scripts/ga-scaffold.sh . --list            # the layers on offer
+./Scripts/ga-scaffold.sh . --with navigation,design --apply
+```
+
+Then `/project-init` in Claude Code. Nothing to reset: the decisions, gaps, notes and memory arrive
+empty, and the floors arrive unset.
+
+**The install offers to set up the Xcode project first.** On an empty directory it checks the Xcode
+toolchain, asks what the project needs, and writes the four `.xcconfig` files —
+`Configurations/{Base,DEV,TEST,BETA,PROD}.xcconfig` exactly as
+[SCHEMES.md](.claude/notes/SCHEMES.md) specifies them — plus an `XCODE-SETUP.md` checklist. It stops
+before the `.xcodeproj` itself, because nothing here generates one. You do the two minutes of
+File > New > Project, following the checklist.
+
+To run it yourself, or re-run it later — without `--apply` it prints the plan and writes nothing:
+
+```bash
+./Scripts/ga-project-setup.sh .                       # dry run, prompts for anything not given
+./Scripts/ga-project-setup.sh . --product MyApp --bundle-id com.acme.myapp \
+    --targets ios,macos --ios 17 --macos 26.5 --apply
+```
+
+**If the Command Line Tools are missing it stops and says so, before writing anything.** Only full
+Xcode can create a project, so a Command-Line-Tools-only machine is also a stop in prepare mode —
+being handed a checklist you cannot follow is worse than being told why.
+
+Nothing is defaulted: the bundle ID, the Team ID and both floors are asked, and a Team ID you do not
+have stays blank rather than invented. With no terminal to ask on — CI, a pipe — the step is skipped
+and the install continues; pass every answer as a flag to run it there.
+
+#### Already created the project in Xcode?
+
+That works too, and the order does not matter — but **pass `--mode new`**:
+
+```bash
+/path/to/GenericArch/install.sh . --mode new
+```
+
+An `.xcodeproj` is an Apple marker, so the compatibility gate reads the directory as an *existing*
+repo and would skip `Scaffold/` and `ga-scaffold.sh` — the package layer you have not written yet.
+The install now spots this case (a project, but no `Packages/`), says so, and offers the correction
+rather than quietly installing half. `ga-project-setup.sh` switches to `--adopt`: it writes the
+`.xcconfig` files for your existing project and never opens or edits the `.xcodeproj`.
+
+### C. Existing project — from inside your repo
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/kalpesh-jetani/GenericArch/HEAD/bootstrap.sh
@@ -98,6 +188,12 @@ manifest hashes what it wrote, the install is fully reversible — see
 /sync-app-notes        # builds the inventories every later lookup reads instead of searching
 ```
 
+`/project-init` starts from evidence the installer already gathered:
+`.claude/notes/.evidence/INIT-SCAN.md` — the mode, one row per rule conflict with counts and example
+paths, the name collisions, and whether every `MAP.tsv` row resolves. Offline, no model. What is
+*not* in it is any verdict: a count is not a severity, so the asking is unchanged
+(`./Scripts/ga-init-scan.sh . --write` regenerates it).
+
 **In that order — it is enforced**, not advisory ([the order](#the-commands-run-in-order)). Then, on
 your own machine, `./Scripts/check.sh`: expect failures on an existing codebase, that is the point.
 
@@ -110,7 +206,7 @@ by editing a doc ([docs/ADOPTION.md](docs/ADOPTION.md)).
 | `--ref <tag>` or `GA_REF=<tag>` | Pin a version instead of taking the newest tag. Copy tag names from `git ls-remote --tags --refs <repo>` rather than reconstructing them — prefixed and unprefixed forms both exist and are not guaranteed to be the same commit. Don't pin `v0.1.0`: it predates the script registry, `docs/patterns/` and `.claude/memory/` |
 | `GA_REPO=/path/to/checkout` | A local clone or your fork — also the way in when the repo is private and `curl` cannot reach it |
 
-### C. Several repos — just the tooling
+### D. Several repos — just the tooling
 
 ```
 /plugin marketplace add kalpesh-jetani/genericarch-plugin
@@ -145,7 +241,11 @@ to avoid — so the existing-repo install has nothing to impose.
 ./Scripts/ga-scaffold.sh . --list                       # the layers on offer
 ./Scripts/ga-scaffold.sh . --with navigation,design     # dry run — the plan
 ./Scripts/ga-scaffold.sh . --with navigation,design --apply
+./Scripts/ga-scaffold.sh . --with navigation,design --apply --yes   # CI, or any run with no tty
 ```
+
+`--apply` asks before writing. With no terminal to ask on — CI, a pipe, an agent — it stops instead
+of guessing; add `--yes` (or `GA_ASSUME_YES=1`) to confirm up front.
 
 It creates the app shells, copies `Core` and `DIKit` in as real tested packages, adds only the
 layers
@@ -169,7 +269,7 @@ somebody made.
 | **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · the scan and lookup scripts · the lifecycle tools (`ga-step`, `ga-remove`, `ga-reseal`) · `uninstall.sh` | They must be local to work |
 | **Scaffolded empty** | `docs/DECISIONS.md` · `docs/GAPS.md` · `.claude/notes/` · `.claude/memory/` · `.claude/CANDIDATES.tsv` | The prose is ours, the answers are yours |
 | **Fetched on demand** | `docs/modules/` · `docs/patterns/` · the cross-cutting reference docs | A product should not carry docs for layers it does not have. `genericarch.installation.md` indexes them; a missing `docs/…` link is a fetch instruction |
-| **New repos only** | `Scaffold/` · `Scripts/ga-scaffold.sh` · the `Core`/`DIKit` seed under `Scaffold/seed/` | Decided by what the target *is*, not by preference — see above |
+| **New repos only** | `Scaffold/` · `Scripts/ga-scaffold.sh` · `Scripts/ga-project-setup.sh` · the `Core`/`DIKit` seed under `Scaffold/seed/` | Decided by what the target *is*, not by preference — see above. An existing repo already has its project and its build settings, so a tool that prepares them is a lookup that never fires |
 | **On consent** | `--with-architecture` → the `new-feature` skill, `/review`, and the module and pattern rows in `MAP.tsv` | A surface that cannot fire is worse than a missing one: it is grepped, offered and trusted. Implied by a new-repo install |
 | **Opt-in** | `--with-lint` → `.swiftlint.yml`, `.swiftformat` · `--with-meta` → `Scripts/claude-workflows/` | Lint enforces conventions a product may have declined; the pipeline authors `CLAUDE.md` files rather than building apps |
 | **Never** | `CLAUDE.md` · this repo's decisions, gaps, notes and memory · `install.sh`, `bootstrap.sh` · `README.md` · `.claude/settings.json` | Your rules are yours; re-installing means fetching again |
@@ -200,9 +300,10 @@ After `ready`, the skills and `/find`, `/decide`, `/learn`, `/review`, `/verify`
 any
 order — they are the work, not steps.
 
-Out of order, these commands do not fail; they succeed against the wrong input. `/gaps` before
-`/project-init` triages capabilities against rules nobody has accepted; `/sync-app-notes` before
-either scans a tree still being agreed. That is why it is a gate and not a paragraph. A step that
+Out of order, these commands would not fail; they would succeed against the wrong input. `/gaps`
+before `/project-init` triages capabilities against rules nobody has accepted; `/sync-app-notes`
+before either scans a tree still being agreed. That is why it is a gate and not a paragraph. A step
+that
 genuinely does not apply is **recorded as skipped, with a reason** — by you, never by Claude:
 
 ```bash
@@ -532,8 +633,8 @@ once, a section that does not exist. Gates, phase contracts, Xcode resolution an
   not in `CLAUDE.md`; a topic it cannot find is one to ask about, not to improvise.
 - **It reads a failed script's report, not the script.** ~45 lines naming what the script expected
   and what your repo has, instead of 175 lines to re-derive.
-- **It never builds, runs, or tests** — including `./Scripts/check.sh`, which compiles. It tells you
-  what to run.
+- **It builds to validate, and asks before running or testing** — `./Scripts/check.sh` compiles the
+  iOS floor and it runs that itself; the app, a simulator and the test suite wait for your yes.
 - **The note inventories are updated row by row** as part of a change; a full rescan only happens
   when you type `/sync-app-notes`, and even then it scans only what changed.
 - **It calls a script rather than reading it.** `.claude/SCRIPTS.tsv` states each script's inputs
@@ -604,6 +705,7 @@ docs/CLAUDE-TASKS.md the nine-phase pipeline: contracts, gates, and how to add a
 docs/SEQUENCE.md     the command order, what each step must leave behind, and how to add one
 Scripts/ga-step.sh   the sequence gate — show · next · require · after · record
 Scripts/sync-notes.sh    regenerate seven of the nine notes offline — no model, no network
+Scripts/ga-init-scan.sh  the offline half of /project-init: mode, conflict evidence, collisions
 Scripts/ga-handoff.sh    a failing script's bounded diagnosis, so the agent fixes it from that
 Scripts/ga-remove.sh retire a file: move, tombstone, de-reference, record
 Scripts/ga-reseal.sh keep files the commands edited removable

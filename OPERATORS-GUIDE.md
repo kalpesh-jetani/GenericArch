@@ -10,11 +10,12 @@ different document.
 
 ---
 
-## 1. The seven rules that matter most
+## 1. The eight rules that matter most
 
-1. **Commands run in a fixed order.** `install → /project-init → /gaps → /sync-app-notes → ready`.
-   Run `./Scripts/ga-step.sh show` any time to see where you are. Out of order, a command does not
-   fail — it succeeds against the wrong input, which is worse.
+1. **Commands run in a fixed order.** `install → scaffold* → /project-init → /gaps →
+   /sync-app-notes → ready` — *scaffold is new repos only.* Run `./Scripts/ga-step.sh show` any time
+   to see where you are. Out of order, a command refuses with exit 5 and writes nothing — because the
+   failure it prevents is the silent one: it would otherwise succeed against the wrong input.
 2. **Never delete an installed file with `rm`.** Use `./Scripts/ga-remove.sh <path> --reason "…"`.
    A plain delete comes back on the next install, because "absent" and "never installed" look
    identical to an installer. Nothing is destroyed: the file **moves** to
@@ -22,22 +23,20 @@ different document.
    byte-identical. If you want the disk space, delete that directory — the name is the promise.
 3. **One install per checkout, at one root.** Two live copies duplicate every command and only one
    of them can ever be uninstalled. The installer now refuses the second one.
-4. **Claude never commits, never pushes, never builds.** It leaves changes in the working tree and
-   tells you what to run. If you want a commit, say so explicitly.
-5. **`CLAUDE.md` is never edited without your yes** — including by you-via-Claude. It is the one
-file
-   loaded on every session, so every line in it is a permanent cost.
+4. **Claude never commits and never pushes. It builds to validate, but never runs or tests unasked.**
+   Changes are left in the working tree. If you want a commit, or the app or test suite actually
+   run, say so explicitly.
+5. **`CLAUDE.md` is session material only, and never edited without your yes** — including by
+   you-via-Claude. It is the one file loaded on every session, so every line in it is a permanent
+   cost: setup, build, ship, settings and package rules live in their own files, because they are
+   not needed in a session where someone is writing code. Anything Claude might need is *linked*
+   from there — a file nothing links to is one it never learns exists.
 6. **Nothing under `docs/` or `.claude/notes/` is in Claude's context automatically.** It gets
-looked
-   up. That is the whole design: cheap by default, detailed on demand.
+   looked up. That is the whole design: cheap by default, detailed on demand.
 7. **A decision is only recorded when it is in two places** — the thing that enforces it, and
    `docs/DECISIONS.md` so nobody re-proposes it.
-8. **`CLAUDE.md` is session material only.** Setup, build, ship, settings and package rules live in
-   their own files, because they are not needed in a session where someone is writing code. Anything
-   Claude might need is *linked* from there — a file nothing links to is one it never learns exists.
-9. **Scripts do the work; Claude reviews.** Seven of the nine inventories are generated offline.
-When
-   a script cannot handle your repo it writes a short diagnosis, not a guess.
+8. **Scripts do the work; Claude reviews.** Seven of the nine inventories are generated offline.
+   When a script cannot handle your repo it writes a short diagnosis, not a guess.
 
 ---
 
@@ -77,6 +76,7 @@ that write anything need `--apply` or a confirmation.
 | `./Scripts/detect-capabilities.sh` | Which capabilities and entitlements the project declares |
 | `./Scripts/notes-staleness.sh` | Which inventories are out of date. `--stamp` records a content hash so the next check is instant |
 | `./Scripts/sync-notes.sh` | **Rebuild seven of the nine notes without Claude.** `--check` for CI (exit 1 on drift), `--apply` to write them, `--evidence` for the remainder. Offline, no model, no network. Four of the seven are *partial*: the script writes the provable rows and says in the note what it could not establish |
+| `./Scripts/ga-init-scan.sh` | **The offline half of `/project-init`.** Mode, toolchain mismatches, rule-conflict evidence for every `docs/ADOPTION.md` §A2 row, name collisions, whether every `MAP.tsv` row resolves, and which module docs have no package. `install.sh` runs it for you and writes `.claude/notes/.evidence/INIT-SCAN.md`; `--check` is the CI gate. Read-only — it decides nothing, writes no rule, and records no step |
 | `./Scripts/ga-handoff.sh` | Not run by hand — a failing script calls it and writes a short diagnosis to `.genericarch/failures/`. Hand *that file* to Claude, not the script |
 | `./Scripts/check.sh` | The full rule check. **Compiles code**, so Claude will never run it — this one is yours |
 | `./Scripts/claude-utils/survey-repo.sh <repo>` | How far an existing repo already matches this architecture |
@@ -120,21 +120,55 @@ declined. A command that cannot fire is worse than a missing one — it still ge
 and
 believed.
 
-For a new repo, after installing:
+For a new repo, the install offers **project setup** before it writes anything: the Xcode toolchain
+gate, then the four `.xcconfig` files and an `XCODE-SETUP.md` checklist. It never generates the
+`.xcodeproj` — you create that in Xcode, following the checklist.
+
+```bash
+./Scripts/ga-project-setup.sh .                          # dry run — the plan
+./Scripts/ga-project-setup.sh . --product MyApp --bundle-id com.acme.myapp \
+    --targets ios,macos --ios 17 --macos 26.5 --apply
+./install.sh . --no-project-setup                        # skip the offer entirely
+```
+
+Missing Command Line Tools is a **stop**, before any file is written — as is a prepare-mode run on a
+machine with only the CLT and no full Xcode, since creating a project needs Xcode itself. Nothing is
+defaulted: bundle ID, Team ID and both deployment floors are asked, and an unknown Team ID stays
+blank rather than invented. With no tty the step is skipped and the install continues.
+
+**If you created the project in Xcode first, pass `--mode new`.** An `.xcodeproj` is an Apple marker,
+so the gate would call the directory an existing repo and skip `Scaffold/` and `ga-scaffold.sh`. The
+install detects the case — a project but no `Packages/` — and offers the correction instead of
+installing half of what you need.
+
+Then, after installing:
 
 ```bash
 ./Scripts/ga-scaffold.sh . --list                            # what is on offer
+./Scripts/ga-scaffold.sh . --with navigation,design          # dry run — the plan
 ./Scripts/ga-scaffold.sh . --with navigation,design --apply  # create it
 ```
 
 Read `Scaffold/ARCHITECTURE-OPTIONS.md` first — one short section per choice, with what each one
 costs. Add a layer later with the same command.
 
+`--apply` confirms before writing. From CI, a pipe, or an agent there is no terminal to ask on and it
+stops rather than guessing — pass `--yes`, or set `GA_ASSUME_YES=1`, which every tool here honours.
+
 **No version number is ever written for you.** Floors come from `detect-toolchain.sh` reading your
 own
 manifests, or from `--ios`/`--macos`. With neither, the manifests carry a comment instead of a
 `platforms:` line, and `Packages/FLOORS.md` explains how to choose. A floor a tool picked reads, six
 months on, as a decision somebody made.
+
+**The exception is a repo started from the template rather than installed into.** There, the seed
+manifests arrive already carrying *this* repo's floors, so detection finds them and they travel.
+Check before anything else, and reset them along with the decisions, gaps, notes and memory:
+
+```bash
+./Scripts/detect-toolchain.sh --mismatches   # BLOCKING|macos-target-above-sdk means it cannot build
+grep -rn 'platforms:' Packages/*/Package.swift
+```
 
 ## 3. Files you own and edit
 

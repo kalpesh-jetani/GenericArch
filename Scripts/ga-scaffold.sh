@@ -3,8 +3,8 @@
 #@platform  macos
 #@claude    needs-approval
 #@purpose   Scaffold a NEW repo's directory structure from Scaffold/LAYOUT.tsv — app shells, the Core+DIKit floor, and only the layers asked for.
-#@usage     ga-scaffold.sh <target-dir> [--with navigation,auth,…] [--all] [--apply] [--list]
-#@in        target:dir --with:csv(groups from LAYOUT.tsv) --all:flag(every group) --apply:flag(without it, dry run) --list:flag(show the groups and stop) --ios:int(iOS floor, default from detect-toolchain) --macos:string(macOS floor, empty for iOS-only)
+#@usage     ga-scaffold.sh <target-dir> [--with navigation,auth,…] [--all] [--apply] [--list] [--yes]
+#@in        target:dir --with:csv(groups from LAYOUT.tsv) --all:flag(every group) --apply:flag(without it, dry run) --list:flag(show the groups and stop) --yes:flag(skip the confirm prompt; same as GA_ASSUME_YES=1, required when there is no tty) --ios:int(iOS floor, default from detect-toolchain) --macos:string(macOS floor, empty for iOS-only)
 #@out       stdout:the plan, then what was created; with --apply the tree exists and DECISIONS.md records the choice
 #@exit      0=ok 1=target not empty enough|unknown group 2=usage 4=declined at the prompt
 #@effects   with --apply: creates directories and files under the TARGET, copies Packages/Core and Packages/DIKit, appends to the target's docs/DECISIONS.md
@@ -36,6 +36,9 @@ while [ $# -gt 0 ]; do
     --list)   LIST=1; shift ;;
     --ios)    IOS="${2:-}"; shift 2 || true ;;
     --macos)  MACOS="${2:-}"; shift 2 || true ;;
+    # install.sh and uninstall.sh both take --yes, so an operator arrives here expecting it. Without
+    # it, `--apply` from a pipe or CI hit the confirm prompt, found no tty, and stopped.
+    --yes)    GA_ASSUME_YES=1; export GA_ASSUME_YES; shift ;;
     -h|--help) sed -n '5,8p' "$0"; exit "$GA_EX_USAGE" ;;
     -*)       ga_die "unknown flag: $1" "$GA_EX_USAGE" ;;
     *)        [ -z "$TARGET" ] || ga_die "one target only" "$GA_EX_USAGE"; TARGET="$1"; shift ;;
@@ -122,8 +125,10 @@ selected_has() { case " $SELECTED " in *" $1 "*) return 0 ;; esac; return 1; }
 # the note that explains how to choose.
 FLOOR_SRC="none"
 if [ -z "$IOS" ] && [ -z "$MACOS" ] && [ -x "$SRC/Scripts/detect-toolchain.sh" ]; then
-  # Run it in the TARGET: it reads that repo's manifests, not this checkout's.
-  _dt="$(cd "$TARGET" && "$SRC/Scripts/detect-toolchain.sh" --markdown 2>/dev/null)"
+  # --root, not a cd. This read "$(cd "$TARGET" && …)" and claimed it scanned the target; it did
+  # not — detect-toolchain.sh cd's to its own root, so scaffolding from a checkout into another
+  # repo wrote GenericArch's floors into every manifest it generated.
+  _dt="$("$SRC/Scripts/detect-toolchain.sh" --markdown --root "$TARGET" 2>/dev/null)"
   # Only rows whose Source column says `project` count. A `machine` row is an SDK, not a floor.
   IOS="$(printf '%s\n' "$_dt" | awk -F'|' '/Minimum iOS/ && $4 ~ /project/ {gsub(/[^0-9.]/,"",$3); print $3}' | head -1)"
   MACOS="$(printf '%s\n' "$_dt" | awk -F'|' '/Minimum macOS/ && $4 ~ /project/ {gsub(/[^0-9.]/,"",$3); print $3}' | head -1)"
@@ -252,7 +257,8 @@ while IFS="$(printf '\t')" read -r path kind group source purpose; do
         Packages/CLAUDE.md) from="$SRC/Scaffold/seed/PACKAGES-CLAUDE.md" ;;
         *)                  from="$SRC/Scaffold/seed/$(basename "$want")" ;;
       esac
-      [ -e "$from" ] || from="$SRC/Scaffold/seed/$(basename "$want")"
+      # Two candidates, not three: the installed seed, then a full checkout's own tree. (There was a
+      # third line here that retested the seed path verbatim — it could never change the outcome.)
       [ -e "$from" ] || from="$SRC/$want"
       if [ ! -e "$from" ]; then
         ga_warn "no seed for $want — neither Scaffold/seed/$(basename "$want") nor $want is here; skipped"

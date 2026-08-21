@@ -337,6 +337,14 @@ while IFS= read -r rel; do
 done < "$REMOVE"
 ga_ok "removed $removed file(s)"
 
+# Generated evidence, not installed files: ga-init-scan.sh and sync-notes.sh --evidence write here,
+# install.sh runs the first of the two itself, and the managed .gitignore block already declares the
+# directory untracked. Nothing in it is a decision, so leaving it behind would make "back to its
+# pre-install state" a claim `git status --ignored` contradicts — and would report as an orphan a
+# file no ownership check can ever prove.
+rm -f "$TARGET/.claude/notes/.evidence/INIT-SCAN.md" "$TARGET/.claude/notes/.evidence/INIT-CONFLICTS.tsv"
+rmdir "$TARGET/.claude/notes/.evidence" 2>/dev/null || true
+
 # Retire directories that are now empty, deepest first. One holding a preserved file simply is not
 # empty, so it survives without being special-cased.
 DIRS="$(awk '{print}' "$REMOVE" | sed 's|/[^/]*$||' | grep -v '^$' | LC_ALL=C sort -ru || true)"

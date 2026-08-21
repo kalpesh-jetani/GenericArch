@@ -2,9 +2,9 @@
 #@kind      tool
 #@platform  macos
 #@claude    call
-#@purpose   Gate and record the lifecycle steps so commands run in order: install → project-init → gaps → sync-app-notes → ready.
+#@purpose   Gate and record the lifecycle steps so commands run in order: install → scaffold → project-init → gaps → sync-app-notes → ready.
 #@usage     ga-step.sh show|next|require <step>|after <step>|record <step> [note]|reset
-#@in        step:enum(install project-init gaps sync-app-notes ready) --target:dir(default: the repo above Scripts/) --force:flag(operator override, never Claude)
+#@in        step:enum(install scaffold project-init gaps sync-app-notes ready) --target:dir(default: the repo above Scripts/) --force:flag(operator override, never Claude)
 #@out       stdout:for show, the ledger and what is next; for require, ok or the unmet prerequisites
 #@exit      0=clear to proceed 2=usage 5=out of order, nothing written
 #@effects   record appends one row to .genericarch/STEPS.tsv; show/next/require are read-only
@@ -54,12 +54,17 @@ USAGE
 
 # The install step is not recorded by a command — the manifest IS the record. Deriving it here
 # keeps a repo installed before this script existed from looking like it never ran install.
-derive_install() {
+derive_steps() {
   # The source repo is never "installed" into itself — .claude-plugin is excluded from every adopt,
   # so its presence is the one reliable marker. Without this, every command is blocked in the repo
   # that authors them.
   if [ -d "$TARGET/.claude-plugin" ] && [ -f "$TARGET/Scripts/adopt.sh" ]; then
     ga_step_record "$TARGET" install "GenericArch source repo — nothing to install"
+    # scaffold is derivable here for exactly the same reason install is, and leaving it pending
+    # blocked every command behind it: /project-init reported "these have not run: scaffold" in the
+    # repo that authors the scaffolder, and the only documented escape was an operator --force.
+    # This checkout already HAS the structure ga-scaffold.sh creates — it is the source of it.
+    ga_step_record "$TARGET" scaffold "not applicable: GenericArch source repo is the scaffold source"
     return 0
   fi
   for _m in $(ga_manifest_find "$TARGET"); do
@@ -70,7 +75,7 @@ derive_install() {
 
 case "$ACTION" in
   show)
-    derive_install || true
+    derive_steps || true
     LEDGER="$(ga_step_path "$TARGET")"
     ga_hdr "── GenericArch steps ──────────────────────────────────"
     for s in $GA_STEPS; do
@@ -91,7 +96,7 @@ case "$ACTION" in
     ;;
 
   next)
-    derive_install || true
+    derive_steps || true
     ga_step_next "$TARGET"; echo
     ;;
 
@@ -100,7 +105,7 @@ case "$ACTION" in
     # Work commands need one specific predecessor, not the whole chain.
     [ -n "$STEP" ] || usage
     ga_step_pos "$STEP" >/dev/null || ga_die "unknown step: $STEP (want one of: $GA_STEPS)" "$GA_EX_USAGE"
-    derive_install || true
+    derive_steps || true
     if ga_step_done "$TARGET" "$STEP"; then
       ga_ok "$STEP has run"
       exit "$GA_EX_OK"
@@ -118,7 +123,7 @@ case "$ACTION" in
   require)
     [ -n "$STEP" ] || usage
     ga_step_pos "$STEP" >/dev/null || ga_die "unknown step: $STEP (want one of: $GA_STEPS)" "$GA_EX_USAGE"
-    derive_install || true
+    derive_steps || true
     MISSING="$(ga_step_missing "$TARGET" "$STEP")"
     if [ -z "$MISSING" ]; then
       ga_ok "$STEP: prerequisites met"
@@ -139,7 +144,7 @@ case "$ACTION" in
   record)
     [ -n "$STEP" ] || usage
     ga_step_pos "$STEP" >/dev/null || ga_die "unknown step: $STEP (want one of: $GA_STEPS)" "$GA_EX_USAGE"
-    derive_install || true
+    derive_steps || true
     MISSING="$(ga_step_missing "$TARGET" "$STEP")"
     if [ -n "$MISSING" ] && [ "$FORCE" -eq 0 ]; then
       ga_die "cannot record $STEP — $MISSING have not run. Record those first, or pass --force." "$GA_EX_SEQ"
@@ -154,7 +159,7 @@ case "$ACTION" in
     [ -f "$LEDGER" ] || { ga_info "no ledger to reset"; exit "$GA_EX_OK"; }
     ga_confirm "Clear the step ledger at ${LEDGER#"$TARGET"/}?" || exit "$GA_EX_ABORT"
     rm -f "$LEDGER"
-    derive_install || true
+    derive_steps || true
     ga_ok "ledger cleared; next: $(ga_step_next "$TARGET")"
     ;;
 

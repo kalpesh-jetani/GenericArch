@@ -21,19 +21,21 @@ overridden without an explicit yes.
 
 ---
 
-## Step 0 — Detect the mode before asking anything
+## Step 0 — Read the evidence, then branch
 
-Scan first, then branch. Do not write anything in this step.
+Everything this step used to grep for is gathered offline. `install.sh` runs the scan itself once
+the manifest lands, so read the artifact; run the script only if it is missing or stale:
 
 ```bash
-ls -la; git log --oneline -5 2>/dev/null | head
-find . -name "CLAUDE.md" -not -path "*/.git/*"          # root AND nested
-ls .claude/skills .claude/commands 2>/dev/null
-cat .claude/settings.json 2>/dev/null
-find . -name "Package.swift" -o -name "*.xcodeproj" -o -name "Podfile" \
-       -o -name "Project.swift" -o -name "project.yml" | head -20
-./Scripts/detect-toolchain.sh 2>/dev/null || true
+cat .claude/notes/.evidence/INIT-SCAN.md          # written by install.sh
+./Scripts/ga-init-scan.sh --check                 # exit 1 → stale, regenerate
+./Scripts/ga-init-scan.sh . --write               # regenerate (read-only; decides nothing)
 ```
+
+It carries the mode, this repo's `CLAUDE.md` files with their sizes, their skills and commands, the
+toolchain mismatches, the §A2 conflict evidence, the §A4 collisions, the routable-path counts, and
+the orphan module docs. **Do not write anything in this step, and do not re-run the scans it
+already did.** Every row is a fact from disk with its blind spot attached; none of them is a verdict.
 
 **The stack is acquired, never assumed or copied.** Precedence: the **project wins** (its settings
 are the shipped contract), the **machine** fills the gaps, and whatever neither answers gets
@@ -41,12 +43,15 @@ are the shipped contract), the **machine** fills the gaps, and whatever neither 
 
 Never carry GenericArch's numbers or framework choices into another repo.
 
-**If the detector reports a BLOCKING mismatch — a deployment target above the installed SDK, or a
-language mode the compiler cannot provide — raise it before anything else and stop.** That build
+**`ga-init-scan.sh` exits 3 on a BLOCKING mismatch — a deployment target above the installed SDK, or
+a language mode the compiler cannot provide. Raise it before anything else and stop.** That build
 cannot succeed as configured, and adopting docs onto a repo that doesn't build wastes the session.
 Hand off to `/upgrade-stack`, which asks twice before changing any project setting. Do not fix it
 inline here: initialisation and mutating someone's build settings are different acts with different
 consent.
+
+The artifact's `## mode` line is derived from the same gate `install.sh` uses, so the two cannot
+disagree:
 
 | Signal | Mode |
 |---|---|
@@ -55,6 +60,9 @@ consent.
 
 **Report what you found before proceeding**, and if it's ambiguous — a `CLAUDE.md` but no code, or
 code but no `CLAUDE.md` — say which path you're taking and why, and let the user redirect.
+
+One thing the scan cannot read for you: `.claude/settings.json`. Open it before S1b's permission
+round, since merging into it is a write.
 
 ---
 
@@ -65,6 +73,12 @@ procedure: the governing principle that their rules win by default, the conflict
 options per conflict, the name-collision check, additive installation, and recording every override.
 
 It lives there rather than here so a fresh-repo run does not load a procedure it will never use.
+
+**Two of its steps are already done.** `## conflicts` in the evidence artifact is A2's evidence —
+one row per signal, with counts, example paths, and what each count does not establish — and
+`## collisions` is A4's list. What is *not* done is the rest of both: classifying each row as hard,
+migration, convention or soft, and asking A3's four options per row. A count is not a severity, and
+the artifact deliberately refuses to guess one.
 
 **Do not improvise a shortened version of it.** Adoption goes wrong quietly — a rule adopted without
 being offered, or a file overwritten because a collision was not checked — and the detail is the
@@ -208,35 +222,12 @@ Two classes, and they fail differently:
 | `.claude/skills`, `.claude/commands`, `.claude/MAP.tsv`, `.claude/notes`, `.claude/memory`, `Scripts/` | **on disk** | Claude Code discovers skills and commands from the filesystem; a fetched skill never fires, and a map you must fetch first cannot route you to itself |
 | everything under `docs/` | **on disk *or* fetchable** | Reference material — fetched when a task actually needs it |
 
-Run this. It is read-only.
+The scan already ran it — `## routes` in `.claude/notes/.evidence/INIT-SCAN.md` carries the counts,
+the `# FETCH-BASE:` value, and every path that did not resolve. Regenerate it only if it is stale:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)"
-for f in .claude/MAP.tsv .claude/INDEX.md .claude/memory/INDEX.md \
-         Scripts/check.sh Scripts/find.sh Scripts/scan-api-map.py \
-         Scripts/notes-staleness.sh Scripts/scan-colors.py \
-         Scripts/scan-unused-assets.py Scripts/scan-fonts.py; do
-  [ -e "$f" ] || echo "MISSING-LOCAL  $f"
-done
-[ -d .claude/skills ]   || echo "MISSING-LOCAL  .claude/skills"
-[ -d .claude/commands ] || echo "MISSING-LOCAL  .claude/commands"
-[ -d .claude/notes ]    || echo "MISSING-LOCAL  .claude/notes"
-
-base=$(awk -F'\t' '/^# FETCH-BASE:/{print $2; exit}' .claude/MAP.tsv)
-awk -F'\t' '!/^#/ && NF>1 {print $1}' .claude/MAP.tsv | while read -r p; do
-  [ -e "$p" ] && continue
-  [ -n "$base" ] && echo "FETCHABLE      $p" || echo "UNRESOLVABLE   $p"
-done | sort | uniq -c | sort -rn
-echo "FETCH-BASE: ${base:-<none — every missing row is unresolvable>}"
-
-# A row that is not exactly 4 tab-separated columns is dropped by every awk/grep
-# recipe that reads this file — silently, with no error anywhere.
-awk -F'\t' 'NF!=4 && $0 !~ /^#/ && NF>0 {print "MALFORMED-ROW  line "NR": "NF" columns"}' .claude/MAP.tsv
-
-# Every note the map advertises must exist, or the row routes into a void.
-awk -F'\t' '$2=="note" {print $1}' .claude/MAP.tsv | while read -r n; do
-  [ -f "$n" ] || echo "MISSING-NOTE   $n"
-done
+./Scripts/ga-init-scan.sh --check          # exit 1 → stale
+./Scripts/ga-init-scan.sh . --write
 ```
 
 Then act on what it printed:
@@ -480,11 +471,12 @@ comes back.
 
 **Delete module docs for packages that were not approved.** The `local` commit ships all 12
 `docs/modules/*.md` files; if StorageKit, LocalizationKit, or NotificationKit were not approved in
-S2, delete their docs now.
+S2, retire their docs now.
 
-```
-rm -f docs/modules/<NotApprovedPackage>.md
-```
+`## orphan-docs` in `.claude/notes/.evidence/INIT-SCAN.md` already lists every module doc with no
+package behind it, each as a ready `ga-remove.sh` line. It is a candidate list, not a decision:
+check each name against what S2 approved, then run the lines that survive that check. A package
+approved but not yet scaffolded keeps its doc.
 
 A doc for a package that doesn't exist is instant drift — it reads as current, but describes code
 that isn't there. Cleaner to delete it than to leave it with a "not used here" note.
