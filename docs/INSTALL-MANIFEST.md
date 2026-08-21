@@ -199,12 +199,18 @@ grep '"path":' .genericarch/manifest-v0.2.0.json \
 
 ## When there is no manifest
 
-**What the fallback can and cannot reach, as of v0.3.0.** Ownership is proven by hashing against the
+**What the fallback can and cannot reach, as of v0.4.0.** Ownership is proven by hashing against the
 blobs the release shipped, so it only reaches files that are *byte-identical to what was shipped*.
-v0.3.0 deliberately transforms several files at install time — `MAP.tsv` gains a `FETCH-BASE` header
+Several files are deliberately transformed at install time — `MAP.tsv` gains a `FETCH-BASE` header
 and `:remote` marks, `SCRIPTS.tsv` is pruned, and `notes/`, `DECISIONS.md` and `GAPS.md` are
 scaffolded rather than copied. None of those can be proven without the manifest, so a fallback
 uninstall preserves them and lists them in the orphan report.
+
+v0.4.0 adds one file the installer **generates** rather than copies:
+`.claude/notes/.evidence/INIT-SCAN.md` (with its `INIT-CONFLICTS.tsv`), written by the
+`ga-init-scan.sh` preflight. No hash can prove ownership of it in either mode, so it is not in
+`ga_known_paths` at all — `uninstall.sh` removes it by name, in the one place that knows it is
+generated and gitignored. `ga-roundtrip.sh` case 11 is what keeps that true.
 
 That is the contract working, not failing: the alternative is deleting a file on a path match, which
 is what deletes someone's notes. The manifest path handles all of them, because it records the hash
