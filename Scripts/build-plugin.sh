@@ -61,31 +61,43 @@ cat > "$OUT/.claude-plugin/marketplace.json" <<JSON
 }
 JSON
 
-cat > "$OUT/README.md" <<'MD'
-# GenericArch — Claude Code plugin
+# The two tables listed skills and commands by hand, and both were wrong: three patterns from
+# docs/patterns/ were advertised as skills, `debug` was missing, five of the twelve commands were
+# absent, and /sync-app-notes claimed seven inventories where there are nine. This is the public
+# face of the plugin, so it is generated from the same frontmatter the tool itself reads.
+python3 - "$OUT" > "$OUT/README.md" <<'PY'
+import glob, os, sys
+
+out = sys.argv[1]
+
+def described(path):
+    """Return the frontmatter `description:` of a skill or command file."""
+    body, desc = open(path).read(), None
+    if body.startswith('---'):
+        for line in body.split('---', 2)[1].splitlines():
+            if line.startswith('description:'):
+                desc = line.split(':', 1)[1].strip()
+    return desc or '(no description)'
+
+skills = sorted(glob.glob(f'{out}/skills/*/SKILL.md'))
+cmds   = sorted(glob.glob(f'{out}/commands/*.md'))
+
+print("""# GenericArch — Claude Code plugin
 
 Skills and commands from the GenericArch Apple-platform architecture. **Generated** by
 `Scripts/build-plugin.sh` — edit the sources in `.claude/` of the GenericArch repo, not here.
 
 ## What it adds
-
-| Skill | Fires when |
-|---|---|
-| `new-feature` | Adding a feature or screen |
-| `dark-light-mode` | A colour or asset changes, or something looks wrong in dark |
-| `rtl-support` | Adding a locale, or verifying mirroring |
-| `release-bump` | Releasing an extracted package |
-
-| Command | Does |
-|---|---|
-| `/project-init` | Initialize a fresh repo, or adopt this structure into an existing one |
-| `/verify` | Walk the Definition of Done against the working diff |
-| `/gaps` | Triage the gap list — derived from code on an existing repo |
-| `/decide` | Record a settled decision |
-| `/upgrade-stack` | Reconcile project settings with the machine — asks twice |
-| `/sync-app-notes` | Rebuild the seven inventories from a filesystem scan |
-| `/build` | Build, test, or archive a stage |
-
+""")
+print(f'{len(skills)} skill(s) — they activate from their description, you never type them:\n')
+print('| Skill | Fires when |'); print('|---|---|')
+for f in skills:
+    print(f'| `{os.path.basename(os.path.dirname(f))}` | {described(f)} |')
+print(f'\n{len(cmds)} command(s) — you type these:\n')
+print('| Command | Does |'); print('|---|---|')
+for f in cmds:
+    print(f'| `/{os.path.basename(f)[:-3]}` | {described(f)} |')
+print("""
 ## What it does NOT add
 
 `CLAUDE.md`, `docs/`, `.claude/notes/`, or any Swift code. Those are a product's own rules, design
@@ -95,8 +107,8 @@ template the repo no longer offers) skips that record and there is nothing for `
 prove ownership against.
 
 Because of that split, the commands reference `docs/…` paths that only exist once the docs are
-adopted. The skills work standalone; `/verify`, `/decide`, and `/gaps` need their target files.
-MD
+adopted. The skills work standalone; `/verify`, `/decide`, and `/gaps` need their target files.""")
+PY
 
 echo "${GRN}built${OFF} $OUT ${DIM}(version $VERSION)${OFF}"
 echo "  skills:   $(ls "$OUT/skills" | wc -l | tr -d ' ')"
