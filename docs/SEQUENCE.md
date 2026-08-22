@@ -27,6 +27,11 @@ The order the commands run in, what each one must leave behind, and what enforce
 After `ready`: `/find`, `/decide`, `/learn`, `/review`, `/verify`, `/build` and every skill run in
 any order, as often as needed. They are not steps; they are the work.
 
+**An upgrade re-enters at step 1.** `install.sh` refuses over a different recorded version (exit 6),
+so moving releases means `./uninstall.sh <old>` and then installing — which resets the ledger, since
+a clean uninstall deletes `STEPS.tsv` unless something was declined. The three commands run again
+against the new base; that is the intent, not an accident of the gate.
+
 ## Why the order is load-bearing
 
 Each step reads a repo state the previous one creates. Ungated, they would not fail out of order —

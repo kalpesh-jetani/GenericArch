@@ -5,7 +5,7 @@
 #@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, the macOS/Swift compatibility gate. Sourced, never executed.
 #@usage     . Scripts/ga-lifecycle.sh
 #@in        n/a (sourced). Honours GA_ASSUME_YES=1, GA_DRY_RUN=1, NO_COLOR
-#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
+#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_footprint_at ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
 #@exit      0=sourced ok 2=executed directly instead of sourced
 #@effects   none on its own; every write is performed by the caller through these helpers
 #@when      installer helper|manifest format|install exit codes|hashing a manifest|uninstall helper
@@ -37,11 +37,17 @@ GA_EX_USAGE=2     # bad or missing arguments
 GA_EX_COMPAT=3    # compatibility gate rejected the target; nothing was written
 GA_EX_ABORT=4     # the operator declined at the confirmation prompt
 GA_EX_SEQ=5       # a step ran out of order — nothing was written
+GA_EX_UPGRADE=6   # a different version is already installed; uninstall it first. Nothing written
 GA_EX_PLATFORM=78 # not macOS — EX_CONFIG, the same code Scripts/claude-utils/_common.sh uses
 
 # The manifest format version. Bump only when the SHAPE changes, never for a GenericArch release —
 # uninstall.sh keys its parser off this, not off the product version.
-GA_MANIFEST_SCHEMA=1
+#
+#   1 → 2: added the `orphan` and `replaced` actions, and the top-level `sibling_root` field.
+#          A schema-1 reader handed a schema-2 manifest would fall through its action `case` and
+#          try to DELETE an orphan — the operator's own edited file. That is why uninstall.sh
+#          refuses a schema it does not know rather than doing its best with it.
+GA_MANIFEST_SCHEMA=2
 
 # Everything GenericArch owns lives under this one directory, so a reader can see the whole
 # footprint of the install state in one place.
@@ -220,9 +226,19 @@ ga_manifest_add() {
     >> "$GA_MANIFEST_TMP"
 }
 
-# ga_manifest_commit <manifest-path> <version> <target> <source_ref> <installed_at>
+# ga_manifest_commit <manifest-path> <version> <target> <source_ref> <installed_at> [sibling_root]
+#
+# sibling_root records that this install is one of TWO in the same checkout — the --root-ok case.
+# Terminal warnings do not survive the session that printed them, and the next reader of this repo
+# has no other way to learn that every command and skill resolves ambiguously here.
 ga_manifest_commit() {
   _ga_out="$1"
+  _ga_sibling="${6:-}"
+  if [ -n "$_ga_sibling" ]; then
+    _ga_sibling="\"$(ga_json_escape "$_ga_sibling")\""
+  else
+    _ga_sibling="null"
+  fi
   mkdir -p "$(dirname "$_ga_out")"
   {
     printf '{\n'
@@ -233,6 +249,7 @@ ga_manifest_commit() {
     printf '  "installed_at": "%s",\n' "$5"
     printf '  "installer": "install.sh",\n'
     printf '  "state_dir": "%s",\n' "$GA_STATE_DIR"
+    printf '  "sibling_root": %s,\n' "$_ga_sibling"
     printf '  "files": [\n'
     # Trailing comma on every line but the last — the one thing hand-rolled JSON always gets wrong.
     awk 'NR>1 {print prev ","} {prev=$0} END {if (NR) print prev}' "$GA_MANIFEST_TMP"
@@ -248,6 +265,12 @@ ga_manifest_commit() {
 GA_BLOCK_OPEN="# >>> GenericArch managed block — do not edit; removed by uninstall.sh >>>"
 GA_BLOCK_CLOSE="# <<< GenericArch managed block <<<"
 
+# What GenericArch's own tooling generates inside a consumer repo, and therefore what its managed
+# .gitignore block lists. Defined ONCE because it was twice: the plan line announced two entries
+# where the block wrote three, so the plan under-reported what landed in the operator's file. Any
+# printer that describes this block reads it from here.
+GA_GITIGNORE_BLOCK=".claude/claude-tasks/ .claude/notes/.evidence/ dist/"
+
 ga_block_present() {
   [ -f "$1" ] || return 1
   grep -qF "$GA_BLOCK_OPEN" "$1"
@@ -262,6 +285,10 @@ ga_block_append() {
   if [ -s "$_ga_file" ] && [ -n "$(tail -c 1 "$_ga_file" 2>/dev/null)" ]; then
     printf '\n' >> "$_ga_file"
   fi
+  # And a blank line ahead of it. In a .gitignore that is tidiness; in a Markdown file the marker
+  # is a `#` heading, and one jammed against the previous paragraph renders as part of it.
+  # ga_block_strip removes a single blank line ahead of the block, so this still round-trips.
+  [ -s "$_ga_file" ] && printf '\n' >> "$_ga_file"
   {
     printf '%s\n' "$GA_BLOCK_OPEN"
     for _ga_line in "$@"; do printf '%s\n' "$_ga_line"; done
@@ -326,6 +353,15 @@ ga_require_macos() {
 GA_COMPAT_FOUND=""
 GA_COMPAT_FOREIGN=""
 GA_COMPAT_KIND=""
+
+# ── Where GenericArch already lives ────────────────────────────────────────
+# True when <dir> carries an install. Deliberately looser than "has a manifest": a run that was
+# interrupted, or one whose manifest was deleted, still leaves a footprint that duplicates every
+# command and skill. install.sh refuses to create a second one; uninstall.sh reports one it did
+# not remove, so "back to its pre-install state" is never claimed while another copy is live.
+ga_footprint_at() {
+  [ -d "$1/$GA_STATE_DIR" ] || [ -d "$1/.claude/commands" ]
+}
 
 ga_check_compatible() {
   _ga_dir="$1"
@@ -414,8 +450,8 @@ ga_is_version_stamp() {
 # The releases whose footprint uninstall.sh knows how to clean without a manifest. A version
 # absent here is refused rather than guessed at: removing files by a list invented at runtime is
 # exactly the failure mode the manifest exists to prevent.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0"
-GA_LATEST_VERSION="v0.5.0"
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0"
+GA_LATEST_VERSION="v0.6.0"
 
 ga_is_supported_version() {
   case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) return 0 ;; *) return 1 ;; esac
@@ -503,7 +539,14 @@ ga_known_paths() {
         uninstall.sh genericarch.installation.md \
         .genericarch-version
       ;;
-    v0.5.0)
+    v0.6.0|v0.5.0)
+      # v0.6.0 ships the same set as v0.5.0 — that release changed install/uninstall BEHAVIOUR,
+      # not the file list, so the two share one arm rather than duplicating twenty paths.
+      #
+      # NOT listed, for the same reason as .evidence/ below: CLAUDE-BK.md, migration-note.md and
+      # GENERICARCH-ORPHANS.md. All three are generated in the target, never copied from the base,
+      # so no hash can prove ownership — uninstall.sh handles each by name.
+      #
       # v0.4.2 plus the two scanners that back the new commands: ga-cleanup-scan.sh (the candidate
       # sweep /clean-up-genericarch-extra-memory reads) and ga-sync-scan.sh (the drift and pattern
       # report /sync-with-genericarch reads). Both are read-only and offline; they are listed here

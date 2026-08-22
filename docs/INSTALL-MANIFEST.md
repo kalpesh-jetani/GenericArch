@@ -37,7 +37,7 @@ had no business touching.
 
 | Field | Type | What it is |
 |---|---|---|
-| `schema` | int | Format version of **this file's shape**. `uninstall.sh` keys its parser off it. Bumped only when the layout changes — never for a GenericArch release |
+| `schema` | int | Format version of **this file's shape**, currently `2`. `uninstall.sh` keys its parser off it and **refuses a schema it does not know** — an unrecognised `action` is the difference between "delete this" and "never touch this", and guessing is the one outcome that is not allowed. Bumped only when the layout changes — never for a GenericArch release |
 | `genericarch_version` | string | The release installed, e.g. `v0.2.0`. `uninstall.sh <version>` is validated against this |
 | `target` | string | Absolute path of the repo installed into, as resolved at install time |
 | `source_ref` | string | Git commit of the GenericArch checkout the files came from — the exact provenance a tag name cannot give you |
@@ -55,14 +55,19 @@ needs a dependency installed first is not an installer.
 | Field | Type | What it is |
 |---|---|---|
 | `path` | string | Relative to `target`. Always forward-slashed, never absolute |
-| `action` | string | `created` · `modified` · `skipped` — see below |
-| `sha256` | string | Hash of the content **as installed**. For `modified`, that means *after* the managed block was appended |
+| `action` | string | `created` · `modified` · `replaced` · `skipped` · `orphan` · `declined` — see below |
+| `sha256` | string | Hash of the content **as installed**. For `modified`, that means *after* the managed block was appended. For `skipped` and `orphan` it is *their* content, which is the point |
 | `installed_at` | string | The path's mtime at install time, UTC ISO-8601 |
-| `backup` | string \| null | For `modified`: where the untouched original was copied. `null` otherwise |
-| `original_sha256` | string \| null | For `modified`: hash of the file **before** install. What a restore is verified against, so "restored byte-for-byte" is checked rather than claimed |
+| `backup` | string \| null | For `modified` and `replaced`: where the untouched original was copied. `null` otherwise |
+| `original_sha256` | string \| null | For `modified` and `replaced`: hash of the file **before** install. What a restore is verified against, so "restored byte-for-byte" is checked rather than claimed |
 | `version` | string | The release that installed this path |
 
-### The four actions
+The file also carries one top-level field beyond the obvious: **`sibling_root`**, the path of a
+second GenericArch install in the same checkout, or `null`. It exists because `--root-ok` used to
+print that fact to a terminal and nowhere else — so the next reader of the repo had no way to learn
+that every command and skill resolves ambiguously there.
+
+### The six actions
 
 - **`created`** — GenericArch owns this path. Removed on uninstall if the hash still matches.
 
@@ -73,10 +78,30 @@ needs a dependency installed first is not an installer.
 
 - **`modified`** — the path existed and GenericArch appended a delimited managed block to it. The
   original is at `backup`, hashed in `original_sha256`. The only file in the current release with
-  this action is `.gitignore`.
+  this action is `.gitignore`. When the backup is gone, the fallback is to strip the block.
+
+- **`replaced`** — the path existed and GenericArch substituted it **wholesale**. The original is at
+  `backup` — a visible sibling, `CLAUDE-BK.md`, not a hidden one, because these are rules a person
+  is expected to read and merge. The only path with this action is `CLAUDE.md`, and only under
+  `install.sh --with-claude-md`.
+
+  It is deliberately *not* `modified`: there is no managed block here, so `modified`'s fallback —
+  strip the block and leave the rest — would do nothing at all while reporting success. `replaced`
+  either restores from a backup that verifies against `original_sha256`, or keeps the file and says
+  where their copy is. It never guesses.
 
 - **`skipped`** — the path existed with content that is not ours. **Never written, never removed.**
   Recorded so the plan can show what was left alone and why.
+
+- **`orphan`** — a path a *previous* uninstall could not remove, because the operator had edited it
+  and the hash no longer proved it was ours. **Never written, never removed** — the difference from
+  `skipped` is provenance: `skipped` says *this was never ours*, `orphan` says *this was, you
+  changed it, and GenericArch is keeping track without touching it.*
+
+  `install.sh` learns about these from `safetodelete-after-migration-note.md`, and re-emits them into
+  the next one on the way back out. Before this action existed the chain broke at the first
+  uninstall: the report naming them was written inside `.genericarch/`, which the same uninstall then
+  retired, so nothing ever read it.
 
 - **`declined`** — GenericArch ships this path and **this product decided against it.** Not in the
   working tree, and `install.sh` must not create it. Written by `Scripts/ga-remove.sh`, which does
@@ -110,7 +135,13 @@ The manifest is one of four files, and only it is per version:
 | `TOMBSTONES.tsv` | `ga-remove.sh` | **Outlives uninstall** — a decision is not an install artifact |
 | `safetodelete/` | `ga-remove.sh` | **Outlives uninstall** — it holds the declined files themselves. Nothing is destroyed; the name is the contract, and deleting the directory costs only the ability to `--revive` |
 | `STEPS.tsv` | `install.sh`, then `ga-step.sh record` | Deleted by a clean uninstall; kept if anything was declined |
-| `orphans-<version>.txt` | `uninstall.sh`, only when files were left behind | Until a person resolves and deletes it |
+
+`safetodelete-after-migration-note.md` is the fifth record and the only one **not** in
+`.genericarch/`. It sits at the repo root, written by `uninstall.sh` when files were left behind and
+read by the next `install.sh`. It used to be `.genericarch/orphans-<version>.txt` and was never read
+by anything: a clean uninstall retires that directory, so the one artifact describing what survived
+was filed inside the thing being deleted. `install.sh` prunes rows whose paths are gone and deletes
+the file when none are left.
 
 ## Ownership must be re-sealed after an edit
 
@@ -119,8 +150,28 @@ installed file — `/project-init`, `/sync-app-notes`, `/gaps` — therefore tur
 permanent orphan unless the record is updated. `Scripts/ga-reseal.sh --apply` re-hashes them, and
 those commands run it as their last step.
 
-A partial uninstall now **exits 1** and writes `orphans-<version>.txt`. `Scripts/ga-roundtrip.sh`
-asserts all of this against throwaway repos; run it before releasing a version.
+A partial uninstall **exits 1** and writes `safetodelete-after-migration-note.md`. It is not the
+only outcome: `uninstall.sh --final` retires those files to `.genericarch/safetodelete/`, records
+them in `CLAUDE.md`, deletes the note, and **exits 0** — the working tree really is clean, and the
+round-trip assertion has to be able to say so. `--upgrade` is the other side, and the default when
+there is no terminal to ask on, because it moves nothing.
+
+`Scripts/ga-roundtrip.sh` asserts all of this against throwaway repos; run it before releasing a
+version.
+
+---
+
+## Upgrading is uninstall, then install
+
+`install.sh` **refuses** when the manifest records a different version, and exits `6`. Installing
+over an older release was never an upgrade: a file GenericArch installed, that nobody touched, and
+that the base has since changed, is classified `keep` and reported as *"left at older version"*.
+Only shared libraries move forward, and only because the scripts that source them break otherwise.
+
+Nothing is lost by removing first — a file comes out only while its hash still proves it is ours, so
+anything edited survives as an `orphan`. `--in-place` keeps the old behaviour for anyone who wants
+it. The **same** version is not gated: that is the repair run, which re-asserts ownership and fills
+in what is missing.
 
 ---
 
@@ -157,18 +208,21 @@ An install into a repo that already had its own `.gitignore` and its own skill:
 
 ```json
 {
-  "schema": 1,
-  "genericarch_version": "v0.2.0",
+  "schema": 2,
+  "genericarch_version": "v0.6.0",
   "target": "/Users/you/Code/MyApp",
   "source_ref": "5196c2e5b9d0a1f4c8e2b7a3d6f091ac4e8b12d7",
   "installed_at": "2026-08-18T09:47:02Z",
   "installer": "install.sh",
   "state_dir": ".genericarch",
+  "sibling_root": null,
   "files": [
-    {"path": ".claude/MAP.tsv", "action": "created", "sha256": "9f2b1c...", "installed_at": "2026-08-18T09:47:02Z", "backup": null, "original_sha256": null, "version": "v0.2.0"},
-    {"path": "Scripts/check.sh", "action": "created", "sha256": "4ad81e...", "installed_at": "2026-08-18T09:47:02Z", "backup": null, "original_sha256": null, "version": "v0.2.0"},
-    {"path": ".swiftlint.yml", "action": "skipped", "sha256": "c07f33...", "installed_at": "2026-03-02T11:20:44Z", "backup": null, "original_sha256": null, "version": "v0.2.0"},
-    {"path": ".gitignore", "action": "modified", "sha256": "718cf1...", "installed_at": "2026-08-18T09:47:02Z", "backup": ".genericarch/backups/gitignore.v0.2.0.bak", "original_sha256": "eff00d...", "version": "v0.2.0"}
+    {"path": ".claude/MAP.tsv", "action": "created", "sha256": "9f2b1c...", "installed_at": "2026-08-18T09:47:02Z", "backup": null, "original_sha256": null, "version": "v0.6.0"},
+    {"path": "Scripts/check.sh", "action": "created", "sha256": "4ad81e...", "installed_at": "2026-08-18T09:47:02Z", "backup": null, "original_sha256": null, "version": "v0.6.0"},
+    {"path": ".swiftlint.yml", "action": "skipped", "sha256": "c07f33...", "installed_at": "2026-03-02T11:20:44Z", "backup": null, "original_sha256": null, "version": "v0.6.0"},
+    {"path": ".gitignore", "action": "modified", "sha256": "718cf1...", "installed_at": "2026-08-18T09:47:02Z", "backup": ".genericarch/backups/gitignore.v0.2.0.bak", "original_sha256": "eff00d...", "version": "v0.6.0"},
+    {"path": "CLAUDE.md", "action": "replaced", "sha256": "b31f0a...", "installed_at": "2026-08-18T09:47:02Z", "backup": "CLAUDE-BK.md", "original_sha256": "5c9d72...", "version": "v0.6.0"},
+    {"path": "Scripts/find.sh", "action": "orphan", "sha256": "a1204e...", "installed_at": "2026-08-18T09:47:02Z", "backup": null, "original_sha256": null, "version": "v0.6.0"}
   ]
 }
 ```
@@ -185,6 +239,9 @@ the managed block and its original is recoverable and verifiable.
 grep '"path":' .genericarch/manifest-v0.2.0.json | wc -l          # how many paths recorded
 grep '"action": "skipped"' .genericarch/manifest-v0.2.0.json      # what was left alone
 grep '"action": "modified"' .genericarch/manifest-v0.2.0.json     # what got a managed block
+grep '"action": "orphan"' .genericarch/manifest-v0.6.0.json       # yours, tracked, never touched
+grep '"action": "replaced"' .genericarch/manifest-v0.6.0.json     # swapped; backup holds the original
+grep '"sibling_root"' .genericarch/manifest-v0.6.0.json           # is this one of two installs here?
 ```
 
 To re-verify an install by hand — every line should print `ok`:

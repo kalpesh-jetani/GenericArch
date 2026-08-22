@@ -6,6 +6,60 @@ decorative.
 
 ---
 
+## v0.6.0
+
+The theme: **uninstall, then install — and nothing of yours is lost in between.** v0.5.0 claimed an
+in-place upgrade worked; adopting it over a v0.4.2 install showed what that actually meant, which
+was most of v0.4.2 still on disk under a v0.5.0 manifest.
+
+**Upgrading is now uninstall → install, and `install.sh` enforces it.** A manifest recording a
+different version stops the run with the new exit code `6`, names the `./uninstall.sh <old>` command
+to run, and writes nothing. Only shared libraries ever moved forward in place; everything else was
+classified `keep` and reported as *"left at older version"*, which is a sentence no one reads twice.
+`--in-place` keeps the old behaviour. The **same** version is still a repair run, ungated.
+
+**Files you edited now survive the round trip as first-class records.** A hash mismatch has always
+protected a file from deletion, but the report naming the survivors was written to
+`.genericarch/orphans-<version>.txt` — inside the directory the same uninstall then retired, which
+is why nothing ever read it. It is now `safetodelete-after-migration-note.md` at the repo root, and
+`install.sh` reads it: each surviving path is recorded with the new `orphan` action — tracked, never
+rewritten, never deleted, and re-emitted by the next uninstall.
+
+**`uninstall.sh` asks once, at the end, what should become of them.** Re-installing leaves them
+exactly where they are. Done with GenericArch moves them to `.genericarch/safetodelete/` — moved,
+never deleted — records the list in your `CLAUDE.md` (or `GENERICARCH-ORPHANS.md` if you have none),
+deletes the note, and exits `0`, because the working tree really is clean. `--upgrade` and `--final`
+answer it non-interactively; with no terminal the answer is `--upgrade`, the side that moves nothing.
+
+**`install.sh --with-claude-md` migrates a repo's rules, reversibly.** Your `CLAUDE.md` moves to
+`CLAUDE-BK.md` and the swap is recorded with the new `replaced` action, so `uninstall.sh` restores
+your original byte-for-byte, verified against its recorded hash. Off by default: *"no CLAUDE.md was
+written"* is still what an ordinary install prints.
+
+**Manifest schema 2**, and `uninstall.sh` now refuses a schema it does not know rather than doing
+its best with it. An unrecognised `action` is the difference between *delete this* and *never touch
+this*; the old parser fell through to "created" and would have deleted an orphan. Its `case` now
+defaults to keeping the file. The manifest also records `sibling_root`, so a `--root-ok` install is
+discoverable after the terminal that warned about it has closed.
+
+Four fixes from the same adoption log:
+
+- The confirmation prompt **restates the second footprint** instead of asking `Install into <dir>?`
+  sixty lines after the warning scrolled past — and when every project marker resolves inside the
+  other root, it says so: that is one product, not the two sharing a checkout `--root-ok` is for.
+- `uninstall.sh` **names a surviving install** in the same checkout rather than reporting *"back to
+  its pre-install state"* while a second copy is live.
+- The plan's `.gitignore` line **described two entries where three were written**. Both now read
+  `GA_GITIGNORE_BLOCK`, defined once.
+- `rollback()` replays its ledger in reverse, and the `.gitignore` rows were ordered so the backup
+  was **deleted before the restore read it** — a rollback that reported success and left the managed
+  block in place. The rows are now written in the order the reverse replay needs.
+
+`bootstrap.sh` forwards `--in-place` and `--with-claude-md`, and names exit 6 when it sees it.
+`Scripts/ga-roundtrip.sh` gains seven cases covering all of the above.
+
+---
+
 ## v0.5.0
 
 The theme: **an upgrade over an older install now works, and no command deletes as a side effect.**
