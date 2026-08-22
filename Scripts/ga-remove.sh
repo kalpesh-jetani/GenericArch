@@ -11,9 +11,9 @@
 #@when      delete an installed file|drop a doc that does not apply|decline a skill|remove module docs|why did a deleted file come back|tombstone|revive a declined file|where did the file go|recover a declined file|safetodelete directory
 #
 # The gap this closes: install.sh treats "not on disk" as "never installed" and creates the file
-# again. So a file deleted by hand — including by /project-init, which is told to delete module docs
-# for packages that do not exist — comes back on the next install or upgrade. That flip happened
-# four times in one adoption before anyone noticed.
+# again. So a file deleted by hand comes back on the next install or upgrade. That flip happened four
+# times in one adoption before anyone noticed. /project-init no longer deletes anything at all — it
+# reports candidates and /clean-up-genericarch-extra-memory applies them, through this tool.
 #
 # A deletion is a decision. This tool is the only way to make one stick, and it does four things in
 # one operation so none of them can be forgotten:

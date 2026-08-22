@@ -6,6 +6,71 @@ decorative.
 
 ---
 
+## v0.5.0
+
+The theme: **an upgrade over an older install now works, and no command deletes as a side effect.**
+Both came out of adopting this base into a repo that already carried v0.2.0 — where the install
+succeeded, reported success, and left seven scripts that could not run.
+
+### The upgrade bug, and why it was silent
+
+`install.sh` is additive by contract: nothing existing is ever overwritten. That is right for a
+product's own files and wrong for a **shared library**, because the scripts shipped beside it
+`source` it. Upgrading over v0.2.0 skipped `ga-lifecycle.sh` as a collision and installed seven new
+scripts against it, so every one failed with `command not found` — **while still exiting 0**, which
+is why nothing anywhere reported it.
+
+- A staged file whose `#@kind` is `lib` is now **upgraded in lockstep** with its callers instead of
+  being kept. The manifest already proves such a copy is ours and unedited, so nothing local is at
+  stake; the previous bytes are backed up under `.genericarch/backups/` regardless.
+- A library the target has *edited* still wins — their file always does — but it is now named in a
+  warning that says its callers may fail, rather than disappearing into the skip list.
+- `ga-roundtrip.sh` case 3b pins it. It fails against the old installer.
+
+### Removal is one command's job now, not every command's
+
+`/project-init` no longer deletes anything — not a doc, not a skill, not a rule. It reports
+candidates and stops. A removal is four coupled writes (the file moves to `safetodelete/`, a
+tombstone lands, `MAP.tsv` and `SCRIPTS.tsv` rows are pruned, a `DECISIONS.md` row is written), and
+that pruning also strips the path out of the index and memory directories later lookups depend on.
+Interleaved with rule reconciliation it was unreviewable, and unpickable-apart if a conflict answer
+changed.
+
+- **`/clean-up-genericarch-extra-memory`** owns every deletion, asking per candidate.
+- **`/sync-with-genericarch`** brings an install up to the base and promotes the patterns the code
+  now justifies — the half that had no command, so a repo sat 27 files behind with nothing pointing
+  at `adopt-review.sh`.
+- Both are backed by read-only, offline scripts: **`ga-cleanup-scan.sh`** and **`ga-sync-scan.sh`**.
+  The scanners gather evidence; the commands hold the judgement. `ga-sync-scan.sh` stops with exit 1
+  when a checkout carries two install roots, because a sync would faithfully update the wrong one.
+- `S2b`/`S2c` in `/project-init` described a v0.2.0 installer — deleting the 12 `docs/modules/*.md`
+  and the `release-bump` skill. None of those has been installed since v0.4.2 made module docs
+  fetch-on-demand and the architecture layer opt-in. Roughly 40 lines of dead instructions, rewritten.
+
+### Three tools were reading the wrong directory
+
+All three assumed the install root is the git root. It is not when the Xcode project sits one level
+down from its checkout, which is the common shape.
+
+- `detect-toolchain.sh` never read `project.pbxproj` — the only place a repo with no `Packages/`
+  states its floors — so it declared "fresh repo" and substituted the host SDK. It reported **min
+  iOS 26.5 for an app whose pbxproj says 16.0**. It now reads the pbxproj, takes the lowest value
+  across configurations, and ranks below an explicit `.xcconfig`. When nothing states a floor it
+  reports `unset` instead of inventing one.
+- `find.sh` and `notes-staleness.sh` resolved to the git root and read an absent notes directory,
+  answering "No row" for terms the populated notes documented. Both now walk up from the caller.
+- `adopt-review.sh --take` on `.claude/MAP.tsv` dropped the `FETCH-BASE` stamp, because the base does
+  not carry one — install stamps it. Every fetched `docs/` row stopped resolving, with the rows still
+  in place, pointing nowhere. The stamp is now carried across.
+
+### Fixed
+
+- `ga_json_field` scans a single line, so every top-level lookup against a pretty-printed manifest
+  returned empty. Callers that needed `source_ref` read it directly.
+- `ga-remove.sh`'s header still said `/project-init` "is told to delete module docs".
+
+---
+
 ## v0.4.2
 
 The theme: **this base installs into a repo that already has its Xcode project, and nothing else.**

@@ -5,7 +5,7 @@
 #@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, the macOS/Swift compatibility gate. Sourced, never executed.
 #@usage     . Scripts/ga-lifecycle.sh
 #@in        n/a (sourced). Honours GA_ASSUME_YES=1, GA_DRY_RUN=1, NO_COLOR
-#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
+#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
 #@exit      0=sourced ok 2=executed directly instead of sourced
 #@effects   none on its own; every write is performed by the caller through these helpers
 #@when      installer helper|manifest format|install exit codes|hashing a manifest|uninstall helper
@@ -414,8 +414,8 @@ ga_is_version_stamp() {
 # The releases whose footprint uninstall.sh knows how to clean without a manifest. A version
 # absent here is refused rather than guessed at: removing files by a list invented at runtime is
 # exactly the failure mode the manifest exists to prevent.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2"
-GA_LATEST_VERSION="v0.4.2"
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0"
+GA_LATEST_VERSION="v0.5.0"
 
 ga_is_supported_version() {
   case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) return 0 ;; *) return 1 ;; esac
@@ -499,6 +499,36 @@ ga_known_paths() {
         Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
         Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         Scaffold \
+        docs/DECISIONS.md docs/GAPS.md docs/resources \
+        uninstall.sh genericarch.installation.md \
+        .genericarch-version
+      ;;
+    v0.5.0)
+      # v0.4.2 plus the two scanners that back the new commands: ga-cleanup-scan.sh (the candidate
+      # sweep /clean-up-genericarch-extra-memory reads) and ga-sync-scan.sh (the drift and pattern
+      # report /sync-with-genericarch reads). Both are read-only and offline; they are listed here
+      # because they are COPIED, so a hash can prove ownership.
+      #
+      # .claude/commands is already a directory entry, so the two new command files need no row of
+      # their own — that is why adding a command does not change this list, and adding a script does.
+      #
+      # NOT listed, on purpose: .claude/notes/.evidence/. install.sh generates it rather than
+      # copying it, so no hash can prove ownership — uninstall.sh removes it by name instead.
+      printf '%s\n' \
+        .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
+        .claude/CANDIDATES.tsv .claude/notes .claude/memory \
+        .swiftlint.yml .swiftformat \
+        Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
+        Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
+        Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
+        Scripts/scan-unused-assets.py Scripts/scan-api-map.py Scripts/check-note-links.py \
+        Scripts/detect-capabilities.sh Scripts/claude-workflows Scripts/claude-utils \
+        Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
+        Scripts/session-script.sh Scripts/ga-lifecycle.sh \
+        Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh \
+        Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
+        Scripts/ga-cleanup-scan.sh Scripts/ga-sync-scan.sh \
+        Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         docs/DECISIONS.md docs/GAPS.md docs/resources \
         uninstall.sh genericarch.installation.md \
         .genericarch-version
@@ -634,6 +664,14 @@ ga_has_base_markers() {
 }
 
 # ga_is_source_checkout <dir> — the repo that AUTHORS the base, not a copy of it
+# The #@kind line of a script, or empty. `lib` is the one value the installer must act on: a
+# library is SOURCED by the scripts shipped beside it, so leaving an old copy in place does not
+# preserve anything — it produces callers whose functions do not exist.
+ga_staged_kind() {
+  [ -f "$1" ] || return 0
+  sed -n '1,25{s/^#@kind[[:space:]][[:space:]]*//p;}' "$1" | head -1 | tr -d '[:space:]'
+}
+
 ga_is_source_checkout() {
   ga_has_base_markers "$1" || return 1
   # Its own repository, not a directory sitting inside someone else's: compare physical paths, as

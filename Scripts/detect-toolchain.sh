@@ -130,6 +130,22 @@ if [ -n "$PKG" ]; then
   [ -z "$SRC_MACOS" ] && SRC_MACOS=$(printf '%s' "$line" | sed -n 's/.*\.macOS(\.v\([0-9_]*\)).*/\1/p' | tr '_' '.')
   [ -n "$SRC_IOS$SRC_MACOS" ] && ORIGIN="$PKG"
 fi
+# A checked-in .xcodeproj states its deployment targets in project.pbxproj, and a repo with no
+# Packages/ states them nowhere else. Reading only Package.swift and .xcconfig classified such a
+# project as "fresh" and handed it the host SDK — reporting min iOS 26.5 for an app whose pbxproj
+# says 16.0, which is a number the tool invented rather than read. Consulted before .xcconfig
+# because an explicit .xcconfig is the stronger statement and must still win.
+if [ -z "$ORIGIN" ]; then
+  PBX=$(ls -d ./*.xcodeproj/project.pbxproj 2>/dev/null | head -1)
+  if [ -n "$PBX" ]; then
+    # The targets appear once per build configuration. The floor is the LOWEST of them, not
+    # whichever the file happens to list first.
+    pi=$(grep -ho 'IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*' "$PBX" 2>/dev/null | sed 's/.*= *//' | sort -V | head -1)
+    pm=$(grep -ho 'MACOSX_DEPLOYMENT_TARGET = [0-9.]*' "$PBX" 2>/dev/null | sed 's/.*= *//' | sort -V | head -1)
+    [ -n "$pi" ] && { SRC_IOS="$pi"; ORIGIN="${PBX#./}"; }
+    [ -n "$pm" ] && { SRC_MACOS="$pm"; ORIGIN="${PBX#./}"; }
+  fi
+fi
 if ls Configurations/*.xcconfig *.xcconfig >/dev/null 2>&1; then
   xi=$(grep -h 'IPHONEOS_DEPLOYMENT_TARGET' Configurations/*.xcconfig *.xcconfig 2>/dev/null | head -1 | sed 's/.*=[[:space:]]*//')
   xm=$(grep -h 'MACOSX_DEPLOYMENT_TARGET' Configurations/*.xcconfig *.xcconfig 2>/dev/null | head -1 | sed 's/.*=[[:space:]]*//')
@@ -138,8 +154,10 @@ if ls Configurations/*.xcconfig *.xcconfig >/dev/null 2>&1; then
 fi
 FRESH=0
 if [ -z "$ORIGIN" ]; then
-  FRESH=1; ORIGIN="none — fresh repo, machine sets the baseline"
-  SRC_IOS="${SRC_IOS:-$IOS_SDK}"; SRC_MACOS="${SRC_MACOS:-$MACOS_SDK}"
+  # Substituting the host SDK here made the report look complete while stating a floor that no
+  # file in the repo had chosen. A deployment target is a product decision: detect it, or leave it
+  # unset and say so. /project-init asks; it must not be handed an invented answer to confirm.
+  FRESH=1; ORIGIN="nothing here states one — no platforms:, .xcconfig or .xcodeproj floor"
 fi
 
 # ── --options : machine-derived choices for /project-init ──────────────────
@@ -199,8 +217,8 @@ if [ "$MODE" = markdown ]; then
   cat <<MDOUT
 | Item | Value | Source |
 |---|---|---|
-| Minimum iOS / iPadOS | **$SRC_IOS** | $([ "$FRESH" -eq 1 ] && echo "machine" || echo "project") |
-| Minimum macOS | **$SRC_MACOS** | $([ "$FRESH" -eq 1 ] && echo "machine" || echo "project") |
+| Minimum iOS / iPadOS | **${SRC_IOS:-unset}** | $([ "$FRESH" -eq 1 ] && echo "not stated here — ask" || echo "project") |
+| Minimum macOS | **${SRC_MACOS:-unset}** | $([ "$FRESH" -eq 1 ] && echo "not stated here — ask" || echo "project") |
 | Xcode / Swift | **$XCODE** / **$SWIFT** | machine |
 | Swift language mode | **$LATEST_MODE** (available: $LANG_MODES) | machine |
 MDOUT
@@ -235,8 +253,8 @@ printf '  %-24s %s\n' "dependencies"   "${DEPS:-${YEL}unresolved${OFF}}"
 printf '  %-24s %s\n' "project files"  "${GEN:-${YEL}unresolved${OFF}}"
 printf '  %-24s %s\n' "concurrency"    "${CONC:-${YEL}unresolved${OFF}}"
 printf '  %-24s %s\n' "testing"        "${TESTS:-${YEL}unresolved${OFF}}"
-printf '  %-24s %s\n' "min iOS"        "$SRC_IOS"
-printf '  %-24s %s\n' "min macOS"      "$SRC_MACOS"
+printf '  %-24s %s\n' "min iOS"        "${SRC_IOS:-${YEL}unset${OFF}}"
+printf '  %-24s %s\n' "min macOS"      "${SRC_MACOS:-${YEL}unset${OFF}}"
 printf '  %-24s %s%s%s\n' "read from"   "$DIM" "$ORIGIN" "$OFF"
 echo
 

@@ -432,7 +432,10 @@ if [ -n "$PREV_MANIFEST" ]; then
   ga_dim "  found a previous install: ${PREV_MANIFEST#"$TARGET"/} ($(ga_manifest_version "$PREV_MANIFEST"))"
 fi
 
-n_create=0; n_adopt=0; n_keep=0; n_skip=0; n_declined=0
+n_create=0; n_adopt=0; n_keep=0; n_skip=0; n_declined=0; n_upgrade=0
+# Shared libraries the target has edited: kept (theirs always wins) but reported, because a
+# drifted library breaks its callers instead of merely being out of date.
+LIB_DRIFT=""
 
 while IFS= read -r rel; do
   staged="$STAGE/$rel"
@@ -457,9 +460,24 @@ while IFS= read -r rel; do
   if [ -n "$PREV_MANIFEST" ]; then prev="$(ga_manifest_record_for "$PREV_MANIFEST" "$rel")"; fi
   if [ -n "$prev" ] && [ "$(ga_json_field "$prev" action)" = "created" ] \
      && [ "$(ga_json_field "$prev" sha256)" = "$tsha" ]; then
+    # A shared library is a special case of "the base has moved on", and the conservative-looking
+    # answer is the broken one. The scripts shipped beside it SOURCE it, so keeping an old copy
+    # produces callers whose functions do not exist. v0.4.2 installed 7 new scripts over a v0.2.0
+    # ga-lifecycle.sh and every one failed with `command not found` — while still exiting 0, so
+    # nothing reported it. The record above proves this copy is ours and untouched, so moving it
+    # forward with its callers discards nothing of theirs.
+    if [ "$(ga_staged_kind "$staged")" = "lib" ]; then
+      printf 'upgrade\t%s\t%s\t1\n' "$rel" "$ssha" >> "$PLAN"; n_upgrade=$((n_upgrade + 1)); continue
+    fi
     # We installed it, it is untouched since, and the base has moved on. Not ours to overwrite —
     # Scripts/adopt-review.sh is the tool for taking an update.
     printf 'keep\t%s\t%s\t0\n' "$rel" "$tsha" >> "$PLAN"; n_keep=$((n_keep + 1)); continue
+  fi
+  # Their file wins, as always. But an edited library is not just stale — it silently breaks every
+  # script that sources it, so it is named rather than buried in the skip list.
+  if [ "$(ga_staged_kind "$staged")" = "lib" ]; then
+    LIB_DRIFT="${LIB_DRIFT}${rel}
+"
   fi
   printf 'skip\t%s\t%s\t0\n' "$rel" "$tsha" >> "$PLAN"; n_skip=$((n_skip + 1))
 done <<EOF
@@ -487,6 +505,11 @@ if [ "$n_keep" -gt 0 ]; then
   printf '\n%s  installed earlier, base has moved%s — left as-is (see Scripts/adopt-review.sh)\n' "$GA_BLD" "$GA_OFF"
   awk -F'\t' '$1=="keep" {print "    ~ " $2}' "$PLAN"
 fi
+if [ "$n_upgrade" -gt 0 ]; then
+  printf '\n%s  shared library — upgraded in lockstep%s with the scripts that source it\n' "$GA_BLD" "$GA_OFF"
+  awk -F'\t' '$1=="upgrade" {print "    ↑ " $2}' "$PLAN"
+  ga_dim "    Proven ours and unedited; the previous copy is backed up under $GA_STATE_DIR/backups/."
+fi
 if [ "$n_skip" -gt 0 ]; then
   printf '\n%s  yours — skipped, kept exactly as they are%s\n' "$GA_YEL" "$GA_OFF"
   awk -F'\t' '$1=="skip" {print "    · " $2}' "$PLAN"
@@ -510,9 +533,17 @@ printf '    + %s/manifest-%s.json  %swritten last, on full success only%s\n' \
 
 echo
 printf '%s───────────────────────────────────────────────────────%s\n' "$GA_BLD" "$GA_OFF"
-printf '%d create · %d already ours · %d left at older version · %d yours (skipped) · %d declined\n' \
-  "$n_create" "$n_adopt" "$n_keep" "$n_skip" "$n_declined"
+printf '%d create · %d already ours · %d lib upgraded · %d left at older version · %d yours (skipped) · %d declined\n' \
+  "$n_create" "$n_adopt" "$n_upgrade" "$n_keep" "$n_skip" "$n_declined"
 [ "$n_skip" -gt 0 ] && ga_dim "Nothing in the skipped list is read, moved or rewritten."
+if [ -n "$LIB_DRIFT" ]; then
+  echo
+  ga_warn "a shared library here has local edits, so it cannot be moved forward:"
+  printf '%s' "$LIB_DRIFT" | while IFS= read -r l; do [ -n "$l" ] && printf '    %s\n' "$l"; done
+  ga_dim "  Scripts shipped in this install source it. If they call something your copy does not
+  define, they fail with \`command not found\` and still exit 0. Diff it against the base:
+      ./Scripts/adopt-review.sh <target> --diff 3"
+fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo
@@ -545,6 +576,13 @@ ga_hdr "── Installing ──────────────────
 while IFS="$(printf '\t')" read -r act rel sha needs_write; do
   if [ "$needs_write" = "1" ]; then
     mkdir -p "$(dirname "$TARGET/$rel")"
+    # An upgrade is the one case where a file already on disk is overwritten. It is provably ours
+    # and unedited, so nothing of theirs is at stake — but keep the bytes anyway, so a bad release
+    # can be undone by hand without the network.
+    if [ "$act" = "upgrade" ] && [ -f "$TARGET/$rel" ]; then
+      mkdir -p "$BACKUP_DIR"
+      cp -p "$TARGET/$rel" "$BACKUP_DIR/$(basename "$rel").$GA_VERSION.bak"
+    fi
     cp -p "$STAGE/$rel" "$TARGET/$rel"
     printf 'file\t%s\t\n' "$rel" >> "$WROTE"
     sha="$(ga_sha256 "$TARGET/$rel")"
