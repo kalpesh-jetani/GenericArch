@@ -61,6 +61,9 @@ Rejected with reasons already recorded — reopen only with new information, not
 |---|---|---|
 | Visual language across iOS 17 / macOS 26 — native-per-platform vs. one owned look | Nothing yet | Only blocks once DesignSystem tokens go beyond platform-neutral (§1.1) |
 | macOS 26.6 minimum — verify against real user data | First release | Excludes every Mac that can't run macOS 26 ([GAPS.md](GAPS.md) E1) |
+| `/project-init` S3 offers `/sync-app-notes` mid-run, but the gate refuses it | Every adoption of an existing repo | `ga-step.sh require sync-app-notes` exits 5 until `gaps` is recorded, and the command's own header says to stop on 5. Either S3 defers the offer or the order changes ([SEQUENCE.md](SEQUENCE.md), §5) |
+| Whether a fresh install should ship the nine notes at all, given they arrive carrying this base's own example rows | The first note lookup in an adopted repo | Observed 2026-08-22: `PROJECT.md` named `GenericArch-iOS`/`-macOS` targets and `API-MAP.md` a `doo/device` group, in a repo with neither. A note is greppable from install, so it answers wrongly before `/sync-app-notes` ever runs |
+| How an adoption's resolved conflicts survive a reinstall | Any reinstall or version bump on an adopted repo | Observed 2026-08-22: `DECISIONS.md` was a blank template after reinstall although §2/§3 had been declined earlier, leaving the only record machine-local — which §5 forbids as a store. [ADOPTION.md](ADOPTION.md) §A6 requires the row but nothing enforces it |
 
 ---
 

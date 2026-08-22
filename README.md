@@ -35,8 +35,8 @@ bash bootstrap.sh
 bash bootstrap.sh --apply
 ```
 
-Third line is a dry run listing every file it would add; only the fourth writes anything. Already
-have a checkout — skip the fetch and run the installer directly:
+Third line is a dry run listing what it would add; only the fourth writes anything. Already have a
+checkout — skip the fetch and run the installer directly:
 
 ```bash
 /path/to/GenericArch/install.sh /path/to/YourRepo
@@ -170,8 +170,8 @@ You type these. Anything that must **never** trigger by inference is a command, 
 
 ### Notes
 
-- The first four are lifecycle steps and run in the order above. The rest run in any order once the
-  repo is `ready`.
+- The first three are lifecycle steps and run in the order above. The rest run in any order once
+  the repo is `ready` — `/find` included, which is why it gates on `sync-app-notes` having finished.
 - `/sync-app-notes` and `/build` are commands precisely because a full rescan or a build must never
   fire by inference.
 
@@ -200,9 +200,10 @@ Run that after any description edit — 29 prompts, each with the skill that sho
   every session through its description, a script costs nothing until called.
 - Both open with a script step, in a fixed order. `new-feature` checks whether the screen already
   exists before registering anything — if it does, the work is a change, not a scaffold.
-- Six more wait in `docs/patterns/` — `change`, `style-guide`, `dark-light-mode`, `rtl-support`,
-  `release-bump`, `feature-complete`. `/learn <name>` promotes one once your repo has the code it
-  describes.
+- Six of the seven docs in `docs/patterns/` wait to be promoted — `change`, `style-guide`,
+  `dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`. `/learn <name>` promotes one
+  once your repo has the code it describes. The seventh, `wrapper`, is what satisfies §7 rather than
+  a procedure to promote.
 - A description is trigger phrases, never a summary of the body. A summary makes the skill fire on
   work it does not own.
 
@@ -215,7 +216,7 @@ Everything else is one lookup away.
 
 | File | Loaded | Holds |
 |---|---|---|
-| `CLAUDE.md` | every session — ~3,700 tokens | §0–§12: ask-first decisions, the 15 unbreakable rules, the index, concurrency, conventions |
+| `CLAUDE.md` | every session — ~4,000 tokens | §0–§12: ask-first decisions, the 15 unbreakable rules, the index, concurrency, conventions |
 | `Packages/CLAUDE.md` | when you work in a package | §4 extraction, §7 wrappers, §9 package testing |
 | `docs/BUILD-PROCESS.md` · `DEPLOYMENT-PROCESS.md` · `PROJECT-SETTINGS.md` | when the task is that | building a stage · shipping and rolling back · capabilities, floors, secrets, privacy |
 | `docs/` reference · `.claude/notes/` | on lookup | the reasoning, and the code's own inventory |
@@ -256,9 +257,8 @@ runs git. Contracts and undo: [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md).
 
 ### Notes
 
-- Every section heading stays in `CLAUDE.md` even when its detail moves out — roughly 380 `§N`
-  citations across docs, skills and scripts resolve against those headings, and no linter checks
-  them.
+- Every section heading stays in `CLAUDE.md` even when its detail moves out — roughly 450 `§N`
+  citations repo-wide resolve against those headings, and no linter checks them.
 - A `MAP.tsv` kind reading `module:remote` means *not on disk here, fetch it*. The map's `#
   FETCH-BASE:` line carries the exact commit you installed from.
 - Never read a note in full. If you had to, the row was not self-contained — fix the row. Notes are
@@ -340,6 +340,10 @@ half. Writes nothing.
 - Uninstall exit `0` means the repo is back to its pre-install state; exit `1` means files were left
   behind, listed in `safetodelete-after-migration-note.md` at the repo root, which the next
   `install.sh` reads.
+- A v0.1.0 install predates the manifest, so `uninstall.sh` can only fall back to hashing against a
+  reference checkout — which that machine may not have. `./uninstallv0.1.0.sh` carries the hashes
+  inline instead and needs no manifest, no checkout and no network. It refuses to run against a repo
+  carrying GenericArch's own release tags, and writes nothing without `--apply`.
 - `ga-remove.sh` does four things in one operation — moves the file to `.genericarch/safetodelete/`,
   tombstones it so no later install re-creates it, prunes its `MAP.tsv` and `SCRIPTS.tsv` rows, and
   records the reason in `DECISIONS.md` *Do not re-propose*. Remaining prose references are reported
@@ -434,7 +438,7 @@ swift test --package-path Packages/Core
 | `call` | run it |
 | `emit-only` | it prints commands it deliberately does not run |
 | `needs-approval` | it writes; needs an explicit `--approve` or `--yes` |
-| `never:<reason>` | the agent must not run it — `check.sh` compiles the iOS floor |
+| `never:<reason>` | the agent must not run it. Nothing carries it today — `check.sh` became `call` once §2.12 made compiling the way a change gets validated |
 
 ### Notes
 
@@ -448,6 +452,9 @@ swift test --package-path Packages/Core
   compiler (§2.12) or touches the network.
 - `register-scripts.sh` refuses a script with an incomplete header, so a script cannot be added
   without stating its contract. A row whose script is not installed is pruned at install time.
+- The registry covers `Scripts/` only. The four installers at the repo root — `bootstrap.sh`,
+  `install.sh`, `uninstall.sh`, `uninstallv0.1.0.sh` — carry the same `#@` header and are read
+  directly, which is why no `SCRIPTS.tsv` row points at them.
 - When a generator cannot handle your repo it writes a ~45-line report to `.genericarch/failures/`
   naming what it expected and what it found. That report is what the agent reads — never the
   scanner.
@@ -482,12 +489,19 @@ swift test --package-path Packages/Core
 ### Layout
 
 ```
+bootstrap.sh         fetches a pinned tag and hands off — the only part that touches the network
+install.sh           the installer: gate, plan, manifest, rollback — all offline
+uninstall.sh         reverses an install from its manifest; the version argument is required
+uninstallv0.1.0.sh   removes a v0.1.0 install with the hashes inline — no manifest, no checkout
 CLAUDE.md            session rules ONLY — no version numbers, no reference tables, no checklists
 Packages/CLAUDE.md   scoped rules: extraction, wrappers, package testing
 OPERATORS-GUIDE.md   every file in this repo and what a person does with it
+CHANGELOG.md         the release history — a tag is what install.sh records in the manifest
+.swiftlint.yml       the §2 conventions as config, with .swiftformat — OPTIONAL (--with-lint)
 docs/                hand-written reasoning: module design + cross-cutting reference
 docs/modules/        one doc per package
 docs/patterns/       procedures not yet skills — /learn promotes one when it earns it
+.claude/INDEX.md     what THIS product has — the repo's own router is MAP.tsv, not this
 .claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable
 .claude/SCRIPTS.tsv  the script registry — GENERATED from each script's #@ header
 .claude/CANDIDATES.tsv  cross-session recurrence ledger — what observes that a SECOND session
@@ -497,6 +511,8 @@ docs/patterns/       procedures not yet skills — /learn promotes one when it e
 .claude/skills/      procedures Claude applies on its own
 .claude/commands/    things you trigger
 .claude/claude-tasks/ per-run pipeline artifacts — gitignored working state
+.claude-plugin/      the plugin manifest — build-plugin.sh regenerates it into dist/
+dist/                the generated plugin, gitignored — built, never hand-edited
 .genericarch/        the install record: manifest-v<version>.json (what was written, hashed),
                      TOMBSTONES.tsv (declined and why), STEPS.tsv (which steps ran),
                      safetodelete/ (the declined files — the one directory you may delete)

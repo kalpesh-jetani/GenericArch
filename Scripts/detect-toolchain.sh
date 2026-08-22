@@ -83,13 +83,29 @@ PLATFORMS=$(xcodebuild -showsdks 2>/dev/null \
 det() { # det <label> <value-if-found>
   [ -n "$2" ] && echo "$2" || echo ""
 }
-SRC_GLOB="Packages App Sources . "
+# Assuming the project sits at the repo root silently voids every probe below when it does not.
+# With the code one directory down, the Swift greps return zero — so UI falls through to its
+# UIKit/AppKit default, dependencies to "vendored xcframework", concurrency and testing to
+# "unresolved", and project.pbxproj is never found, which leaves the BLOCKING deployment-target
+# check unable to fire at all. Find the roots; do not assume them. The prunes keep resolved
+# dependencies and build output from answering questions about *this* repo.
+FIND_PRUNE='-name .git -o -name .build -o -name SourcePackages -o -name DerivedData -o -name Pods -o -name Carthage -o -name node_modules'
+# shellcheck disable=SC2086
+finds() { find . \( $FIND_PRUNE \) -prune -o "$@" -print 2>/dev/null; }
 
-has() { grep -rqE "$1" --include='*.swift' --exclude-dir=.build Packages App Sources 2>/dev/null; }
-count() { grep -rlE "$1" --include='*.swift' --exclude-dir=.build Packages App Sources 2>/dev/null | wc -l | tr -d ' '; }
+SRC_ROOTS=""
+for d in Packages App Sources; do [ -d "$d" ] && SRC_ROOTS="$SRC_ROOTS $d"; done
+SRC_ROOTS="${SRC_ROOTS# }"
+[ -z "$SRC_ROOTS" ] && SRC_ROOTS="."
+GREP_EX="--exclude-dir=.build --exclude-dir=SourcePackages --exclude-dir=DerivedData --exclude-dir=Pods --exclude-dir=Carthage --exclude-dir=node_modules --exclude-dir=.git"
+
+# shellcheck disable=SC2086
+has() { grep -rqE "$1" --include='*.swift' $GREP_EX $SRC_ROOTS 2>/dev/null; }
+# shellcheck disable=SC2086
+count() { grep -rlE "$1" --include='*.swift' $GREP_EX $SRC_ROOTS 2>/dev/null | wc -l | tr -d ' '; }
 
 UI=""; N_SWIFTUI=$(count '^import SwiftUI'); N_UIKIT=$(count '^import (UIKit|AppKit)')
-IB=$(find . \( -name '*.storyboard' -o -name '*.xib' \) -not -path '*/.build/*' 2>/dev/null | wc -l | tr -d ' ')
+IB=$(finds \( -name '*.storyboard' -o -name '*.xib' \) | wc -l | tr -d ' ')
 if [ "$N_SWIFTUI" -gt 0 ] && [ "$N_UIKIT" -gt 0 ]; then UI="SwiftUI + UIKit/AppKit (mixed)"
 elif [ "$N_SWIFTUI" -gt 0 ]; then UI="SwiftUI"
 elif [ "$N_UIKIT" -gt 0 ]; then UI="UIKit/AppKit"
@@ -97,15 +113,18 @@ fi
 [ "$IB" -gt 0 ] && UI="${UI:-UIKit/AppKit} + $IB storyboard/xib"
 
 DEPS=""
-[ -n "$(ls Packages/*/Package.swift Package.swift 2>/dev/null)" ] && DEPS="SPM"
-[ -f Podfile ] && DEPS="${DEPS:+$DEPS + }CocoaPods"
-[ -f Cartfile ] && DEPS="${DEPS:+$DEPS + }Carthage"
-[ -n "$(find . -name '*.xcframework' -not -path '*/.build/*' 2>/dev/null | head -1)" ] && DEPS="${DEPS:+$DEPS + }vendored xcframework"
+# SPM states itself two ways: a Package.swift, or a resolved file inside an .xcodeproj/.xcworkspace.
+# Reading only the first reports an app whose dependencies are all SPM as "vendored xcframework".
+[ -n "$(finds -name Package.swift | head -1)" ] && DEPS="SPM"
+[ -z "$DEPS" ] && [ -n "$(finds -path '*xcshareddata/swiftpm/Package.resolved' | head -1)" ] && DEPS="SPM"
+[ -n "$(finds -name Podfile | head -1)" ] && DEPS="${DEPS:+$DEPS + }CocoaPods"
+[ -n "$(finds -name Cartfile | head -1)" ] && DEPS="${DEPS:+$DEPS + }Carthage"
+[ -n "$(finds -name '*.xcframework' | head -1)" ] && DEPS="${DEPS:+$DEPS + }vendored xcframework"
 
 GEN=""
 [ -f Project.swift ] && GEN="Tuist"
 [ -f project.yml ] && GEN="${GEN:+$GEN + }XcodeGen"
-[ -z "$GEN" ] && [ -n "$(ls -d *.xcodeproj 2>/dev/null)" ] && GEN="checked-in .xcodeproj"
+[ -z "$GEN" ] && [ -n "$(finds -name '*.xcodeproj' | head -1)" ] && GEN="checked-in .xcodeproj"
 [ -z "$GEN" ] && GEN="SPM only"
 
 CONC=""
@@ -121,14 +140,14 @@ has '^import XCTest' && TESTS="${TESTS:+$TESTS + }XCTest"
 
 # Deployment targets: .xcconfig beats Package.swift; both beat nothing.
 SRC_IOS=""; SRC_MACOS=""; ORIGIN=""
-PKG=$(ls Packages/*/Package.swift Package.swift 2>/dev/null | head -1)
+PKG=$(finds -name Package.swift | head -1)
 if [ -n "$PKG" ]; then
   line=$(grep -h 'platforms:' "$PKG" 2>/dev/null | head -1)
   SRC_IOS=$(printf '%s' "$line" | sed -n 's/.*\.iOS(\.v\([0-9_]*\)).*/\1/p' | tr '_' '.')
   [ -z "$SRC_IOS" ] && SRC_IOS=$(printf '%s' "$line" | sed -n 's/.*\.iOS("\([0-9.]*\)").*/\1/p')
   SRC_MACOS=$(printf '%s' "$line" | sed -n 's/.*\.macOS("\([0-9.]*\)").*/\1/p')
   [ -z "$SRC_MACOS" ] && SRC_MACOS=$(printf '%s' "$line" | sed -n 's/.*\.macOS(\.v\([0-9_]*\)).*/\1/p' | tr '_' '.')
-  [ -n "$SRC_IOS$SRC_MACOS" ] && ORIGIN="$PKG"
+  [ -n "$SRC_IOS$SRC_MACOS" ] && ORIGIN="${PKG#./}"
 fi
 # A checked-in .xcodeproj states its deployment targets in project.pbxproj, and a repo with no
 # Packages/ states them nowhere else. Reading only Package.swift and .xcconfig classified such a
@@ -136,7 +155,7 @@ fi
 # says 16.0, which is a number the tool invented rather than read. Consulted before .xcconfig
 # because an explicit .xcconfig is the stronger statement and must still win.
 if [ -z "$ORIGIN" ]; then
-  PBX=$(ls -d ./*.xcodeproj/project.pbxproj 2>/dev/null | head -1)
+  PBX=$(finds -name project.pbxproj | head -1)
   if [ -n "$PBX" ]; then
     # The targets appear once per build configuration. The floor is the LOWEST of them, not
     # whichever the file happens to list first.
@@ -146,9 +165,13 @@ if [ -z "$ORIGIN" ]; then
     [ -n "$pm" ] && { SRC_MACOS="$pm"; ORIGIN="${PBX#./}"; }
   fi
 fi
-if ls Configurations/*.xcconfig *.xcconfig >/dev/null 2>&1; then
-  xi=$(grep -h 'IPHONEOS_DEPLOYMENT_TARGET' Configurations/*.xcconfig *.xcconfig 2>/dev/null | head -1 | sed 's/.*=[[:space:]]*//')
-  xm=$(grep -h 'MACOSX_DEPLOYMENT_TARGET' Configurations/*.xcconfig *.xcconfig 2>/dev/null | head -1 | sed 's/.*=[[:space:]]*//')
+XCCONFIGS=$(finds -name '*.xcconfig')
+# Guarded on non-empty: a bare xargs over an empty list runs grep with no file arguments, which
+# then blocks reading stdin (SCAN-TRAPS.md, Shell). The floor is the LOWEST across configurations,
+# matching the pbxproj rule above; a value that is not a bare version states no floor and is dropped.
+if [ -n "$XCCONFIGS" ]; then
+  xi=$(printf '%s\n' "$XCCONFIGS" | tr '\n' '\0' | xargs -0 grep -h 'IPHONEOS_DEPLOYMENT_TARGET' 2>/dev/null | sed 's/.*=[[:space:]]*//' | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | head -1)
+  xm=$(printf '%s\n' "$XCCONFIGS" | tr '\n' '\0' | xargs -0 grep -h 'MACOSX_DEPLOYMENT_TARGET' 2>/dev/null | sed 's/.*=[[:space:]]*//' | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | head -1)
   [ -n "$xi" ] && { SRC_IOS="$xi"; ORIGIN="an .xcconfig"; }
   [ -n "$xm" ] && { SRC_MACOS="$xm"; ORIGIN="an .xcconfig"; }
 fi

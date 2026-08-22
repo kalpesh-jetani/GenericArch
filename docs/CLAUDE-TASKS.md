@@ -49,7 +49,7 @@ The `claude` column says what is safe to invoke:
 | `call` | run it |
 | `emit-only` | it prints commands it deliberately does not run (phases 7, 9) |
 | `needs-approval` | it writes; requires an explicit `--approve` / `--yes` (phase 5, rollback) |
-| `never:<reason>` | Claude must not run it — `check.sh` compiles the iOS floor (§2.12) |
+| `never:<reason>` | Claude must not run it. Nothing carries it today — `check.sh` became `call` once §2.12 made compiling the way a change gets validated |
 
 Header fields, all required, one per line as `#@<field><spaces><value>`, and no value may contain a
 tab: `kind` `platform` `claude` `purpose` `usage` `in` `out` `exit` `effects`.
