@@ -4,24 +4,31 @@
 #@claude    call
 #@purpose   Generate the publishable Claude Code plugin from .claude/skills and .claude/commands.
 #@usage     build-plugin.sh [version]
-#@in        version:semver(default 0.1.0)
+#@in        version:semver(default: the version in .claude-plugin/plugin.json)
 #@out       dist/genericarch/:dir(plugin.json,marketplace.json,skills,commands,README.md)
 #@exit      0=built
 #@effects   writes dist/ (gitignored)
 # Generate a publishable Claude Code plugin from the canonical .claude/ sources.
 #
-#   ./Scripts/build-plugin.sh            # writes dist/genericarch/
-#   ./Scripts/build-plugin.sh 0.2.0      # sets the version
+#   ./Scripts/build-plugin.sh            # writes dist/genericarch/ at the manifest's version
+#   ./Scripts/build-plugin.sh 0.7.0      # overrides the version for this build
 #
 # The plugin is GENERATED, never hand-maintained. `.claude/skills` and `.claude/commands` stay the
 # single source of truth — a hand-copied plugin drifts, and a doc that drifts is worse than none.
+#
+# Its NAME and DESCRIPTION come from .claude-plugin/plugin.json for the same reason. A second copy
+# lived here and drifted: it still advertised a Swift version this repo refuses to state from memory
+# (CLAUDE.md §1), and listed dark-mode, RTL and release skills that only ever existed as patterns
+# under docs/patterns/. Whoever browsed the marketplace read that copy, not the accurate one.
 #
 # Ships only the tooling layer. CLAUDE.md and docs/ deliberately stay out: those are a product's
 # rules, and a plugin that overwrote them would stop each product setting its own (docs/SHARING.md).
 set -o pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${1:-0.1.0}"
+MANIFEST=".claude-plugin/plugin.json"
+[ -f "$MANIFEST" ] || { echo "cannot build: $MANIFEST is missing" >&2; exit 1; }
+VERSION="${1:-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$MANIFEST")}"
 OUT="dist/genericarch"
 GRN=$'\033[32m'; DIM=$'\033[2m'; BLD=$'\033[1m'; OFF=$'\033[0m'
 
@@ -32,16 +39,12 @@ mkdir -p "$OUT/.claude-plugin"
 cp -R .claude/skills   "$OUT/skills"
 cp -R .claude/commands "$OUT/commands"
 
-cat > "$OUT/.claude-plugin/plugin.json" <<JSON
-{
-  "name": "genericarch",
-  "description": "Apple-platform app architecture for iPhone/iPad/Mac from one codebase — SwiftUI, Swift 6 strict concurrency, SPM only. Adds skills for scaffolding features, dark mode and RTL verification, package releases, and inventory notes; commands for build, verify, decide, gaps, and project adoption.",
-  "version": "$VERSION",
-  "author": { "name": "GenericArch" },
-  "homepage": "https://github.com/kalpesh-jetani/GenericArch",
-  "keywords": ["swift", "swiftui", "ios", "macos", "architecture", "spm"]
-}
-JSON
+python3 - "$MANIFEST" "$VERSION" > "$OUT/.claude-plugin/plugin.json" <<'PY'
+import json, sys
+manifest = json.load(open(sys.argv[1]))
+manifest["version"] = sys.argv[2]
+print(json.dumps(manifest, indent=2))
+PY
 
 # A marketplace entry so a team can host this for `/plugin marketplace add`.
 cat > "$OUT/.claude-plugin/marketplace.json" <<JSON

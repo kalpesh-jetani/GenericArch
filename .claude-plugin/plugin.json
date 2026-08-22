@@ -1,7 +1,7 @@
 {
   "name": "genericarch",
   "description": "Apple-platform app architecture for iPhone/iPad/Mac from one codebase, adopted into a repo that already has its Xcode project. Offline note generation and adoption evidence, an enforced command sequence, build settings as reviewable .xcconfig files, and skills and commands for scaffolding features, debugging, builds, decisions, gaps and inventories.",
-  "version": "0.4.2",
+  "version": "0.6.0",
   "author": {
     "name": "kalpesh-jetani"
   },

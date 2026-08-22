@@ -5,7 +5,7 @@
 #@purpose   Stage a script per session; promote to the shared tree only once a second session needs it.
 #@usage     session-script.sh add --intent S --cmd C | list [--promotable] | show ID | promote ID [--apply] [--allow-mutating] | drop ID
 #@in        --intent:str --cmd:str --session:id(default today) --apply:flag --allow-mutating:flag ID:slug
-#@out       stdout:tsv(id,sessions,uses,status,intent) for list; a 6-row gate table for promote
+#@out       stdout:tsv(id,sessions,uses,status,intent) for list; for promote, one pass/fail line per promotion gate then the verdict
 #@exit      0=ok 1=nothing promotable|gate failed 2=usage 3=tool missing
 #@effects   writes .claude/CANDIDATES.tsv (tracked) + staging under .claude/claude-tasks/ (gitignored); promote --apply writes Scripts/
 #@when      promote a script|is this reusable|same pipeline again|stage a script|candidate script|i keep typing this
