@@ -263,17 +263,40 @@ Run it yourself after editing an installed file by hand.
 removal is a verified operation, not a guess at which files were probably ours.
 
 ```bash
-./uninstall.sh v0.5.0              # plan, then ask
-./uninstall.sh v0.5.0 --dry-run    # print the plan and stop
-./uninstall.sh v0.5.0 --yes        # skip the confirmation prompt
+./uninstall.sh v0.6.0              # plan, then ask
+./uninstall.sh v0.6.0 --dry-run    # print the plan and stop
+./uninstall.sh v0.6.0 --yes        # skip the confirmation prompt
 ```
 
-**The version argument is required.** Supported: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.4.1`, `v0.4.2`, `v0.5.0` (latest). Defaulting it would
+**The version argument is required.** Supported: `v0.1.0`, `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.4.1`, `v0.4.2`, `v0.5.0`, `v0.6.0` (latest). Defaulting it would
 mean guessing which release's footprint to delete, and a wrong guess deletes the wrong files.
 
 **Exit 0 means the repo is back to its pre-install state; exit 1 means files were left behind** —
-listed in `.genericarch/orphans-<version>.txt`, which outlives the terminal. A partial removal that
-reported success leaves a repo half-installed with nobody aware of it.
+listed in `safetodelete-after-migration-note.md` at the repo root, which outlives the terminal and
+is read by the next `install.sh`, so an edited file is tracked again rather than absorbed. A partial
+removal that reported success leaves a repo half-installed with nobody aware of it.
+
+`uninstall.sh` asks once at the end what should become of those files: `--upgrade` leaves them
+exactly where they are for a re-install, `--final` retires them to `.genericarch/safetodelete/`,
+records them in your `CLAUDE.md`, and exits 0.
+
+## Upgrading — uninstall, then install
+
+`install.sh` **refuses** when the manifest records a different version, and exits `6`. Installing
+over an older release was never an upgrade: only shared libraries move forward, and everything else
+is reported as *"left at older version"* and left there.
+
+```bash
+(cd /path/to/YourApp && ./uninstall.sh v0.5.0)   # edited files survive, and are listed
+./install.sh /path/to/YourApp
+```
+
+Nothing of yours is lost in between — a file is removed only while its hash still proves it is
+GenericArch's. `--in-place` keeps the old behaviour; the **same** version is not gated, because that
+is the repair run.
+
+`install.sh --with-claude-md` is the one way it writes your `CLAUDE.md`: yours moves to
+`CLAUDE-BK.md`, and `uninstall.sh` puts it back byte-for-byte. Off by default.
 
 Flags, exit codes, what *user-edited file preserved* means, and recovering an install that failed
 part-way: [docs/SHARING.md](docs/SHARING.md). Manifest format:
@@ -608,7 +631,8 @@ docs/CLAUDE-TASKS.md the nine-phase pipeline: contracts, gates, and how to add a
 .genericarch/        the install record: manifest-<version>.json (what was written, hashed),
                      TOMBSTONES.tsv (what was declined and why), STEPS.tsv (which steps ran),
                      safetodelete/ (the declined files themselves — the one directory you may
-                     delete), orphans-<version>.txt (what an uninstall could not remove)
+                     delete). What an uninstall could not remove is listed at the repo root,
+                     in safetodelete-after-migration-note.md — the next install reads it
 docs/SEQUENCE.md     the command order, what each step must leave behind, and how to add one
 Scripts/ga-step.sh   the sequence gate — show · next · require · after · record
 Scripts/sync-notes.sh    regenerate seven of the nine notes offline — no model, no network
