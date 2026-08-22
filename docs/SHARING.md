@@ -238,11 +238,32 @@ uninstall keeps them and lists them.
 
 Full format reference: [INSTALL-MANIFEST.md](INSTALL-MANIFEST.md).
 
-### Updating an install — the consumer decides, per file
+### Moving to a new version — uninstall, then install
 
-`install.sh` never overwrites. That is the right default and it has a cost: once a repo has adopted,
-a fix upstream reaches it only if someone goes and gets it, and *"0 collisions kept as-is"* says
-nothing about whether the incoming file even changed.
+**This is the sanctioned upgrade**, and `install.sh` now enforces it: a manifest recording a
+different version stops the run with exit `6` and names the command to run.
+
+```bash
+./uninstall.sh v0.5.0     # from the target; edited files survive, and are listed
+./install.sh /path/to/YourApp
+```
+
+Installing over an older release was never an upgrade. A file GenericArch installed, that nobody
+touched, and that the base has since changed, is reported as *"left at older version"* and left
+there — only shared libraries move forward, and only because their callers break otherwise. So a
+v0.4.2 → v0.5.0 run left most of v0.4.2 on disk under a v0.5.0 manifest.
+
+Removing first costs nothing: a file comes out only while its hash still proves it is GenericArch's,
+so anything edited survives. `uninstall.sh` lists those in `safetodelete-after-migration-note.md` at
+the repo root, and the next `install.sh` reads it and records them as `orphan` — tracked, never
+rewritten, never deleted. `--in-place` keeps the old behaviour for anyone who wants it.
+
+### Updating one file at a time — the consumer decides, per file
+
+For a fork, or for taking a single upstream fix without a version move, `install.sh` never
+overwrites. That is the right default and it has a cost: once a repo has adopted, a fix upstream
+reaches it only if someone goes and gets it, and *"0 collisions kept as-is"* says nothing about
+whether the incoming file even changed.
 
 `adopt-review.sh` is that missing half. It classifies every shipped path against the target and
 prints a numbered list — nothing is written:
@@ -271,7 +292,10 @@ shipping repo is the owner's call, and an approval never carries to the next run
 
 #### CLAUDE.md gets the same treatment, one section at a time
 
-`install.sh` refuses to touch `CLAUDE.md` at all, which protects a consumer's rules but means a
+`install.sh` leaves `CLAUDE.md` alone unless asked. `--with-claude-md` is the one way it writes
+that file: the consumer's copy moves to `CLAUDE-BK.md`, the swap is recorded in the manifest as
+`replaced`, and `uninstall.sh` puts their original back byte-for-byte, verified against its recorded
+hash. Off by default — protecting a consumer's rules is still the right default, and it means a
 genuinely useful new rule can never reach a project that already adopted. `adopt-review.sh` compares
 it **by numbered section** instead of as a file:
 

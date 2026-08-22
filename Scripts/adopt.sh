@@ -37,6 +37,7 @@ QUIET_NEXT=0
 WITH_LINT=0
 WITH_META=0
 WITH_ARCH=0
+WITH_CLAUDE=0
 for a in "$@"; do
   [ "$a" = "--apply" ] && APPLY=1
   # install.sh prints advice matched to fresh-vs-existing; ours would contradict it.
@@ -44,6 +45,7 @@ for a in "$@"; do
   [ "$a" = "--with-lint" ] && WITH_LINT=1
   [ "$a" = "--with-meta" ] && WITH_META=1
   [ "$a" = "--with-architecture" ] && WITH_ARCH=1
+  [ "$a" = "--with-claude-md" ] && WITH_CLAUDE=1
 done
 [ "${1:-}" = "--apply" ] && { echo "${RED}pass the target path first${OFF}"; exit 2; }
 
@@ -125,18 +127,29 @@ OPTIONAL_META="Scripts/claude-workflows"
 # rule-conflict table — the point where consent is actually given. Otherwise the target arrives lean
 # and has nothing to decline afterwards.
 OPTIONAL_ARCH=".claude/skills/new-feature .claude/commands/review.md"
-OPTIONAL_ALL="$OPTIONAL_LINT $OPTIONAL_META $OPTIONAL_ARCH"
+
+# ── The rules themselves ───────────────────────────────────────────────────
+# CLAUDE.md was EXCLUDED outright, on the grounds that the target's rules are the target's. That is
+# the right default and it left no path at all for a repo that WANTS these rules: /project-init
+# reconciles them by hand, session by session, and nothing records that it happened.
+#
+# So it travels on an explicit --with-claude-md, and install.sh — not this script — does the
+# replacing, because only install.sh can back the original up to CLAUDE-BK.md and record the swap
+# in the manifest. Without that record uninstall.sh cannot put their rules back.
+OPTIONAL_CLAUDE="CLAUDE.md"
+OPTIONAL_ALL="$OPTIONAL_LINT $OPTIONAL_META $OPTIONAL_ARCH $OPTIONAL_CLAUDE"
 [ "$WITH_LINT" -eq 1 ] && BASE="$BASE
 $(printf '%s\n' $OPTIONAL_LINT)"
 [ "$WITH_META" -eq 1 ] && BASE="$BASE
 $(printf '%s\n' $OPTIONAL_META)"
 [ "$WITH_ARCH" -eq 1 ] && BASE="$BASE
 $(printf '%s\n' $OPTIONAL_ARCH)"
+[ "$WITH_CLAUDE" -eq 1 ] && BASE="$BASE
+$(printf '%s\n' $OPTIONAL_CLAUDE)"
 
 # ── What must NOT travel, and why ──────────────────────────────────────────
 # Each is this product's state. Carrying it into another repo makes the target's docs lie.
 EXCLUDED="
-CLAUDE.md|the target's rules are its own — /project-init reconciles instead of overwriting
 docs/DECISIONS.md|THIS product's answers — an empty one is created instead (see Scaffolded)
 docs/GAPS.md|gap statuses are per-product — an empty one is created instead (see Scaffolded)
 Packages|this product's code
@@ -246,10 +259,17 @@ expand() {
 # entry would bring it back. Subtracting at the leaf is the only place that holds for every group.
 SKIP=""
 [ "$WITH_ARCH" -eq 0 ] && SKIP="$SKIP $OPTIONAL_ARCH"
+[ "$WITH_CLAUDE" -eq 0 ] && SKIP="$SKIP $OPTIONAL_CLAUDE"
+# Sets SKIP_FLAG to the flag that would bring it. There is more than one optional group now, and a
+# message that names the wrong flag is worse than one that names none.
 skipped_group() {
+  SKIP_FLAG=""
   for _s in $SKIP; do
-    [ "$1" = "$_s" ] && return 0
-    case "$1" in "$_s"/*) return 0 ;; esac
+    if [ "$1" = "$_s" ] || case "$1" in "$_s"/*) true ;; *) false ;; esac; then
+      case " $OPTIONAL_ARCH " in *" $_s "*) SKIP_FLAG="--with-architecture" ;; esac
+      case " $OPTIONAL_CLAUDE " in *" $_s "*) SKIP_FLAG="--with-claude-md" ;; esac
+      return 0
+    fi
   done
   return 1
 }
@@ -257,8 +277,8 @@ skipped_group() {
 copy_one() {
   item="$1"; dest="$TARGET/$item"
   if skipped_group "$item"; then
-    printf '  %s·%s %-46s %snot taken — --with-architecture brings it%s\n' \
-      "$DIM" "$OFF" "$item" "$DIM" "$OFF"
+    printf '  %s·%s %-46s %snot taken — %s brings it%s\n' \
+      "$DIM" "$OFF" "$item" "$DIM" "$SKIP_FLAG" "$OFF"
     return
   fi
   if [ -e "$dest" ]; then
@@ -409,12 +429,14 @@ echo
 echo "${BLD}── Optional, off unless asked for ──────────────────────${OFF}"
 for pair in "--with-lint|$OPTIONAL_LINT|only if the target adopted GenericArch's §2 conventions" \
             "--with-meta|$OPTIONAL_META|the CLAUDE.md authoring pipeline — not needed to build a product" \
-            "--with-architecture|$OPTIONAL_ARCH|only once the product adopted §2/§3 — /project-init offers it"; do
+            "--with-architecture|$OPTIONAL_ARCH|only once the product adopted §2/§3 — /project-init offers it" \
+            "--with-claude-md|$OPTIONAL_CLAUDE|replaces the target's rules; the original is kept at CLAUDE-BK.md"; do
   flag="${pair%%|*}"; rest="${pair#*|}"; items="${rest%%|*}"; why="${rest#*|}"
   case "$flag" in
     --with-lint) on=$WITH_LINT ;;
     --with-meta) on=$WITH_META ;;
     --with-architecture) on=$WITH_ARCH ;;
+    --with-claude-md) on=$WITH_CLAUDE ;;
   esac
   if [ "$on" -eq 1 ]; then
     printf '  %s+%s %-12s %s %s(requested)%s\n' "$GRN" "$OFF" "$flag" "$items" "$DIM" "$OFF"
@@ -640,5 +662,7 @@ ${BLD}Next, in the target repo${OFF}
                     Expect failures on an existing codebase — that is the point. Triage them in
                     /project-init as "keep theirs", "new code only", or "migrate".
 
-${DIM}No CLAUDE.md was written. The target's rules stay the target's until it decides otherwise.${OFF}
+${DIM}$([ "$WITH_CLAUDE" -eq 1 ] \
+  && printf "GenericArch's CLAUDE.md was staged. install.sh keeps the target's at CLAUDE-BK.md and records the swap." \
+  || printf "No CLAUDE.md was written. The target's rules stay the target's until it decides otherwise.")${OFF}
 NEXT

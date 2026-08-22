@@ -23,6 +23,14 @@
 #                            no MAP rows that cannot resolve
 #  11. preflight evidence   install writes the /project-init evidence, records no step for it, and
 #                           uninstall takes the generated files back out
+#  12. one version at a time an older install is refused with exit 6, and nothing is written
+#  13. same version repairs   re-running the SAME version is not gated
+#  14. orphans carry forward  an edited file survives uninstall → install → uninstall, tracked
+#                             at every step and never deleted
+#  15. --final retires them   moved to safetodelete/, recorded in CLAUDE.md, exit 0
+#  16. --final with no rules  the record goes to GENERICARCH-ORPHANS.md instead
+#  17. CLAUDE.md migration    --with-claude-md backs theirs up, uninstall restores it byte-for-byte
+#  18. an edited CLAUDE.md    is kept, and so is their backup
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -49,6 +57,15 @@ new_repo() {   # new_repo <name> → path to a fresh Swift-looking git repo
 }
 install_into() { ( cd "$SRC" && GA_ASSUME_YES=1 ./install.sh "$1" ) >"$WORK/last.log" 2>&1; }
 uninstall_in() { ( cd "$1" && GA_ASSUME_YES=1 ./uninstall.sh "$2" ) >"$WORK/last.log" 2>&1; }
+# install_into with extra flags, and with a version this checkout is not actually tagged as —
+# the only way to exercise an upgrade from one release to another inside one scratch tree.
+install_flags() { t="$1"; shift; ( cd "$SRC" && GA_ASSUME_YES=1 ./install.sh "$t" "$@" ) >"$WORK/last.log" 2>&1; }
+install_as()    { v="$1"; t="$2"; shift 2
+                  ( cd "$SRC" && GA_VERSION="$v" GA_ASSUME_YES=1 ./install.sh "$t" "$@" ) >"$WORK/last.log" 2>&1; }
+uninstall_flags() { t="$1"; v="$2"; shift 2
+                    ( cd "$t" && GA_ASSUME_YES=1 ./uninstall.sh "$v" "$@" ) >"$WORK/last.log" 2>&1; }
+# A supported version that is NOT the one under test, for the upgrade gate.
+PREV_V=v0.4.2
 
 VERSION="${GA_VERSION:-$(git -C "$SRC" tag --sort=-v:refname --merged HEAD 2>/dev/null | head -1)}"
 [ -n "$VERSION" ] || { echo "no version tag reachable from HEAD — set GA_VERSION" >&2; exit 1; }
@@ -180,8 +197,8 @@ if install_into "$T"; then
     fail "partial uninstall exited 0 — a caller cannot tell it was partial"
   elif [ ! -e "$T/Scripts/find.sh" ]; then
     fail "an edited file was deleted"
-  elif ! grep -q "Scripts/find.sh" "$T/.genericarch/orphans-$VERSION.txt" 2>/dev/null; then
-    fail "the orphan was not written to the orphan report"
+  elif ! grep -q "Scripts/find.sh" "$T/safetodelete-after-migration-note.md" 2>/dev/null; then
+    fail "the orphan was not written to safetodelete-after-migration-note.md"
   else
     pass "an unresealed edit is kept, reported, and exits non-zero"
   fi
@@ -341,6 +358,155 @@ if install_into "$T"; then
   fi
 else
   fail "case 11: install failed"
+fi
+
+# ── 12. an older install must be removed first ─────────────────────────────
+T="$(new_repo case12)"
+[ "$PREV_V" = "$VERSION" ] && PREV_V=v0.4.1
+if install_as "$PREV_V" "$T"; then
+  before="$(cd "$T" && git status --porcelain | LC_ALL=C sort)"
+  install_into "$T" && rc=0 || rc=$?
+  after="$(cd "$T" && git status --porcelain | LC_ALL=C sort)"
+  if [ "$rc" -ne 6 ]; then
+    fail "installing $VERSION over $PREV_V exited $rc, not 6 (see $WORK/last.log)"
+  elif [ "$before" != "$after" ]; then
+    fail "the refused install still wrote something"
+  elif ! grep -qE "uninstall\.sh[\"']? $PREV_V" "$WORK/last.log"; then
+    fail "the refusal did not name the uninstall command to run"
+  else
+    pass "an older install is refused with exit 6, and nothing is written"
+  fi
+  install_flags "$T" --in-place && pass "--in-place is the way past it" \
+                                || fail "--in-place did not get past the gate"
+else
+  fail "case 12: the $PREV_V install failed"
+fi
+
+# ── 13. the same version is a repair, not an upgrade ───────────────────────
+T="$(new_repo case13)"
+if install_into "$T"; then
+  rm -f "$T/Scripts/find.sh"
+  if install_into "$T" && [ -f "$T/Scripts/find.sh" ]; then
+    pass "re-running the same version repairs rather than refusing"
+  else
+    fail "the same-version repair run was gated or did not restore the file (see $WORK/last.log)"
+  fi
+else
+  fail "case 13: install failed"
+fi
+
+# ── 14. an edited file is tracked across the whole cycle ───────────────────
+T="$(new_repo case14)"
+if install_into "$T"; then
+  printf '\n# mine now\n' >> "$T/Scripts/find.sh"
+  mine="$(shasum -a 256 "$T/Scripts/find.sh" | awk '{print $1}')"
+  uninstall_flags "$T" "$VERSION" --upgrade
+  if [ ! -f "$T/safetodelete-after-migration-note.md" ]; then
+    fail "no note was written for the file the uninstall kept"
+  elif install_into "$T"; then
+    now="$(shasum -a 256 "$T/Scripts/find.sh" | awk '{print $1}')"
+    if [ "$now" != "$mine" ]; then
+      fail "the re-install overwrote a file it was supposed to be tracking"
+    elif ! grep -q '"action": "orphan"' "$T/.genericarch/manifest-$VERSION.json"; then
+      fail "the re-install did not record the kept file as an orphan"
+    else
+      uninstall_flags "$T" "$VERSION" --upgrade
+      if [ -f "$T/Scripts/find.sh" ] && grep -q "Scripts/find.sh" "$T/safetodelete-after-migration-note.md"; then
+        pass "an edited file survives install → uninstall → install → uninstall, tracked throughout"
+      else
+        fail "the second uninstall lost the file or stopped tracking it"
+      fi
+    fi
+  else
+    fail "case 14: the re-install failed (see $WORK/last.log)"
+  fi
+else
+  fail "case 14: install failed"
+fi
+
+# ── 15. --final retires the orphans instead of leaving them ────────────────
+T="$(new_repo case15)"
+printf '# House rules\n' > "$T/CLAUDE.md"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm rules ) >/dev/null 2>&1
+if install_into "$T"; then
+  printf '\n# mine now\n' >> "$T/Scripts/find.sh"
+  uninstall_flags "$T" "$VERSION" --final && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    fail "--final exited $rc — the working tree is clean, so it must exit 0"
+  elif [ -e "$T/Scripts/find.sh" ]; then
+    fail "--final left the file in place instead of retiring it"
+  elif [ ! -f "$T/.genericarch/safetodelete/Scripts/find.sh" ]; then
+    fail "--final destroyed the file instead of moving it to safetodelete/"
+  elif [ -f "$T/safetodelete-after-migration-note.md" ]; then
+    fail "--final kept the temporary note after retiring the files it described"
+  elif ! grep -q "Scripts/find.sh" "$T/CLAUDE.md"; then
+    fail "--final did not record the retired file in CLAUDE.md"
+  else
+    pass "--final retires orphans to safetodelete/, records them in CLAUDE.md, and exits 0"
+  fi
+else
+  fail "case 15: install failed"
+fi
+
+# ── 16. --final with no CLAUDE.md to write into ────────────────────────────
+T="$(new_repo case16)"
+if install_into "$T"; then
+  printf '\n# mine now\n' >> "$T/Scripts/find.sh"
+  uninstall_flags "$T" "$VERSION" --final
+  if [ -f "$T/GENERICARCH-ORPHANS.md" ] && grep -q "Scripts/find.sh" "$T/GENERICARCH-ORPHANS.md"; then
+    pass "with no CLAUDE.md the record goes to GENERICARCH-ORPHANS.md"
+  else
+    fail "no record was written when the repo has no CLAUDE.md"
+  fi
+else
+  fail "case 16: install failed"
+fi
+
+# ── 17. the CLAUDE.md migration is reversible ──────────────────────────────
+T="$(new_repo case17)"
+printf '# House rules\n\nOurs, not yours.\n' > "$T/CLAUDE.md"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm rules ) >/dev/null 2>&1
+theirs="$(shasum -a 256 "$T/CLAUDE.md" | awk '{print $1}')"
+if install_flags "$T" --with-claude-md; then
+  if [ ! -f "$T/CLAUDE-BK.md" ]; then
+    fail "--with-claude-md did not keep the original at CLAUDE-BK.md"
+  elif ! grep -q "Generic Apple Platform App Architecture" "$T/CLAUDE.md"; then
+    fail "--with-claude-md did not install GenericArch's CLAUDE.md"
+  elif ! grep -q '"action": "replaced"' "$T/.genericarch/manifest-$VERSION.json"; then
+    fail "the swap was not recorded in the manifest — uninstall cannot reverse it"
+  else
+    uninstall_in "$T" "$VERSION"
+    back="$(shasum -a 256 "$T/CLAUDE.md" 2>/dev/null | awk '{print $1}')"
+    if [ "$back" != "$theirs" ]; then
+      fail "uninstall did not restore their CLAUDE.md byte-for-byte"
+    elif [ -e "$T/CLAUDE-BK.md" ]; then
+      fail "uninstall restored the file but left the backup behind"
+    else
+      pass "--with-claude-md is reversible: their rules come back byte-for-byte"
+    fi
+  fi
+else
+  fail "case 17: install --with-claude-md failed (see $WORK/last.log)"
+fi
+
+# ── 18. an edited CLAUDE.md is never overwritten on the way out ────────────
+T="$(new_repo case18)"
+printf '# House rules\n' > "$T/CLAUDE.md"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm rules ) >/dev/null 2>&1
+if install_flags "$T" --with-claude-md; then
+  printf '\n## My own addition\n' >> "$T/CLAUDE.md"
+  edited="$(shasum -a 256 "$T/CLAUDE.md" | awk '{print $1}')"
+  uninstall_flags "$T" "$VERSION" --upgrade
+  still="$(shasum -a 256 "$T/CLAUDE.md" 2>/dev/null | awk '{print $1}')"
+  if [ "$still" != "$edited" ]; then
+    fail "uninstall overwrote a CLAUDE.md the operator had edited"
+  elif [ ! -f "$T/CLAUDE-BK.md" ]; then
+    fail "uninstall removed the backup while their original was still unrestored"
+  else
+    pass "an edited CLAUDE.md is kept, and so is the backup it would have been restored from"
+  fi
+else
+  fail "case 18: install --with-claude-md failed"
 fi
 
 echo

@@ -15,8 +15,9 @@
 #   GA_REF=<tag|branch>      which version to pin  (default: the newest semver tag on the remote)
 #   --ref <tag>              same, as a flag — usable through `curl ... | bash -s -- --ref <tag>`
 #   --yes                    passed through to install.sh, skipping its confirmation prompt
-#   --root-ok · --force · --with-architecture · --project-setup · --no-project-setup ·
-#   --no-preflight            install.sh's own flags, forwarded verbatim
+#   --root-ok · --force · --with-architecture · --with-claude-md · --in-place ·
+#   --project-setup · --no-project-setup · --no-preflight
+#                            install.sh's own flags, forwarded verbatim
 #
 # This is the ONLY script in the lifecycle that touches the network, and all it does is fetch.
 # Every decision about what lands in your repo — the compatibility gate, the plan, the manifest,
@@ -38,7 +39,8 @@ while [ $# -gt 0 ]; do
     --help|-h) sed -n '2,24p' "$0" 2>/dev/null || echo "see the header of bootstrap.sh"; exit 0 ;;
     # install.sh's own flags, forwarded verbatim. Rejecting them made its advice unreachable: its
     # multi-root refusal says "re-run with --root-ok", and through here that was an unknown argument.
-    --root-ok|--with-architecture|--project-setup|--no-project-setup|--no-preflight|--force|-f)
+    --root-ok|--with-architecture|--with-claude-md|--in-place|--project-setup| \
+    --no-project-setup|--no-preflight|--force|-f)
              PASS_THROUGH="$PASS_THROUGH $1"; shift ;;
     # A trailing `# comment` pasted from the README arrives as arguments in zsh, whose
     # interactive_comments is off by default. Say that, rather than reporting `#` as a typo.
@@ -48,8 +50,9 @@ while [ $# -gt 0 ]; do
          exit 2 ;;
     *) echo "unknown argument: $1" >&2
        echo "  bootstrap flags: --apply --yes --ref <tag> --help" >&2
-       echo "  forwarded to install.sh: --root-ok --with-architecture --project-setup" >&2
-       echo "                           --no-project-setup --no-preflight --force" >&2
+       echo "  forwarded to install.sh: --root-ok --with-architecture --with-claude-md" >&2
+       echo "                           --in-place --project-setup --no-project-setup" >&2
+       echo "                           --no-preflight --force" >&2
        exit 2 ;;
   esac
 done
@@ -176,5 +179,11 @@ rc=$?
 if [ "$APPLY" -eq 0 ] && [ "$rc" -eq 0 ]; then
   echo
   echo "Dry run only. Re-run with ${BLD}--apply${OFF} to write."
+fi
+# install.sh's own exit codes travel out of here unchanged; 6 is the one whose remediation names a
+# command in the TARGET rather than one of ours, so say where to run it.
+if [ "$rc" -eq 6 ]; then
+  echo
+  echo "${DIM}Nothing was written. Run the uninstall named above from ${TARGET}, then re-run this.${OFF}"
 fi
 exit "$rc"
