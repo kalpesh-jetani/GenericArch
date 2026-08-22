@@ -288,18 +288,18 @@ version and exits `6`.
 **Uninstall.** The version argument is required.
 
 ```bash
-./uninstall.sh v0.6.0
+./uninstall.sh v0.6.1
 ```
 ```bash
-./uninstall.sh v0.6.0 --dry-run
+./uninstall.sh v0.6.1 --dry-run
 ```
 ```bash
-./uninstall.sh v0.6.0 --yes
+./uninstall.sh v0.6.1 --yes
 ```
 
-Supported: `v0.1.0` · `v0.2.0` · `v0.3.0` · `v0.4.0` · `v0.4.1` · `v0.4.2` · `v0.5.0` · `v0.6.0`
-(latest). At the end it asks what becomes of any files it could not remove: `--upgrade` leaves them
-for a re-install, `--final` retires them to `.genericarch/safetodelete/`.
+Supported: `v0.1.0` · `v0.2.0` · `v0.3.0` · `v0.4.0` · `v0.4.1` · `v0.4.2` · `v0.5.0` · `v0.6.0` ·
+`v0.6.1` (latest). At the end it asks what becomes of any files it could not remove: `--upgrade`
+leaves them for a re-install, `--final` retires them to `.genericarch/safetodelete/`.
 
 **Take upstream fixes into an adopted repo.** `install.sh` never overwrites, so this is the other
 half. Writes nothing.

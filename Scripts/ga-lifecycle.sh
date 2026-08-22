@@ -450,8 +450,8 @@ ga_is_version_stamp() {
 # The releases whose footprint uninstall.sh knows how to clean without a manifest. A version
 # absent here is refused rather than guessed at: removing files by a list invented at runtime is
 # exactly the failure mode the manifest exists to prevent.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0"
-GA_LATEST_VERSION="v0.6.0"
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v0.6.1"
+GA_LATEST_VERSION="v0.6.1"
 
 ga_is_supported_version() {
   case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) return 0 ;; *) return 1 ;; esac
@@ -539,9 +539,10 @@ ga_known_paths() {
         uninstall.sh genericarch.installation.md \
         .genericarch-version
       ;;
-    v0.6.0|v0.5.0)
-      # v0.6.0 ships the same set as v0.5.0 — that release changed install/uninstall BEHAVIOUR,
-      # not the file list, so the two share one arm rather than duplicating twenty paths.
+    v0.6.1|v0.6.0|v0.5.0)
+      # v0.6.1 and v0.6.0 ship the same set as v0.5.0: v0.6.0 changed install/uninstall BEHAVIOUR
+      # and v0.6.1 what the scanners report, neither the file list — so the three share one arm
+      # rather than duplicating twenty paths three times.
       #
       # NOT listed, for the same reason as .evidence/ below: CLAUDE-BK.md, migration-note.md and
       # GENERICARCH-ORPHANS.md. All three are generated in the target, never copied from the base,

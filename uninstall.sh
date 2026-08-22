@@ -17,7 +17,7 @@
 # going unowned forever.
 #
 # The version argument is REQUIRED. Supported: v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.4.1, v0.4.2,
-# v0.5.0, v0.6.0 (latest).
+# v0.5.0, v0.6.0, v0.6.1 (latest).
 #
 # What this will and will not delete:
 #

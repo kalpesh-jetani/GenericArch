@@ -6,6 +6,77 @@ decorative.
 
 ---
 
+## v0.6.1
+
+The theme: **the claims this base makes are checked against the base.** No shipped file was added or
+removed, so a v0.6.1 install has exactly v0.6.0's footprint and the two share one arm of the
+uninstall fallback. What changed is four things that reported something untrue, and the two
+generators behind them.
+
+**`scan-unused-assets.py` was proposing the deletion of live assets.** Xcode 15 gives every asset a
+camelCased `ImageResource` symbol, and a modern call site uses it — `Image(isSelected ? .radioChecked
+: .radioUnchecked)` for assets named `radio_checked` and `radio_unchecked`. The literal never appears
+in source, so **11 live assets out of 24 came back dead: a 46% false-positive rate on what is, in
+effect, a deletion proposal.** The scan now searches the literal *and* the symbol, anchored on the
+leading dot so a same-named local variable cannot absolve an asset. The tell was shape rather than
+count — a matched pair going dead together is a call site the scan cannot see
+([SCAN-TRAPS.md](docs/SCAN-TRAPS.md) trap 5).
+
+**`detect-toolchain.sh` reported its own fallbacks as findings.** It grepped a hardcoded `Packages App
+Sources` and used a root-level `ls` for `Package.swift`, `*.xcodeproj` and `*.xcconfig`. Against a
+repo whose project sits one directory down, every probe returned nothing and each default was printed
+as a detection: `UIKit/AppKit` for a SwiftUI app, `vendored xcframework` for an all-SPM one, `SPM
+only` for a checked-in `.xcodeproj`, `unresolved` concurrency for 76 Combine files. The costly one was
+silent — `project.pbxproj` was never found, `ORIGIN` stayed empty, and **`ga-init-scan.sh`'s BLOCKING
+deployment-target check could not fire at all**, which is the first thing `/project-init` raises. The
+roots are now derived, with `.build`, `SourcePackages`, `DerivedData`, `Pods` and `Carthage` pruned:
+without the prunes a resolved dependency answers questions about this repo, and a vendored
+`sentry-cocoa` dSYM was cited as the app's own crash reporting.
+
+**`detect-capabilities.sh` matched its own source.** Its UI-test probe was a bare
+`grep -rlq XCUIApplication "$ROOT"` with no `--include`, and the script lives under `$ROOT` — the
+pattern appears in that very line, so it reported `ui-tests FOUND` in a repo with zero test targets.
+It now goes through the same filtered helper as every other check. Two neighbouring probes carried the
+root assumption above, and one of them counted **0 external package refs for an app with 25**;
+counting by marker instead would have said 67, so it counts distinct repository URLs, or reads
+`Package.resolved` where it exists.
+
+**The published plugin's README is generated from frontmatter now, not maintained by hand.** It is
+what someone reads before installing, and both its tables were wrong: it advertised `dark-light-mode`,
+`rtl-support` and `release-bump` as skills — all three are patterns under `docs/patterns/` and none
+ship in the plugin — omitted `debug`, which does, listed seven of the twelve commands, and described
+`/sync-app-notes` as rebuilding seven inventories where there are nine. Both tables now come from the
+`description:` frontmatter of the skills and commands actually copied into `dist/`, with the counts
+derived from the same globs, so the public README cannot claim a surface the plugin does not ship.
+
+**`build-plugin.sh` reads `.claude-plugin/plugin.json` instead of a second copy of it.** The inline
+copy it kept had drifted to advertise a Swift version §1 refuses to state from memory and three skills
+that only ever existed as patterns, and it defaulted the version to `0.1.0` — so a plain build
+published a plugin labelled wrong. Name, description and version come from the manifest, which is
+where this release's bump is recorded.
+
+**README audited claim by claim**, and two sources corrected behind it rather than just the prose: the
+bootstrap dry run no longer promises "every file it would add" (it omits `.claude/CANDIDATES.tsv`);
+three commands are lifecycle steps, not four, because `/find` gates on `/sync-app-notes` having
+finished rather than being a step itself; `uninstallv0.1.0.sh` is documented at last; and the Layout
+block gained the four root installers, `CHANGELOG.md`, `.swiftlint.yml`, `.claude/INDEX.md`,
+`.claude-plugin/` and `dist/`. `session-script.sh` advertised a six-row gate table where `promote`
+prints seven — the count is dropped rather than corrected, because a literal number in a header is
+what rots. `.claude/SCRIPTS.tsv` regenerated: `register-scripts.sh --check` is back in sync at 48
+scripts. `docs/CLAUDE-TASKS.md` carried the same stale `never:<reason>` example.
+
+**Three open questions recorded from an adoption run**, in [DECISIONS.md](docs/DECISIONS.md) —
+`/project-init` S3 offering `/sync-app-notes` where the gate exits 5; whether a fresh install should
+ship the nine notes at all when they arrive carrying this base's own example rows; and how an
+adoption's resolved conflicts survive a reinstall, which `ADOPTION.md` §A6 requires and nothing
+enforces. Recorded, not fixed — each is a §0-shaped question, and inventing an answer here is what
+`DECISIONS.md` exists to stop.
+
+Upgrading from v0.6.0 is still uninstall → install: `install.sh` exits `6` on a manifest recording a
+different version, footprint parity notwithstanding.
+
+---
+
 ## v0.6.0
 
 The theme: **uninstall, then install — and nothing of yours is lost in between.** v0.5.0 claimed an
