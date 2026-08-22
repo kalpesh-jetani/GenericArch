@@ -121,29 +121,29 @@ and `install.sh` drives it — one answer, not two.
 
 ### Notes
 
-- **Note:** the target repo must already have its Xcode project. An empty directory is refused —
-  get the project and package layout from [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup) first, then come back.
-- **Note:** do not build your app inside a GenericArch checkout. `install.sh` refuses a target that
-  is its own source, and a clone you work in inherits this product's decisions and floors.
-- **Note:** `install.sh` records every file it wrote, with a hash, in
-  `.genericarch/manifest-v<version>.json`. That manifest is what makes the install reversible,
-  re-sealable and updatable per file — `uninstall.sh` reads it and nothing else.
-- **Note:** there is no "start from the template" path. A copy no installer wrote has no manifest,
-  so `uninstall.sh` refuses it and `ga-reseal.sh` has nothing to keep honest.
-- **Note:** when pasting a block with `#` comments, paste one line at a time. zsh — the macOS
-  default — does not treat `#` as a comment when pasted; `setopt interactive_comments` fixes it.
-- **Note:** `bootstrap.sh` is the only part that touches the network, and all it does is fetch a
-  pinned tag. Every decision — gate, plan, manifest, rollback — belongs to `install.sh` and runs
-  offline.
-- **Note:** `./Scripts/check.sh` is expected to fail on an existing codebase. That is the point.
-- **Note:** your rules win by default. For a hard conflict — CocoaPods vs SPM, UIKit vs SwiftUI —
-  the usual answer is *adopt for new code only* ([docs/ADOPTION.md](docs/ADOPTION.md)).
-- **Note:** out of order these commands would not fail, they would succeed against the wrong input.
-  A step that genuinely does not apply is recorded as skipped, by you, never by Claude:
+- The target repo must already have its Xcode project. An empty directory is refused — get the
+  project and package layout from
+  [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup) first, then come back.
+- Do not build your app inside a GenericArch checkout. `install.sh` refuses a target that is its own
+  source, and a clone you work in inherits this product's decisions and floors.
+- `install.sh` records every file it wrote, with a hash, in `.genericarch/manifest-v<version>.json`.
+  That manifest is what makes the install reversible, re-sealable and updatable per file —
+  `uninstall.sh` reads it and nothing else.
+- There is no "start from the template" path. A copy no installer wrote has no manifest, so
+  `uninstall.sh` refuses it and `ga-reseal.sh` has nothing to keep honest.
+- When pasting a block with `#` comments, paste one line at a time. zsh — the macOS default — does
+  not treat `#` as a comment when pasted; `setopt interactive_comments` fixes it.
+- `bootstrap.sh` is the only part that touches the network, and all it does is fetch a pinned tag.
+  Every decision — gate, plan, manifest, rollback — belongs to `install.sh` and runs offline.
+- `./Scripts/check.sh` is expected to fail on an existing codebase. That is the point.
+- Your rules win by default. For a hard conflict — CocoaPods vs SPM, UIKit vs SwiftUI — the usual
+  answer is *adopt for new code only* ([docs/ADOPTION.md](docs/ADOPTION.md)).
+- Out of order these commands would not fail, they would succeed against the wrong input. A step
+  that genuinely does not apply is recorded as skipped, by you, never by Claude:
   `./Scripts/ga-step.sh record gaps "not applicable: docs-and-tooling adoption"`. Exit `5` means an
   earlier step has not run ([docs/SEQUENCE.md](docs/SEQUENCE.md)).
-- **Note:** `ga-project-setup.sh` never creates, opens or edits an `.xcodeproj`. Nothing is
-  defaulted — bundle ID, Team ID and both floors are asked.
+- `ga-project-setup.sh` never creates, opens or edits an `.xcodeproj`. Nothing is defaulted — bundle
+  ID, Team ID and both floors are asked.
 
 ---
 
@@ -170,10 +170,10 @@ You type these. Anything that must **never** trigger by inference is a command, 
 
 ### Notes
 
-- **Note:** the first four are lifecycle steps and run in the order above. The rest run in any
-  order once the repo is `ready`.
-- **Note:** `/sync-app-notes` and `/build` are commands precisely because a full rescan or a build
-  must never fire by inference.
+- The first four are lifecycle steps and run in the order above. The rest run in any order once the
+  repo is `ready`.
+- `/sync-app-notes` and `/build` are commands precisely because a full rescan or a build must never
+  fire by inference.
 
 ---
 
@@ -196,15 +196,15 @@ Run that after any description edit — 29 prompts, each with the skill that sho
 
 ### Notes
 
-- **Note:** only two ship, deliberately. Anything expressible as a script is a script: a skill costs
-  context every session through its description, a script costs nothing until called.
-- **Note:** both open with a script step, in a fixed order. `new-feature` checks whether the screen
-  already exists before registering anything — if it does, the work is a change, not a scaffold.
-- **Note:** six more wait in `docs/patterns/` — `change`, `style-guide`, `dark-light-mode`,
-  `rtl-support`, `release-bump`, `feature-complete`. `/learn <name>` promotes one once your repo has
-  the code it describes.
-- **Note:** a description is trigger phrases, never a summary of the body. A summary makes the skill
-  fire on work it does not own.
+- Only two ship, deliberately. Anything expressible as a script is a script: a skill costs context
+  every session through its description, a script costs nothing until called.
+- Both open with a script step, in a fixed order. `new-feature` checks whether the screen already
+  exists before registering anything — if it does, the work is a change, not a scaffold.
+- Six more wait in `docs/patterns/` — `change`, `style-guide`, `dark-light-mode`, `rtl-support`,
+  `release-bump`, `feature-complete`. `/learn <name>` promotes one once your repo has the code it
+  describes.
+- A description is trigger phrases, never a summary of the body. A summary makes the skill fire on
+  work it does not own.
 
 ---
 
@@ -256,18 +256,18 @@ runs git. Contracts and undo: [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md).
 
 ### Notes
 
-- **Note:** every section heading stays in `CLAUDE.md` even when its detail moves out — roughly 380
-  `§N` citations across docs, skills and scripts resolve against those headings, and no linter
-  checks them.
-- **Note:** a `MAP.tsv` kind reading `module:remote` means *not on disk here, fetch it*. The map's
-  `# FETCH-BASE:` line carries the exact commit you installed from.
-- **Note:** never read a note in full. If you had to, the row was not self-contained — fix the row.
-  Notes are maintained by inserting and deleting rows, in the change that adds or removes the thing.
-- **Note:** a note is never promoted to a skill, at any size —
+- Every section heading stays in `CLAUDE.md` even when its detail moves out — roughly 380 `§N`
+  citations across docs, skills and scripts resolve against those headings, and no linter checks
+  them.
+- A `MAP.tsv` kind reading `module:remote` means *not on disk here, fetch it*. The map's `#
+  FETCH-BASE:` line carries the exact commit you installed from.
+- Never read a note in full. If you had to, the row was not self-contained — fix the row. Notes are
+  maintained by inserting and deleting rows, in the change that adds or removes the thing.
+- A note is never promoted to a skill, at any size —
   [docs/PATTERN-SEARCH.md](docs/PATTERN-SEARCH.md).
-- **Note:** Claude never edits `CLAUDE.md` without explicit approval, and never commits or pushes.
-  The full list of what it does unasked is `CLAUDE.md` §2 and §12 — that file is the source of
-  truth, not this one.
+- Claude never edits `CLAUDE.md` without explicit approval, and never commits or pushes. The full
+  list of what it does unasked is `CLAUDE.md` §2 and §12 — that file is the source of truth, not
+  this one.
 
 ---
 
@@ -334,25 +334,25 @@ half. Writes nothing.
 
 ### Notes
 
-- **Note:** a file is removed only while its hash still proves it is GenericArch's — that contract
-  is what stops `uninstall.sh` deleting something you wrote. It is also why rewriting an installed
-  file breaks the match, and why `ga-reseal.sh` exists.
-- **Note:** uninstall exit `0` means the repo is back to its pre-install state; exit `1` means files
-  were left behind, listed in `safetodelete-after-migration-note.md` at the repo root, which the
-  next `install.sh` reads.
-- **Note:** `ga-remove.sh` does four things in one operation — moves the file to
-  `.genericarch/safetodelete/`, tombstones it so no later install re-creates it, prunes its
-  `MAP.tsv` and `SCRIPTS.tsv` rows, and records the reason in `DECISIONS.md` *Do not re-propose*.
-  Remaining prose references are reported with file and line, never rewritten.
-- **Note:** absent from disk and never installed are the same state to an installer — that is why a
-  hand deletion comes back on the next install.
-- **Note:** `adopt-review.sh` exit `0` means you match the base, `1` that decisions are pending, so
-  it doubles as a CI staleness gate. Claude reports its table and never passes `--take`; `--take`
-  refuses `CLAUDE.md` outright.
-- **Note:** `install.sh --with-claude-md` is the one way it writes your `CLAUDE.md` — yours moves to
+- A file is removed only while its hash still proves it is GenericArch's — that contract is what
+  stops `uninstall.sh` deleting something you wrote. It is also why rewriting an installed file
+  breaks the match, and why `ga-reseal.sh` exists.
+- Uninstall exit `0` means the repo is back to its pre-install state; exit `1` means files were left
+  behind, listed in `safetodelete-after-migration-note.md` at the repo root, which the next
+  `install.sh` reads.
+- `ga-remove.sh` does four things in one operation — moves the file to `.genericarch/safetodelete/`,
+  tombstones it so no later install re-creates it, prunes its `MAP.tsv` and `SCRIPTS.tsv` rows, and
+  records the reason in `DECISIONS.md` *Do not re-propose*. Remaining prose references are reported
+  with file and line, never rewritten.
+- Absent from disk and never installed are the same state to an installer — that is why a hand
+  deletion comes back on the next install.
+- `adopt-review.sh` exit `0` means you match the base, `1` that decisions are pending, so it doubles
+  as a CI staleness gate. Claude reports its table and never passes `--take`; `--take` refuses
+  `CLAUDE.md` outright.
+- `install.sh --with-claude-md` is the one way it writes your `CLAUDE.md` — yours moves to
   `CLAUDE-BK.md`, and `uninstall.sh` puts it back byte-for-byte.
-- **Note:** flags, exit codes and recovering a part-way install: [docs/SHARING.md](docs/SHARING.md).
-  Manifest format: [docs/INSTALL-MANIFEST.md](docs/INSTALL-MANIFEST.md).
+- Flags, exit codes and recovering a part-way install: [docs/SHARING.md](docs/SHARING.md). Manifest
+  format: [docs/INSTALL-MANIFEST.md](docs/INSTALL-MANIFEST.md).
 
 ---
 
@@ -438,23 +438,22 @@ swift test --package-path Packages/Core
 
 ### Notes
 
-- **Note:** macOS only. bash 3.2, BSD `sed`/`awk`, `shasum`, Xcode command-line tools. `_common.sh`
-  checks `uname` and exits `78` on anything else.
-- **Note:** the `#@when` field carries the phrases someone would actually *ask*, and
-  `find-script.sh` scores against those first — which is why "is the memory store consistent"
-  reaches `verify-memory.sh` without knowing its name. `grep` only works if you guess the author's
-  word.
-- **Note:** a staged script is session-local and gitignored. Promotion into `Scripts/` needs a
-  *second, distinct session* with the same intent, and runs seven gates — refusing anything that
-  invokes a compiler (§2.12) or touches the network.
-- **Note:** `register-scripts.sh` refuses a script with an incomplete header, so a script cannot be
-  added without stating its contract. A row whose script is not installed is pruned at install time.
-- **Note:** when a generator cannot handle your repo it writes a ~45-line report to
-  `.genericarch/failures/` naming what it expected and what it found. That report is what the agent
-  reads — never the scanner.
-- **Note:** seven of the nine notes come from `sync-notes.sh` in two tiers — `FONTS`,
-  `ASSETS-COLORS`, `PROJECT` outright; `ASSETS-IMAGES`, `API-MAP`, `NAVIGATION`, `SCHEMES` partial,
-  with the caveat stated inside the generated block. `FEATURES` and `STYLE-GUIDE` need a reviewer
+- macOS only. bash 3.2, BSD `sed`/`awk`, `shasum`, Xcode command-line tools. `_common.sh` checks
+  `uname` and exits `78` on anything else.
+- The `#@when` field carries the phrases someone would actually *ask*, and `find-script.sh` scores
+  against those first — which is why "is the memory store consistent" reaches `verify-memory.sh`
+  without knowing its name. `grep` only works if you guess the author's word.
+- A staged script is session-local and gitignored. Promotion into `Scripts/` needs a *second,
+  distinct session* with the same intent, and runs seven gates — refusing anything that invokes a
+  compiler (§2.12) or touches the network.
+- `register-scripts.sh` refuses a script with an incomplete header, so a script cannot be added
+  without stating its contract. A row whose script is not installed is pruned at install time.
+- When a generator cannot handle your repo it writes a ~45-line report to `.genericarch/failures/`
+  naming what it expected and what it found. That report is what the agent reads — never the
+  scanner.
+- Seven of the nine notes come from `sync-notes.sh` in two tiers — `FONTS`, `ASSETS-COLORS`,
+  `PROJECT` outright; `ASSETS-IMAGES`, `API-MAP`, `NAVIGATION`, `SCHEMES` partial, with the caveat
+  stated inside the generated block. `FEATURES` and `STYLE-GUIDE` need a reviewer
   ([docs/SCAN-TRAPS.md](docs/SCAN-TRAPS.md)).
 
 ---
