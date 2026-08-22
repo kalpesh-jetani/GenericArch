@@ -170,27 +170,33 @@ ls ~/.claude/CLAUDE.md ~/.claude/projects/*/memory/*.md 2>/dev/null   # 3 user
 ls "/Library/Application Support/ClaudeCode/managed-settings.json" 2>/dev/null  # 4 enterprise
 ```
 
-**Keep the most specific copy; remove the broader duplicates, working inward** — Enterprise, then
-User-Level, then project, then Plugin. The most specific copy is the one that ships with the thing
-the rule governs, so it stays.
+**This step reports; it does not delete.** `/project-init` removes nothing — name the duplicates,
+say which copy should survive, and stop. Deleting them is
+[`/clean-up-genericarch-extra-memory`](clean-up-genericarch-extra-memory.md), which exists precisely
+because a removal here also strips the rule's references out of the memory directories, and an
+adoption run is the worst moment to be doing that silently.
 
-| Level | Reach | On a duplicate |
+**Which copy should survive: the most specific one**, working inward — Enterprise, then User-Level,
+then project, then Plugin. The most specific copy is the one that ships with the thing the rule
+governs, so it is the one that stays.
+
+| Level | Reach | Verdict to report on a duplicate |
 |---|---|---|
-| Enterprise | every repo, every user | **Read-only — never touch it.** If it duplicates a lower rule, remove the lower one instead |
-| User-Level | this user | Remove — the project or plugin copy already covers it |
-| project | everyone who clones the repo | Keep, unless a plugin ships the same rule |
-| Plugin | every repo that installs it | Keep for tooling rules; a product rule does not belong here |
+| Enterprise | every repo, every user | **Read-only — never touch it.** If it duplicates a lower rule, the lower one is the candidate |
+| User-Level | this user | Candidate — the project or plugin copy already covers it |
+| project | everyone who clones the repo | Survives, unless a plugin ships the same rule |
+| Plugin | every repo that installs it | Survives for tooling rules; a product rule does not belong here |
 
-Two cautions:
+Two cautions for the report:
 
-- **A project-scoped memory directory adds no reach over the repo itself.** If a rule sits in both
-  `~/.claude/projects/<this>/memory/` and `CLAUDE.md`, the memory copy is pure duplication — drop it.
-- **Check the copy you are keeping carries the reasoning**, not just the sentence. Deleting the
+- **A project-scoped memory directory adds no reach over the repo itself.** A rule in both
+  `~/.claude/projects/<this>/memory/` and `CLAUDE.md` is pure duplication — flag the memory copy.
+- **Check the copy you propose keeping carries the reasoning**, not just the sentence. Losing the
   fuller statement and keeping a one-line restatement loses the *why*, which is what stops the rule
-  being argued again.
+  being argued again. Say so if that is the trade.
 
-Report what was removed and from where. Removing a rule from `CLAUDE.md` still needs its own
-approval ([STRUCTURE.md](../../docs/STRUCTURE.md)).
+Hand the list to `/clean-up-genericarch-extra-memory`. Removing a rule from `CLAUDE.md` needs its
+own approval there too ([STRUCTURE.md](../../docs/STRUCTURE.md)).
 
 ## S0b. Point the target's CLAUDE.md at the manifest
 
@@ -349,27 +355,28 @@ Then scaffold:
 5. **Not** the two extracted repos — they're separate repositories and fail the "actually reused"
    test until a second product exists (CLAUDE.md §4.2).
 
-## S2b. Install only skills that improve code generation and review
+## S2b. Confirm which skills are actually installed
 
-**Filter by Claude performance, not by product features.** Only install skills that help Claude
-write or review code better. Remove deployment/workflow tools.
+**The installer already did this filtering.** A default install ships exactly one skill — `debug` —
+and `new-feature` only when `--with-architecture` was passed, because a skill that cannot fire is
+not harmless: it costs its description in every session and gets offered and believed. There is
+nothing to remove here — and `/project-init` does not remove anything in any case.
 
-| Skill | Improves | Install if |
-|---|---|---|
-| `new-feature` | Code generation — scaffolds feature structure correctly | Always (adding features to this product) |
-| `dark-light-mode` | Code generation — generates color/asset code that respects dark mode | Dark mode is shipped or planned |
-| `rtl-support` | Code generation — generates layouts that work RTL | Any RTL language (ar, he, fa, ur) shipped or planned |
-| `style-guide` | Code generation — uses design tokens instead of literals | DesignSystem package was approved in S2 |
+Confirm against the filesystem rather than reciting a list — the filesystem is the fact:
 
-**Explicitly remove** (not about code generation or review):
-- `release-bump` — this is a CI/release workflow tool, not code generation. Remove unless the product
-  is itself the extracted NetworkKit/ImageCache repos (rare).
+```bash
+ls .claude/skills .claude/commands
+awk -F'\t' '$2=="pattern"{print $1}' .claude/MAP.tsv
+```
 
-**Do not install irrelevant module docs** — delete `docs/modules/<Package>.md` if the package was
-not approved in S2. A doc for a package that doesn't exist is instant drift.
+The remaining patterns are **reference, fetched on demand** — `change`, `dark-light-mode`,
+`feature-complete`, `release-bump`, `rtl-support`, `style-guide`, `wrapper`. None is installed as a
+skill, and none should be until the code it describes exists here. Promote one with `/learn <name>`
+at that point, and record the promotion so it is not re-proposed.
 
-Record skill decisions in `DECISIONS.md` *Do not re-propose* section — if a skill is removed, note
-why it was dropped so it doesn't get re-proposed next month.
+A row in `MAP.tsv` whose kind ends in `:remote` is not a missing file — it names a surface that
+exists upstream and this product did not take. Leave it; it is how Claude learns the surface exists
+without paying for it.
 
 ## S3. Populate the notes
 
@@ -456,33 +463,35 @@ turn — they live in context. Teach Claude to search them first before calling 
 This pattern applies to **all skills** — they should use notes as their source-of-truth before
 falling back to grep.
 
-## S2c. Clean up irrelevant docs
+## S2c. Report cleanup candidates — delete nothing
 
-**Every deletion in this command goes through `ga-remove.sh`, never `rm`.** A file deleted by hand
-is re-created by the next install — it has no record saying it was declined, so nothing can tell it
-apart from a file that was never there:
+**`/project-init` does not remove files.** Not a doc, not a skill, not a command, not a rule. It
+gathers candidates and reports them; every deletion belongs to
+[`/clean-up-genericarch-extra-memory`](clean-up-genericarch-extra-memory.md).
+
+The reason is not caution for its own sake. A removal is four coupled writes — the file moves to
+`safetodelete/`, a tombstone lands, the `MAP.tsv` and `SCRIPTS.tsv` rows are pruned, and a
+`DECISIONS.md` row is written — and that pruning also strips the path out of the index and memory
+directories later lookups depend on. Interleaving it with rule reconciliation makes an adoption run
+impossible to review, and impossible to undo cleanly if a conflict answer changes.
+
+So collect, and hand over:
 
 ```bash
-./Scripts/ga-remove.sh docs/modules/StorageKit.md --reason "no StorageKit package here" --apply
+grep -m1 'orphan docs' .claude/notes/.evidence/INIT-SCAN.md    # expect 0 on a current install
 ```
 
-That writes the tombstone *and* the `DECISIONS.md` *Do not re-propose* row in one step. Both, or it
-comes back.
+`docs/modules/` is not installed any more — the module docs are among the ~35 reference docs fetched
+on demand, so a `docs/modules/X.md` path that is not on disk is a fetch instruction, not a missing
+file. Earlier versions did copy all 12, which is why the check still runs; on a current install it
+comes back empty, and that is the expected result.
 
-**Delete module docs for packages that were not approved.** The `local` commit ships all 12
-`docs/modules/*.md` files; if StorageKit, LocalizationKit, or NotificationKit were not approved in
-S2, retire their docs now.
+`## orphan-docs` in the evidence artifact lists any module doc with no package behind it. Treat it as
+what it is — a candidate list, never a decision. A package approved but not yet scaffolded keeps its
+doc.
 
-`## orphan-docs` in `.claude/notes/.evidence/INIT-SCAN.md` already lists every module doc with no
-package behind it, each as a ready `ga-remove.sh` line. It is a candidate list, not a decision:
-check each name against what S2 approved, then run the lines that survive that check. A package
-approved but not yet scaffolded keeps its doc.
-
-A doc for a package that doesn't exist is instant drift — it reads as current, but describes code
-that isn't there. Cleaner to delete it than to leave it with a "not used here" note.
-
-Approved packages keep their docs; a feature will eventually need the infrastructure described
-there, and when it does, the doc is immediately discoverable.
+**Report each candidate with the reason it is one**, then stop. If the list is empty, say that too:
+"nothing to clean up" is a useful sentence, and it stops the next session going looking.
 
 ## S3a. Offer the architecture layer — after the conflicts, never before
 
@@ -536,12 +545,13 @@ State explicitly:
 - What was created, and what was **left untouched** because it already existed.
 - **Packages approved and packages skipped** — record in DECISIONS.md *Open* what "no StorageKit yet"
   blocks (e.g. "Blocks when user data persistence is added").
-- **Skills installed and skills removed** — record removals in DECISIONS.md *Do not re-propose*.
+- **Skills installed** — and any **cleanup candidates** found, handed to
+  `/clean-up-genericarch-extra-memory`. This command removed nothing; say so explicitly.
 - Every rule conflict (Path A only) and how it was resolved — including the ones resolved as "keep theirs".
 - **What was skipped, and which unanswered question blocks it.**
 - What was recorded in [DECISIONS.md](../../docs/DECISIONS.md), and what remains *Open*.
 
-A report that reads as complete when a question went unanswered, or that omits a skill you removed,
+A report that reads as complete when a question went unanswered, or that omits a cleanup candidate,
 or a package you didn't ask about, is the failure mode of this whole command.
 
 ## S5. Seal and record

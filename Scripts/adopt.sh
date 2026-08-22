@@ -94,6 +94,8 @@ Scripts/ga-step.sh
 Scripts/ga-remove.sh
 Scripts/ga-reseal.sh
 Scripts/ga-init-scan.sh
+Scripts/ga-cleanup-scan.sh
+Scripts/ga-sync-scan.sh
 uninstall.sh
 "
 

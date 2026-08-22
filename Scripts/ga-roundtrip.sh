@@ -98,6 +98,79 @@ else
   fail "case 3: install failed"
 fi
 
+# ── 3b. an older shared library is upgraded in lockstep with its callers ───
+# The regression this pins: install.sh is additive, so on an upgrade it skipped ga-lifecycle.sh as a
+# collision and left the previous version in place. Every script shipped beside it SOURCES it, so
+# v0.4.2's seven new scripts landed on a v0.2.0 library and failed with `command not found` — while
+# still exiting 0, which is why nothing caught it. A library must move with its callers.
+T="$(new_repo case3b)"
+if install_into "$T"; then
+  LIB="$T/Scripts/ga-lifecycle.sh"
+  NEWSHA="$(shasum -a 256 "$LIB" | awk '{print $1}')"
+  # Simulate "installed by an older release": truncate the library to a version missing the step
+  # helpers, then point the manifest record at it so it reads as ours-and-unedited.
+  grep -v '^ga_step_' "$LIB" | sed '/^ga_step_record()/,/^}/d' > "$LIB.old" && mv "$LIB.old" "$LIB"
+  printf 'ga_step_record() { :; }\n' >> "$LIB"
+  OLDSHA="$(shasum -a 256 "$LIB" | awk '{print $1}')"
+  M="$(ls "$T"/.genericarch/manifest-*.json | head -1)"
+  sed -i '' "s/$NEWSHA/$OLDSHA/" "$M"
+  install_into "$T"
+  NOWSHA="$(shasum -a 256 "$LIB" | awk '{print $1}')"
+  if [ "$NOWSHA" != "$NEWSHA" ]; then
+    fail "an older shared library was left in place — its callers will fail at runtime"
+  elif ! grep -q 'lockstep' "$WORK/last.log"; then
+    fail "the library was upgraded but the plan did not say so"
+  elif ! ls "$T"/.genericarch/backups/ga-lifecycle.sh.*.bak >/dev/null 2>&1; then
+    fail "the replaced library was not backed up"
+  elif ( cd "$T" && ./Scripts/ga-step.sh show ) 2>&1 | grep -q 'command not found'; then
+    fail "a script sourcing the library still fails after the upgrade"
+  else
+    pass "an older shared library is upgraded in lockstep with its callers"
+  fi
+else
+  fail "case 3b: install failed"
+fi
+
+# ── 3c. the two scanners run offline, and protect what is not ours ─────────
+# Both are pure evidence-gathering, so they must work with no network and no base checkout. The
+# regression that matters most is ownership: install.sh records a `skipped` file with the file's OWN
+# hash, so a sync scan that trusts the hash alone calls every populated note and every locally
+# patched script "ours, unedited" and recommends overwriting it — someone's whole repo.
+T="$(new_repo case3c)"
+if install_into "$T"; then
+  ( cd "$T" && ./Scripts/ga-cleanup-scan.sh . --tsv ) >"$WORK/cleanup.tsv" 2>&1 || true
+  ( cd "$T" && ./Scripts/ga-sync-scan.sh . --tsv ) >"$WORK/sync.tsv" 2>&1 || true
+  # A `skipped` record only exists for a file that was ALREADY there, so seed it before installing —
+  # and leave it untouched afterwards, or its hash stops matching and it is held for the wrong
+  # reason (which is how the first version of this case passed against the bug it was written for).
+  T2="$(new_repo case3c2)"
+  mkdir -p "$T2/.claude/notes"
+  printf '| `Seeded` | mine, not GenericArch |\n' > "$T2/.claude/notes/FEATURES.md"
+  install_into "$T2" || true
+  ( cd "$T2" && ./Scripts/ga-sync-scan.sh . --base "$SRC" --base-only --tsv ) >"$WORK/sync2.tsv" 2>&1 || true
+  SKIPPED_ACT="$(python3 -c "
+import json,glob,sys
+m=json.load(open(sorted(glob.glob('$T2/.genericarch/manifest-*.json'))[-1]))
+print(next((r['action'] for r in m['files'] if r['path']=='.claude/notes/FEATURES.md'),'absent'))" 2>/dev/null || echo err)"
+  if ! grep -q 'SUMMARY' "$WORK/cleanup.tsv"; then
+    fail "ga-cleanup-scan.sh produced no summary"
+  elif grep -q 'FETCH-BASE' "$WORK/cleanup.tsv" && grep -q 'MALFORMED' "$WORK/cleanup.tsv"; then
+    fail "a freshly stamped FETCH-BASE was reported malformed"
+  elif ! grep -qE 'PROMOTE|NOT-YET|REFUSE' "$WORK/sync.tsv"; then
+    fail "ga-sync-scan.sh --patterns produced no verdicts on a lean install"
+  elif [ "$SKIPPED_ACT" != "skipped" ]; then
+    fail "the fixture did not produce a skipped record (got: $SKIPPED_ACT) — the case proves nothing"
+  elif grep -q "^TAKE	.claude/notes/FEATURES.md" "$WORK/sync2.tsv"; then
+    fail "a skipped (yours) file was recommended for overwriting"
+  elif ! grep -q "^HOLD	.claude/notes/FEATURES.md" "$WORK/sync2.tsv"; then
+    fail "a skipped (yours) file was not held back"
+  else
+    pass "the scanners run offline and never recommend overwriting what is not ours"
+  fi
+else
+  fail "case 3c: install failed"
+fi
+
 # ── 4. an unresealed edit is kept, reported, and exits non-zero ────────────
 T="$(new_repo case4)"
 if install_into "$T"; then

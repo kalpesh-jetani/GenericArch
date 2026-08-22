@@ -106,7 +106,18 @@ if [ -n "$TAKE" ]; then
         printf '  SKIP  %-46s use the CLAUDE.md pipeline, not a file copy\n' "$path"; continue ;;
     esac
     mkdir -p "$TARGET/$(dirname "$path")"
+    # MAP.tsv carries a `# FETCH-BASE:` stamp that install.sh adds and the base therefore does not
+    # have. Copying the base over it drops the stamp, and every `docs/…` row in the map — the ones
+    # that are fetched rather than installed — stops resolving. The failure is silent: the rows are
+    # still there, they just point nowhere. So carry the stamp across.
+    stamp=""
+    [ -f "$TARGET/$path" ] && stamp="$(grep -m1 '^# FETCH-BASE:' "$TARGET/$path" 2>/dev/null || true)"
     cp "$BASE/$path" "$TARGET/$path" && { printf '  took  %-46s (%s)\n' "$path" "$state"; applied=$((applied+1)); }
+    if [ -n "$stamp" ] && ! grep -q '^# FETCH-BASE:' "$TARGET/$path" 2>/dev/null; then
+      { printf '%s\n' "$stamp"; cat "$TARGET/$path"; } > "$TARGET/$path.ga.tmp" \
+        && mv "$TARGET/$path.ga.tmp" "$TARGET/$path"
+      printf '        %s kept the FETCH-BASE stamp the base does not carry\n' "↳"
+    fi
   done < "$ROWS"
   printf '\n%d file(s) taken from the base. Review with: git -C %s diff\n' "$applied" "$TARGET"
   exit 0

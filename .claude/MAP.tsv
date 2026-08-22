@@ -61,6 +61,8 @@ docs/patterns/feature-complete.md	pattern	close out finish feature retrospective
 .claude/skills/new-feature/SKILL.md	skill	scaffold new feature package screen module create	Scaffolding a feature or screen from nothing (fires on its own)
 .claude/skills/debug/SKILL.md	skill	debug crash broken blank silent wrong symptom stacktrace	Diagnosing broken or unexpected behaviour (fires on its own)
 .claude/commands/project-init.md	command	/project-init init adopt bootstrap setup onboard	Initializing a fresh repo, or adopting this into an existing one
+.claude/commands/clean-up-genericarch-extra-memory.md	command	clean up remove retire declined tombstone duplicate memory token cost prune index	Retiring a declined file or a duplicated memory rule — /project-init only reports them
+.claude/commands/sync-with-genericarch.md	command	sync upgrade base drift stale promote pattern skill adopt-review behind upstream	The install is behind upstream, or the code has grown enough to justify a pattern as a skill
 .claude/commands/learn.md	command	/learn resource figma sample repo docs url promote skill	Turning a resource or finished work into a note, or promoting a pattern
 .claude/commands/verify.md	command	/verify done checklist finish	Walking the Definition of Done against your working diff
 .claude/commands/review.md	command	/review diff pr code review	Reviewing someone else's diff
