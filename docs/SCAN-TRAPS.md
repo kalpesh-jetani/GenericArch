@@ -20,10 +20,52 @@ before the method was right. Four independent failure modes:
 | 2 | The catalog's own `Contents.json` contains the asset name | Including `.xcassets` in the corpus makes every asset look referenced **by itself**. All 320 came back used |
 | 3 | Names with spaces — `"Doo logo colored"` | Token-splitting never matches. It was referenced from three storyboards and reported dead |
 | 4 | Runtime-composed names — `"asset\(i)"`, an enum returning one of nine literals | Invisible to any static scan. Unfixable, so it is disclosed rather than solved |
+| 5 | The generated `ImageResource` symbol — `Image(.radioChecked)` for an asset named `radio_checked` | The literal never appears in source. **11 live assets out of 24 reported dead — a 46% false-positive rate** on what is, in effect, a deletion proposal |
 
 Traps 1–3 are fixed by a **bounded literal search** with the corpus excluding `.xcassets`. Trap 4 is
 why the output is labelled *candidates*: one run listed four time-of-day greeting images as dead, and
 a set of four that neatly covers a day is a composed name, not four dead files.
+
+Trap 5 arrived with Xcode 15: every asset also gets a camelCased symbol, and modern call sites use it
+— `Image(isSelected ? .radioChecked : .radioUnchecked)`. The scan now searches the literal **and** the
+symbol, anchored on the leading dot so a same-named local variable cannot silently absolve an asset.
+The tell was shape, not count: `radio_checked` and `radio_unchecked` reported dead **together**. A
+matched pair going dead at once is a call site the scan cannot see, the same reasoning as trap 4.
+
+## Probes — assuming the project sits at the repo root
+
+`Scripts/detect-toolchain.sh` hardcoded `Packages App Sources` for its Swift greps and used root-level
+`ls` for `Package.swift`, `*.xcodeproj` and `*.xcconfig`. Against a repo whose project is one
+directory down, **every probe returned nothing and the script reported its fallbacks as findings**:
+`UIKit/AppKit` for a SwiftUI app (the string is a default, never a detection), `vendored xcframework`
+for an all-SPM app, `SPM only` for a checked-in `.xcodeproj`, and `unresolved` concurrency for 76
+Combine files.
+
+The costly one was silent: `project.pbxproj` was never found, so `ORIGIN` stayed empty and
+**`ga-init-scan.sh`'s BLOCKING deployment-target check could not fire at all** — the one thing
+`/project-init` raises before anything else. A probe that finds nothing must not be indistinguishable
+from a probe that found an answer.
+
+Fixed by deriving the roots (`Packages App Sources` when present, else the tree) with dependency and
+build directories pruned — `.build`, `SourcePackages`, `DerivedData`, `Pods`, `Carthage`. The prunes
+are not optional: without them a resolved dependency answers questions about *this* repo, and a
+vendored `sentry-cocoa` dSYM under `SourcePackages/` was cited as the app's own crash reporting.
+
+## A scan that matched its own source
+
+`Scripts/detect-capabilities.sh` tested for UI tests with a bare `grep -rlq XCUIApplication "$ROOT"`
+— no `--include`, and the script lives under `$ROOT`. The pattern appears in that very line, so it
+**matched itself and reported `ui-tests FOUND` in a repo with zero test targets**.
+
+Any probe written as a bare recursive grep for a literal is a candidate for this. Routing it through
+the same filtered helper as every other check fixes it, because the include list admits only source
+files. Two neighbouring probes in the same script had the root assumption above: `.swiftlint.yml` was
+looked for only at the root, and a root-only glob for `project.pbxproj` reported **0 external package
+refs** for an app with 25.
+
+Counting the fix wrong is its own trap: switching to markers instead of packages turned 25 into 67,
+because a remote package carries several. Count distinct repository URLs, or read `Package.resolved`
+where it exists — it is the resolved truth.
 
 ## Routes — `grep "case "` overcounts 4×
 
