@@ -279,9 +279,10 @@ Two rules for this round:
 
 - **Recommend the latest the machine supports, don't impose it.** A team on Swift 5 mode with a
   large codebase has a reason; ask for it rather than assuming a migration.
-- **Say what a divergent choice invalidates.** UIKit means [DesignSystem.md](../../docs/modules/DesignSystem.md)
-  and the `dark-light-mode`/`rtl-support` skills no longer fit as written. Combine means §6 does not
-  apply. Naming that up front is the difference between an informed choice and a broken adoption.
+- **Say what a divergent choice invalidates.** UIKit means the `dark-light-mode`/`rtl-support`
+  skills no longer fit as written, and any SwiftUI-shaped component guidance goes with them.
+  Combine means §6 does not apply. Naming that up front is the difference between an informed
+  choice and a broken adoption.
 
 Record every answer with `/decide`, then propose the §1 table from `--markdown` — **and wait for
 approval before writing it to CLAUDE.md** ([STRUCTURE.md](../../docs/STRUCTURE.md)).
@@ -477,21 +478,14 @@ impossible to review, and impossible to undo cleanly if a conflict answer change
 
 So collect, and hand over:
 
-```bash
-grep -m1 'orphan docs' .claude/notes/.evidence/INIT-SCAN.md    # expect 0 on a current install
-```
-
-`docs/modules/` is not installed any more — the module docs are among the ~35 reference docs fetched
-on demand, so a `docs/modules/X.md` path that is not on disk is a fetch instruction, not a missing
-file. Earlier versions did copy all 12, which is why the check still runs; on a current install it
-comes back empty, and that is the expected result.
-
-`## orphan-docs` in the evidence artifact lists any module doc with no package behind it. Treat it as
-what it is — a candidate list, never a decision. A package approved but not yet scaffolded keeps its
-doc.
-
 **Report each candidate with the reason it is one**, then stop. If the list is empty, say that too:
 "nothing to clean up" is a useful sentence, and it stops the next session going looking.
+
+This base ships **no per-package docs at all** — a doc for a package a product may not have reads as
+current and describes code that is not there, which is the loop it was retired to close
+([DECISIONS.md](../../docs/DECISIONS.md)). A package's doc belongs beside its code as
+`Packages/<Name>/<Name>.md` ([STRUCTURE.md](../../docs/STRUCTURE.md)); the shape the layers take is
+[REPO.md](../../docs/REPO.md).
 
 ## S3a. Offer the architecture layer — after the conflicts, never before
 

@@ -4,7 +4,7 @@ Every `Route` case, what presents it, and how the user gets there.
 
 **Read it when** adding a screen, wiring a deep link, or checking whether a flow is
   reachable.
-- **Design rules:** [Navigation.md](../../docs/modules/Navigation.md). This file is the
+- **Design rules:** CLAUDE.md §2.1 and the routing layer. This file is the
   *inventory*; that file is the *rules*.
 
 > Empty until `Packages/Navigation` and the first feature exist. `/sync-app-notes` populates it
@@ -75,7 +75,7 @@ graph TD
 | Regular (iPad, Mac) | `NavigationSplitView` | sidebar `selectedRoot` |
 
 Branching is on **size class only** — never device model, never width constants
-([Navigation.md](../../docs/modules/Navigation.md)).
+(CLAUDE.md §2.1).
 
 ## Deep links
 

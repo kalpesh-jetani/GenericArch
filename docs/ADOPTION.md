@@ -83,7 +83,7 @@ clash — two skills triggering on the same phrases means neither fires predicta
 ## A5. Install additively, only what's missing and approved
 
 - **Create only what does not exist.** Never overwrite a file they wrote.
-- `docs/modules/*.md` for packages they actually have — not the full set. A doc for a package that
+- a module doc only for a package they actually have — never the full set. A doc for a package that
   doesn't exist is instant drift.
 - `.claude/notes/*` scaffolds are safe to add (they're new inventories) — but do **not** run
   `sync-app-notes` yet; that's Step S3, and only with approval.

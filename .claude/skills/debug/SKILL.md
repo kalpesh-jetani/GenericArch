@@ -37,16 +37,16 @@ symptom appears.
 
 | Symptom | Likely cause | Confirm in |
 |---|---|---|
-| A string renders as its raw key | Wrong bundle — inside a package it is `.module`, not `.main` | [LocalizationKit.md](../../../docs/modules/LocalizationKit.md) |
+| A string renders as its raw key | Wrong bundle — inside a package it is `.module`, not `.main` | the localization layer |
 | Custom font renders as system | Package fonts need runtime registration; `UIAppFonts` reads the **main bundle only** | `scan-fonts.py` → [FONTS.md](../../notes/FONTS.md) |
-| Blank screen, no error | A `ContentState` case not handled — usually `empty` or `idle` | [Core.md](../../../docs/modules/Core.md) |
-| Rows vanish when a page fails | `PageState.failed` collapsed into `ContentState.failed` | [Core.md](../../../docs/modules/Core.md) |
+| Blank screen, no error | A content-state case not handled — usually `empty` or `idle` | the state type |
+| Rows vanish when a page fails | A failed page collapsed into the whole screen's failure state | the paging type |
 | Fine in light, unreadable in dark | Colorset with only an Any appearance, or shadow-based elevation | `scan-colors.py` → `dark-light-mode` |
 | Layout inverts wrongly, or does not | `.left`/`.right` instead of leading/trailing; custom drawing ignores `layoutDirection` | `rtl-support` |
 | Push works in DEV, silent in TestFlight | APNs sandbox vs production — TestFlight always uses production | [SCHEMES.md](../../notes/SCHEMES.md) |
 | Crash the instant a permission is requested | Missing `NS*UsageDescription` — crashes on call, not at build | [PROJECT.md](../../notes/PROJECT.md) |
-| Background transfer never resumes | The `handleEventsForBackgroundURLSession` completion handler was dropped | [NetworkKit.md](../../../docs/modules/NetworkKit.md) |
-| Signed out unexpectedly under load | Token refresh is not single-flight; concurrent 401s raced | [NetworkKit.md](../../../docs/modules/NetworkKit.md) |
+| Background transfer never resumes | The `handleEventsForBackgroundURLSession` completion handler was dropped | the networking layer |
+| Signed out unexpectedly under load | Token refresh is not single-flight; concurrent 401s raced | the networking layer |
 | Works on device, fails to compile for iOS | A macOS-only API in shared code — `swift build` on a Mac never checks the iOS floor | CLAUDE.md §1.1 |
 | Feature reads a stale flag in a test build | Build-flag branching instead of injected `AppEnvironment` | [SCHEMES.md](../../notes/SCHEMES.md) |
 | An image never appears | Asset not referenced, or referenced by a name that no longer exists | `scan-unused-assets.py` |
@@ -69,7 +69,7 @@ guess.
 ## 3. Reproduce before fixing
 
 - **Write the failing test first** where the bug is in a view model, mapper, or service — the mock
-  makes it reproducible in milliseconds ([DIKit.md](../../../docs/modules/DIKit.md) `testValue`).
+  makes it reproducible in milliseconds — that is what the test value on a dependency key is for.
 - If it only reproduces on a device, say so, and say what you could not verify.
 - A bug you cannot reproduce is a bug you cannot confirm you fixed. Say that rather than shipping a
   plausible change.

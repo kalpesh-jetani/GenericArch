@@ -49,7 +49,7 @@ Before adding an image, check whether an SF Symbol does the job. Symbols scale w
 mirror correctly in RTL, and cost nothing in bundle size.
 
 Use directional symbols semantically: `chevron.forward`, never `chevron.right` — the latter does
-not mirror in RTL ([LocalizationKit.md](../../docs/modules/LocalizationKit.md)).
+not mirror in RTL (`rtl-support`).
 
 | SF Symbol in use | Where | Why not an asset |
 |---|---|---|

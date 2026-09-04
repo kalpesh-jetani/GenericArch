@@ -118,7 +118,7 @@ OPTIONAL_META="Scripts/claude-workflows"
 # preference, which is why install.sh derives it from the compatibility gate rather than asking.
 # ── The architecture layer ─────────────────────────────────────────────────
 # Not a subset of the tooling — a different thing. `new-feature` scaffolds Packages/Features with
-# ContentState and a DIKit registration; `/review` checks the §2 rules. Both are useful exactly when
+# the §2 content-state and injection seams; `/review` checks the §2 rules. Both are useful exactly when
 # the product adopted this architecture, and inapplicable when it did not: in a repo with no
 # Packages/, new-feature produces a package the app cannot consume, and /review reports violations of
 # rules the product recorded as declined.
@@ -177,13 +177,13 @@ SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/
 # No count here on purpose — a literal number in a comment is what rotted last time.
 REFERENCED="docs/STRUCTURE.md docs/CONVENTIONS.md docs/DONE.md docs/REPO.md docs/DELIVERY.md
 docs/patterns docs/PERFORMANCE.md docs/ADOPTION.md docs/SHARING.md docs/PATTERN-SEARCH.md
-docs/SCAN-TRAPS.md docs/CLAUDE-TASKS.md docs/modules docs/INSTALL-MANIFEST.md
+docs/SCAN-TRAPS.md docs/CLAUDE-TASKS.md docs/INSTALL-MANIFEST.md
 docs/SEQUENCE.md docs/BUILD-PROCESS.md docs/DEPLOYMENT-PROCESS.md docs/PROJECT-SETTINGS.md"
 # BASE is newline-separated and EXCLUDED is "path|reason" — flatten both to a space-delimited
 # list of bare paths before matching, or every entry looks unaccounted for.
 KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|.*//' | tr '\n' ' ') $SCAFFOLDED $OPTIONAL_ALL "
 unaccounted=""
-for f in $(ls -d docs/*.md docs/modules docs/patterns docs/resources .claude/INDEX.md .claude/*.tsv \
+for f in $(ls -d docs/*.md docs/patterns docs/resources .claude/INDEX.md .claude/*.tsv \
                  .claude/memory Scripts/* .swiftlint.yml .swiftformat .gitignore \
                  install.sh uninstall.sh bootstrap.sh README.md CLAUDE.md OPERATORS-GUIDE.md CHANGELOG.md \
                  .claude/skills .claude/commands .claude/notes \
@@ -330,12 +330,13 @@ if [ "$APPLY" -eq 1 ] && [ -f "$TARGET/.claude/MAP.tsv" ]; then
   # Without the architecture layer, the module and pattern rows are dead: nothing in the target can
   # ever satisfy them, and a :remote mark only converts a dead lookup into a network fetch for a doc
   # describing a layer that will not exist. Drop them. --with-architecture (or /learn) brings the
-  # rows back with the layer they describe.
+  # rows back with the layer they describe. `module` stays in the pattern below as a guard: this
+  # base ships no such rows any more, and one arriving from a stale index should still be dropped.
   if [ "$WITH_ARCH" -eq 0 ]; then
     tmp="$TARGET/.claude/MAP.tsv.tmp"
     awk -F'\t' '/^#/ || NF < 2 {print; next} $2 !~ /^(module|pattern)/ {print}' \
       "$TARGET/.claude/MAP.tsv" > "$tmp" && mv "$tmp" "$TARGET/.claude/MAP.tsv"
-    printf '  %s~%s .claude/MAP.tsv %s— module and pattern rows dropped (no architecture layer here)%s\n' \
+    printf '  %s~%s .claude/MAP.tsv %s— pattern rows dropped (no architecture layer here)%s\n' \
       "$YEL" "$OFF" "$DIM" "$OFF"
   fi
   remote=$(awk -F'\t' '$2 ~ /:remote$/' "$TARGET/.claude/MAP.tsv" | grep -c . || true)

@@ -16,10 +16,11 @@ version, and a version in a local manifest is a number two places can disagree a
 `Package.swift` is what enforces the dependency direction, not repo walls or convention. A local
 package still cannot import a sibling feature — if it compiles, the manifest was wrong.
 
-**The two extracted packages** — `GenericArch-NetworkKit`, `GenericArch-ImageCache` — have zero
-dependencies and neither imports `Core`. They declare their own errors and protocols, and we map at
-our boundary exactly as §7 treats a vendor. A package that cannot stand alone without `Core` was
-never product-independent.
+**An extracted package has zero dependencies** and does not import the shared core — it declares
+its own errors and protocols, and we map at our boundary exactly as §7 treats a vendor. A package
+that cannot stand alone without the core was never product-independent. Which packages a product
+has extracted, if any, is its own record — this base extracted two
+([REPO.md](../docs/REPO.md)).
 
 **Extraction needs all three** — product-independent · actually reused (a second product consumes
 it, not "might one day") · stable public API. Otherwise keep it local: local costs nothing, and
@@ -45,7 +46,7 @@ Everything a wrapper ships, the contract test, and how to remove a vendor later:
 - **Unit-test every view model, mapper and service against protocol mocks.**
 - **Contract tests per wrapper** — the real implementation and the mock satisfy the same suite. A mock
   that passes what the real one would fail makes every downstream test a false positive.
-- **Snapshots are bounded** → [DesignSystem.md](../docs/modules/DesignSystem.md). Full matrix for
+- **Snapshots are bounded.** Full matrix for
   components; a screen gets `loaded` plus one failure state.
 - **Localization test:** no key missing in any language, no view using a raw literal.
 

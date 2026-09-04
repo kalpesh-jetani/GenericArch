@@ -15,7 +15,7 @@ promotes it. Until then it is reference: read it when the situation arises.
 # RTL support
 
 Key format, catalogs, and typed accessors are in
-[LocalizationKit.md](../modules/LocalizationKit.md). This is the layout-mirroring
+the localization layer. This is the layout-mirroring
 procedure.
 
 **RTL is not a translation problem — it's a layout problem.** A perfectly translated screen with
@@ -110,7 +110,7 @@ correctly **only** if you let the system lay it out. Don't split the string to p
 ## 7. Verify
 
 Preview both directions for every component — alongside the light/dark and Dynamic Type matrix
-required by [DesignSystem.md](../modules/DesignSystem.md):
+required of any design-system component:
 
 ```swift
 #Preview("RTL") {

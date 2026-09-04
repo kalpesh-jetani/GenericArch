@@ -88,7 +88,7 @@ Scope: `$ARGUMENTS` if given, otherwise the whole working diff.
    diff? Did a screen/route/asset/colour/font change without its `.claude/notes/` row?
 
    ```bash
-   git diff --name-only "$BASE"...HEAD | grep -E '^docs/modules/|^\.claude/notes/'   # what moved
+   git diff --name-only "$BASE"...HEAD | grep -E '^docs/|^\.claude/notes/'   # what moved
    git diff --name-only "$BASE"...HEAD | grep -E '\.xcassets/|Route.*\.swift|/Views/' # what should have
    ```
 

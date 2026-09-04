@@ -43,7 +43,7 @@ report() {
 }
 
 echo "── Swift rules ────────────────────────────────────────────"
-report error "§2.4 system alert"     "Route through MessagePresenting (docs/modules/Messaging.md)." '\.(alert|confirmationDialog|actionSheet)[[:space:]]*\('
+report error "§2.4 system alert"     "Route through the single message presenter (CLAUDE.md §2.4)." '\.(alert|confirmationDialog|actionSheet)[[:space:]]*\('
 report error "§2.7 fatalError"       "Return a mapped AppError; assertions vanish in release."      '\bfatalError[[:space:]]*\('
 report error "§1 Combine"            "Use async/await and AsyncSequence."                           '^import Combine'
 report error "§1 DispatchQueue"      "Use @MainActor or structured concurrency."                    'DispatchQueue\.(main|global)'
@@ -182,8 +182,10 @@ echo "── Docs & keys ──────────────────�
 for pkg in Packages/*/ Packages/Features/*/; do
   [ -f "${pkg}Package.swift" ] || continue
   name=$(basename "$pkg")
-  if [ ! -f "docs/modules/$name.md" ] && [ ! -f "${pkg}$name.md" ]; then
-    printf '%s⚠ %s has no module doc%s\n' "$YEL" "$name" "$OFF"; warns=$((warns + 1))
+  # Beside the code, never at the root: a root-level doc outlives the package it names.
+  if [ ! -f "${pkg}$name.md" ]; then
+    printf '%s⚠ %s has no doc — expected %s%s.md%s\n' "$YEL" "$name" "$pkg" "$name" "$OFF"
+    warns=$((warns + 1))
   fi
 done
 

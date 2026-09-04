@@ -352,7 +352,7 @@ esac
 # They differ in exactly one thing: whether the target gets the predefined MODULE material.
 #
 #   existing — a repo that already has a shape. It gets rules, indexes and tooling and NOTHING
-#              module-shaped: no Packages/, no docs/modules/, no scaffold. Imposing a layout on a
+#              module-shaped: no Packages/, no per-package docs, no scaffold. Imposing a layout on a
 #              codebase that already has one is the adoption failure /project-init exists to avoid,
 #              and a module doc for a package the repo does not have is a dead lookup forever.
 #
@@ -374,7 +374,7 @@ if [ "$WITH_ARCH" -eq 1 ]; then
   ga_dim "  --with-architecture given: new-feature and /review come too. Take this only once the"
   ga_dim "  product has actually adopted §2/§3 — /project-init is where that is decided."
 else
-  ga_dim "  Tooling and lookup only. No Packages/, no docs/modules/, no scaffold — and no new-feature"
+  ga_dim "  Tooling and lookup only. No Packages/, no scaffold — and no new-feature"
   ga_dim "  or /review, because both enforce an architecture this repo has not adopted: new-feature"
   ga_dim "  would scaffold a package the app cannot consume, /review would report rules you declined."
   ga_dim "  /project-init offers them once the rule-conflict table is settled."

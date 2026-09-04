@@ -15,7 +15,7 @@ promotes it. Until then it is reference: read it when the situation arises.
 The registry is [STYLE-GUIDE.md](../../.claude/notes/STYLE-GUIDE.md) — spacing, radius, elevation, motion,
 type scale, components. Colours are [ASSETS-COLORS.md](../../.claude/notes/ASSETS-COLORS.md); font families
 and registration are [FONTS.md](../../.claude/notes/FONTS.md). The rules behind all of it are
-[DesignSystem.md](../modules/DesignSystem.md).
+the design-system layer.
 
 **The order is: look up → propose existing → ask → register.** Never invent a value, and never add a
 token without checking whether one already fits.

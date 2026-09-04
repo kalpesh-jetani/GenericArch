@@ -79,7 +79,7 @@ reach an API — gate it or don't ship it.
 - Scenes, `UIApplicationDelegate` adaptor only where an OS callback demands one
   (`handleEventsForBackgroundURLSession`, push registration).
 - Registers `BGAppRefreshTask` / `BGProcessingTask` at launch —
-  **iOS only** ([NetworkKit.md](../../docs/modules/NetworkKit.md)).
+  **iOS only** — the networking layer owns the transfer.
 - Calls `FontRegistrar.registerAll()` before first render ([FONTS.md](FONTS.md)).
 
 ### GenericArch-macOS (App)
@@ -119,7 +119,7 @@ through an **App Group**, listed in the entitlement matrix below.
 | Background Modes | — | — | — | Only the modes actually used — an unused mode is a review rejection |
 | Keychain Sharing | — | — | — | Needed if an extension reads tokens |
 | App Groups | — | — | — | The only sane app↔extension data channel |
-| Associated Domains | — | — | — | Universal links ([Navigation.md](../../docs/modules/Navigation.md)) |
+| Associated Domains | — | — | — | Universal links — the routing layer maps them ([NAVIGATION.md](NAVIGATION.md)) |
 | Sign in with Apple | — | — | — | Mandatory if you offer other third-party sign-in |
 
 Entitlements are **per target and per configuration** — a DEV build using the production push
@@ -139,7 +139,7 @@ missing key is a runtime failure, not a build error.
 The ones that bite:
 
 - **`NS*UsageDescription`** — a permission request with no usage string **crashes on call**, not at
-  build. Every permission in [Messaging.md](../../docs/modules/Messaging.md)'s pre-prompt flow needs
+  build. Every permission behind the message presenter's pre-prompt flow needs
   its matching key, localized via `InfoPlist.xcstrings`.
 - **`UIAppFonts` / `ATSApplicationFontsPath`** — main bundle only. Package fonts need runtime
   registration ([FONTS.md](FONTS.md)).

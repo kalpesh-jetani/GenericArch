@@ -160,13 +160,13 @@ if grep -rqE 'ContentState' $(swift_files) 2>/dev/null; then
     grep -rqE "case[[:space:]]+\.?$c" $(swift_files) 2>/dev/null || \
       finding error content-state "$SRC" 0 \
         "ContentState is used but '.$c' is never handled" \
-        "Render it — a missing case is the blank-screen bug (§2.5, Core.md)"
+        "Render it — a missing case is the blank-screen bug (§2.5)"
   done
 else
   grep -rqE 'isLoading|var loading|@State.*[Ll]oading' $(swift_files) 2>/dev/null && \
     finding error content-state "$SRC" 0 \
       "ad-hoc loading flag instead of ContentState<T>" \
-      "Expose ContentState<T> from Core and render via ContentStateView (§2.5)"
+      "Expose one state value per screen and render every case (§2.5)"
 fi
 
 # ── §2.6 injection by protocol ─────────────────────────────────────────────

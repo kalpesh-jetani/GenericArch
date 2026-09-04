@@ -244,11 +244,11 @@ else
   [ $? -eq 0 ] && emit "Move dependencies to SPM" \
     "CocoaPods/Carthage first — module extraction cannot start until the build system is SPM (§1)"
   [ -d "$REPO/Packages/Core" ] || emit "Extract Core — protocols, models, errors, zero dependencies" \
-    "Everything else depends on it. Start with the error type and ContentState (Core.md)"
+    "Everything else depends on it. Start with the error type and the screen state value"
   anywhere '^[[:space:]]*(public )?protocol ' || emit "Introduce capability protocols" \
     "Abstract on capability (ImageCaching, TokenRefreshing), not on type (§3)"
   emit "Add the DI seam" \
-    "One composition root; features receive dependencies, never resolve them (§2.6, DIKit.md)"
+    "One composition root; features receive dependencies, never resolve them (§2.6)"
   find "$REPO" -name '*.xcstrings' 2>/dev/null | grep -q . || emit "Move strings to an .xcstrings catalog" \
     "Then the no-literal rule can be enforced mechanically (§2.3)"
   [ "$N_SWIFTUI" -ge "$N_UIKIT" ] || emit "Migrate screens to SwiftUI behind Representables" \

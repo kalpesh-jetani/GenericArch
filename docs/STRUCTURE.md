@@ -57,7 +57,8 @@ takes a paragraph, the paragraph goes in the module doc and the rule gets a link
 
 Deciding where something goes:
 
-- Specific to one module → `docs/modules/<Module>.md`. One index row in CLAUDE.md, nothing more.
+- Specific to one package → `Packages/<Name>/<Name>.md`, beside the code it describes. Never a
+  root-level doc for a package this product may not have.
 - A repeatable multi-step procedure → a skill. **No CLAUDE.md edit** — it's found from its
   `description:`.
 - Something the user runs → a command. **No CLAUDE.md edit.**
@@ -96,18 +97,25 @@ Two rules keep it from becoming a second copy of the docs:
 touched. Anything true of one package belongs there, not at the root — it is cheaper and more
 accurate. Same for directory-scoped skills.
 
-## Module doc contract
+## Package doc contract
 
-Every `docs/modules/<Module>.md` opens with exactly three lines:
+**A package's doc lives beside its code**, as `Packages/<Name>/<Name>.md` — never as a root-level
+doc keyed to a package name. A doc at the root outlives the package: it reads as current, describes
+code that is not there, and the index routes to it forever. That is the loop this base removed when
+it retired its own per-module docs (DECISIONS.md).
+
+Every package doc opens with exactly two lines:
 
 ```markdown
-- **Package:** `Packages/<Name>` (local)   |   `GenericArch-<Name>` — extracted repo
 - **Used by:** …
 - **When to read this:** …
 ```
 
-`Used by:` is how something stays out of CLAUDE.md — if it's relevant to one module, say so there
-rather than promoting it.
+Both are only writable when the package exists, which is the point — the doc cannot precede the
+code. `Used by:` is how something stays out of CLAUDE.md: if it's relevant to one package, say so
+there rather than promoting it.
+
+The shape a product's layers take, and what each owns: [REPO.md](REPO.md).
 
 ## Notes contract
 

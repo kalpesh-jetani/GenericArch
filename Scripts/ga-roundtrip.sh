@@ -228,6 +228,8 @@ T="$(new_repo case6existing)"
 if install_into "$T"; then
   leaked=""
   for x in Packages docs/modules; do
+    # docs/modules no longer exists upstream; kept as a regression guard — if it ever
+    # reappears in a target, something re-created the per-package docs this base retired.
     [ -e "$T/$x" ] && leaked="$leaked $x"
   done
   for x in .claude/skills/new-feature .claude/commands/review.md; do
@@ -248,8 +250,11 @@ fi
 # ── 7. the architecture layer is opt-in, and the opt-in works ──────────────
 T="$(new_repo case7)"
 if ( cd "$SRC" && GA_ASSUME_YES=1 ./install.sh "$T" --with-architecture ) >"$WORK/last.log" 2>&1; then
+  # The witness used to be MAP.tsv's `module` rows. There are none any more — this base ships no
+  # per-package docs — so the opt-in is proved by the two surfaces it actually adds, plus the
+  # `pattern` rows that ride with them and are dropped without it.
   if [ -e "$T/.claude/skills/new-feature" ] && [ -e "$T/.claude/commands/review.md" ] \
-     && [ -n "$(awk -F'\t' '$2 ~ /^module/' "$T/.claude/MAP.tsv" | grep -c . | grep -v '^0$')" ]; then
+     && [ -n "$(awk -F'\t' '$2 ~ /^pattern/' "$T/.claude/MAP.tsv" | grep -c . | grep -v '^0$')" ]; then
     pass "--with-architecture adds it to an existing repo"
   else
     fail "--with-architecture did not add the architecture layer"
