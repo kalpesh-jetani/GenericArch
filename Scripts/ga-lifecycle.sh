@@ -574,7 +574,7 @@ ga_known_paths() {
         Scripts/session-script.sh Scripts/ga-lifecycle.sh \
         Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh \
         Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
-        Scripts/ga-cleanup-scan.sh Scripts/ga-sync-scan.sh \
+        Scripts/ga-cleanup-scan.sh Scripts/ga-sync-scan.sh Scripts/ga-roots.sh \
         Scripts/openspec-sync.sh \
         Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         docs/DECISIONS.md docs/GAPS.md docs/resources \

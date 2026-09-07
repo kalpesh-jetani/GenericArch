@@ -33,6 +33,13 @@
 #  18. an edited CLAUDE.md    is kept, and so is their backup
 #  19. no module asserted     no installed skill or command tells a session a package
 #                             like DIKit exists — the content check case 6 lacks
+#  20. library too old        a newer uninstall.sh beside an older ga-lifecycle.sh refuses before
+#                             removing anything, instead of losing functions in silence
+#  21. two manifests          removing one of two recorded installs names the other and withholds
+#                             the "pre-install state" claim
+#  22. the version stamp      is rewritten to the install that is still recorded, never left naming
+#                             a release that has gone
+#  23. two roots classified   the root that got furthest through the sequence is the one kept
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -637,6 +644,43 @@ if install_as "$VERSION" "$T"; then
   fi
 else
   fail "case 21: install failed"
+fi
+
+# ── case 23 ────────────────────────────────────────────────────────────────
+# Two roots must produce a recommendation, not just a refusal. Before ga-roots.sh, install.sh said
+# "install into that root instead" and ga-sync-scan.sh said consolidating "is its own decision" —
+# so a real checkout with a live root at `ready` and older residue one level down was told to prefer
+# the residue, with no tool that could say otherwise.
+#
+# The fixture is that shape exactly: outer root through the whole sequence, inner root carrying two
+# stacked manifests and stuck at `install`. The outer one must win.
+T="$(new_repo case23)"
+mkdir -p "$T/.genericarch" "$T/App/.genericarch"
+printf '{\n  "schema": 2,\n  "genericarch_version": "%s",\n  "files": []\n}\n' "$VERSION" \
+  > "$T/.genericarch/manifest-$VERSION.json"
+printf '#\tstep\tat\tnote\ninstall\t2026-01-01T00:00:00Z\tx\nproject-init\t2026-01-02T00:00:00Z\tx\ngaps\t2026-01-03T00:00:00Z\tx\nsync-app-notes\t2026-01-04T00:00:00Z\tx\nready\t2026-01-05T00:00:00Z\tx\n' \
+  > "$T/.genericarch/STEPS.tsv"
+printf '{\n  "schema": 1,\n  "genericarch_version": "v0.2.0",\n  "files": []\n}\n' \
+  > "$T/App/.genericarch/manifest-v0.2.0.json"
+printf '{\n  "schema": 1,\n  "genericarch_version": "%s",\n  "files": []\n}\n' "$PREV_V" \
+  > "$T/App/.genericarch/manifest-$PREV_V.json"
+printf '#\tstep\tat\tnote\ninstall\t2025-01-01T00:00:00Z\tx\n' > "$T/App/.genericarch/STEPS.tsv"
+# /var/folders is a symlink to /private/var/folders on macOS and ga-roots.sh resolves with pwd -P,
+# so compare resolved paths or every assertion here fails on the prefix alone.
+T_P="$(cd "$T" && pwd -P)"
+rows="$( ( cd "$SRC" && ./Scripts/ga-roots.sh "$T" --tsv ) 2>/dev/null )"
+keep="$(printf '%s\n' "$rows" | awk -F'\t' '$1=="KEEP"  {print $2}')"
+retire="$(printf '%s\n' "$rows" | awk -F'\t' '$1=="RETIRE"{print $2}')"
+if [ "$(printf '%s\n' "$rows" | wc -l | tr -d ' ')" != "2" ]; then
+  fail "case 23: expected two roots, got: $(printf '%s' "$rows" | tr '\n' ' ')"
+elif [ "$keep" != "$T_P" ]; then
+  fail "case 23: kept $keep — the root that reached ready is $T_P"
+elif [ "$retire" != "$T_P/App" ]; then
+  fail "case 23: retire target was $retire, expected $T_P/App"
+elif ( cd "$SRC" && ./Scripts/ga-roots.sh "$T" >/dev/null 2>&1 ); then
+  fail "case 23: exited 0 with a consolidation decision pending"
+else
+  pass "two roots are classified, and the one that got furthest is the one kept"
 fi
 
 echo

@@ -98,6 +98,7 @@ Scripts/ga-reseal.sh
 Scripts/ga-init-scan.sh
 Scripts/ga-cleanup-scan.sh
 Scripts/ga-sync-scan.sh
+Scripts/ga-roots.sh
 Scripts/openspec-sync.sh
 uninstall.sh
 "
