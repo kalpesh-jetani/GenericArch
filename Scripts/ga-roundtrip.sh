@@ -621,6 +621,20 @@ if install_as "$VERSION" "$T"; then
   else
     pass "a second recorded install is named, and the pre-install claim is withheld"
   fi
+  # ── case 22 ──────────────────────────────────────────────────────────────
+  # Same fixture, one assertion further: .genericarch-version must not be left naming a release that
+  # is no longer the one recorded. In manifest mode the stamp used to be hash-compared like any
+  # installed file — but its content is the version, so it differs per install by design and the
+  # comparison always failed, preserving it as "you edited it". On a real twice-installed root it
+  # outlived the uninstall still reading v0.2.0.
+  stamp="$T/.genericarch-version"
+  if [ ! -f "$stamp" ]; then
+    fail "case 22: the stamp is gone, but an install is still recorded here"
+  elif [ "$(head -1 "$stamp")" != "$PREV_V" ]; then
+    fail "case 22: stamp reads $(head -1 "$stamp"), but $PREV_V is what remains recorded"
+  else
+    pass "the version stamp is rewritten to the install that is still recorded"
+  fi
 else
   fail "case 21: install failed"
 fi

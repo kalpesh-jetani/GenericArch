@@ -281,6 +281,12 @@ if [ "$MODE" = "manifest" ]; then
     now="$(ga_sha256 "$file" || echo "")"
     if [ "$now" = "$want" ]; then
       printf '%s\n' "$rel" >> "$REMOVE"
+    elif [ "$rel" = ".genericarch-version" ] && ga_is_version_stamp "$file"; then
+      # The stamp records WHICH version is here, so its content differs per install by design — a
+      # hash cannot prove ownership of it, and comparing one is how it outlived every uninstall of a
+      # twice-installed root while still naming the older release. Its FORMAT is the proof, which is
+      # the test the no-manifest path has always used; manifest mode was the half that hashed it.
+      printf '%s\n' "$rel" >> "$REMOVE"
     else
       printf '%s\tyou edited it — content hash does not match the manifest\n' "$rel" >> "$KEEP"
     fi
@@ -683,6 +689,22 @@ else
     printf '\nRemove each of them from this root too. Until then their files remain, and an install\n'
     printf 'here will keep refusing because the root still counts as live.\n'
     MANIFESTS_LEFT=1
+    # The stamp was removed with this version's records, but a live install is still here, so leaving
+    # the root without one trades a stamp that named the wrong version for no stamp at all. Rewrite
+    # it to the newest release still recorded, so it and the manifests agree.
+    if [ ! -f "$TARGET/.genericarch-version" ]; then
+      newest=""
+      for _m in $(ga_manifest_find "$TARGET"); do newest="$_m"; done
+      newest_v="$(ga_manifest_version "$newest" 2>/dev/null || true)"
+      if [ -n "$newest_v" ]; then
+        _ref="$(ga_json_field "$(head -5 "$newest")" source_ref 2>/dev/null || true)"
+        { printf '%s\n' "$newest_v"
+          printf 'repo=https://github.com/kalpesh-jetani/GenericArch.git\n'
+          [ -n "$_ref" ] && printf 'ref=%s\n' "$_ref"
+        } > "$TARGET/.genericarch-version"
+        printf '\n.genericarch-version now reads %s, matching the install that is still here.\n' "$newest_v"
+      fi
+    fi
   else
     printf '\nThe repo is back to its pre-install state.\n'
   fi
