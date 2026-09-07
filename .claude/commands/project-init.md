@@ -143,10 +143,15 @@ real choice, not a formality:
 | Scope | File | Use for |
 |---|---|---|
 | **Project** | root `CLAUDE.md` | Rules that apply everywhere. Always-on cost for every session |
-| **Directory** | `Packages/<Name>/CLAUDE.md` | Rules only true inside that package — loaded only when it's touched |
+| **Component** | `<component-dir>/CLAUDE.md` | Rules only true inside that component — loaded only when it's touched (§2.16) |
 
-Directory-level is the right home for anything package-specific, and it keeps the root file small
-(§5). Two worked examples to offer:
+Directory-level is **required**, not offered: §2.16 gives every component its own `CLAUDE.md`,
+carrying its boundary and the rules true only inside it. It keeps the root file small (§5) and costs
+nothing until that directory is touched. What belongs in one:
+[STRUCTURE.md](../../docs/STRUCTURE.md).
+
+Two illustrations — **not a set to create up front.** A component gets its file when the component
+gets created:
 
 - `Packages/Features/CLAUDE.md` — "no `#if DEBUG`", "no `resolve` outside `DI/`", "no sibling
   feature import". These are only meaningful inside a feature.

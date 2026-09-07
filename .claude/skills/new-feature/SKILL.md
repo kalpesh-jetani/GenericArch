@@ -135,7 +135,8 @@ propose extracting it; feature packages fail all three §4.2 tests by definition
 ```
 Packages/Features/Feature<Name>/
   Package.swift
-  Feature<Name>.md              required — see step 8
+  CLAUDE.md                     required (§2.16) — the boundary, then rules true only here
+  Feature<Name>.md              optional reference — see step 8
   Sources/Feature<Name>/
     Models/                     domain types, Sendable value types
     Services/                   protocols + live impls (actors or Sendable structs)
@@ -152,6 +153,15 @@ product actually has — read `Packages/` to see which those are, and depend onl
 uses. **Never on another feature** (§2.1) — the manifest is what enforces that now, so get it right.
 
 Register it in the app targets' package list ([PROJECT.md](../../notes/PROJECT.md)).
+
+**Write `CLAUDE.md` in the new package before any Swift** (§2.16). It opens with the boundary — what
+this feature owns, what it may depend on, what it must never import — and then carries only rules
+true inside this directory. It is loaded when a session touches the feature and costs nothing until
+then. What belongs in it, and what must not:
+[STRUCTURE.md](../../../docs/STRUCTURE.md).
+
+Writing it first is deliberate: stating "never imports another feature" before the manifest exists
+is what stops §2.1 being discovered at compile time.
 
 ## 5. What to produce — not just the happy path
 

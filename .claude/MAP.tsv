@@ -12,7 +12,7 @@
 docs/DECISIONS.md	cross	decision record settled choice rationale	Before any §0 question, and before re-proposing anything
 docs/DONE.md	cross	definition of done checklist finish complete ship	Before calling any change finished
 docs/CONVENTIONS.md	cross	naming file layout access control doc comment style	Naming a type or file, or setting access control
-docs/STRUCTURE.md	cross	where guidance belongs doc placement approval gate skill trigger	Writing a new doc, skill, or command — and before editing CLAUDE.md
+docs/STRUCTURE.md	cross	where guidance belongs doc placement approval gate skill trigger component claude.md boundary scoped rules per-component	Writing a new doc, skill, or command — and before editing CLAUDE.md
 Packages/CLAUDE.md	cross	package manifest extraction wrapper vendor testing standalone swift test mock contract snapshot boundaries scoped rules	Working inside Packages/ — the scoped detail behind root §4, §7 and §9
 docs/REPO.md	cross	layout structure directory tree shape layer module what each layer owns package version local override spm dependency add package resolved	The directory layout and what each layer owns — and adding or overriding a package
 docs/SHARING.md	cross	publish share template plugin installer distribute uninstall flags exitcodes manifest preserved updating adoptreview	Publishing this base for someone else, and the installer reference — flags, exit codes, preserved files, updating an install

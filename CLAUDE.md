@@ -108,6 +108,11 @@ Where the floors come from, and why "no `platforms:` line" means unanswered rath
     records the tombstone that stops the next install re-creating it and the DECISIONS row that
     stops it being re-proposed. Any command that rewrites installed files closes with
     `./Scripts/ga-reseal.sh --apply`.
+16. **Every component carries its own `CLAUDE.md`.** A component is any directory that owns a
+    concern — a package, a wrapper, a feature, a design-system area, wherever assets or API
+    conventions live. Write it **before the code**, opening with the boundary (owns · may depend
+    on · never imports), then only rules true inside that directory. **Never write a list of
+    components** — the rule follows the directory that exists → [STRUCTURE.md](docs/STRUCTURE.md)
 
 ---
 

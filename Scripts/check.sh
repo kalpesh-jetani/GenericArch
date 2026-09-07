@@ -182,9 +182,10 @@ echo "── Docs & keys ──────────────────�
 for pkg in Packages/*/ Packages/Features/*/; do
   [ -f "${pkg}Package.swift" ] || continue
   name=$(basename "$pkg")
-  # Beside the code, never at the root: a root-level doc outlives the package it names.
-  if [ ! -f "${pkg}$name.md" ]; then
-    printf '%s⚠ %s has no doc — expected %s%s.md%s\n' "$YEL" "$name" "$pkg" "$name" "$OFF"
+  # §2.16: every component carries its own CLAUDE.md — the rules that bind only inside it, loaded
+  # only when a session touches it. The reference doc beside it is optional (STRUCTURE.md).
+  if [ ! -f "${pkg}CLAUDE.md" ]; then
+    printf '%s⚠ %s has no CLAUDE.md — expected %sCLAUDE.md (§2.16)%s\n' "$YEL" "$name" "$pkg" "$OFF"
     warns=$((warns + 1))
   fi
 done
