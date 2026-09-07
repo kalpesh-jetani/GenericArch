@@ -7,7 +7,7 @@ Every design token and component variant that exists, so nothing gets invented t
   [FONTS.md](FONTS.md) (families, registration, type tokens). This file owns everything else:
   spacing, radius, elevation, motion, and the component inventory.
 - **Design rules** — why tokens exist and how components must behave —
-  [DesignSystem.md](../../docs/modules/DesignSystem.md). This file is the *registry*; that one is
+  the design-system layer. This file is the *registry*; that one is
   the *rules*.
 
 > **Check here before adding a value.** A near-duplicate token is worse than a slightly wrong reuse:

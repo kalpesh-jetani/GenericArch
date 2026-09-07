@@ -6,6 +6,60 @@ decorative.
 
 ---
 
+## Unreleased
+
+The theme: **the base asserts no module it cannot show you.**
+
+### The default architecture is gone
+
+`docs/modules/` — twelve docs, one per package — has been deleted, along with every assertion that
+those packages exist. The loop it caused: `CLAUDE.md` §2 stated rules like *"Every dependency
+injected via protocol → DIKit.md"* in a file loaded into every session; `adopt.sh` never copied the
+module docs (they were `REFERENCED`, fetch-on-demand); and `MAP.tsv` defines an off-disk path as *a
+fetch instruction, not a broken link*. So absence could never mean **this product has no such
+layer** — every session concluded `DIKit` existed, failed to find it, and demanded it again.
+Nothing recorded which layers a product actually had: `/project-init` asked, then filed the answer
+under `DECISIONS.md` ***Open***.
+
+v0.4.2 made the docs fetch-on-demand and the architecture layer opt-in. That fixed the *copying*
+and left the *asserting* intact, which is why the loop survived it.
+
+- **The replacement is [`docs/REPO.md`](docs/REPO.md) §Layout** — the directory tree it already
+  carried, now with a table of what each layer owns and the §2 rule it serves. It describes the
+  shape a product *may* take, never an inventory of the one you are in, and says so in its first
+  line. Its `MAP.tsv` grep terms gained `layout structure directory tree shape layer`; it had none
+  of them, so the structure reference was unfindable by anyone searching for the structure.
+- **A package's doc now lives beside its code**, as `Packages/<Name>/<Name>.md`
+  ([STRUCTURE.md](docs/STRUCTURE.md)). A root-level doc outlives the package it names.
+  `check.sh` warns on the new location; the *Module doc contract* is now a *Package doc contract*
+  and no longer opens with a `**Package:**` assertion.
+- **`new-feature` states contracts, not packages.** It named `Core`, `DesignSystem`, `Navigation`,
+  `DIKit`, `Messaging` and `LocalizationKit` as bare parenthetical prose — invisible to every link
+  checker — while telling `Package.swift` to depend on them. It now says what a screen must expose
+  and render, and reads `Packages/` for what this product actually has.
+- **`.swiftlint.yml`'s four rule messages** cited module docs. Those strings surface in Xcode on
+  every violation, so each was a dead pointer in a developer's build output.
+- `ga-init-scan.sh`'s `§orphan-docs` became `§root-package-docs`, and lost the base-checkout skip
+  whose justification ("ships the full set as the blueprint") no longer holds. `ga-cleanup-scan.sh`
+  reports a root-level package doc as a candidate to *move*, not only to delete.
+- `ga-roundtrip.sh` case 7 proved the `--with-architecture` opt-in by asserting a `module` MAP row
+  survived. There are none now, so it witnesses the `pattern` rows instead — which `adopt.sh` drops
+  without the flag and keeps with it.
+
+**Two files deliberately keep their `docs/modules` references**: `uninstallv0.1.0.sh` and
+`ga_known_paths()` in `ga-lifecycle.sh`. Both are per-release records of what a given version
+actually wrote, verified by content hash before anything is deleted. Editing them to match a later
+release is how an uninstall starts hunting for files that release never wrote.
+
+### Updating an existing install
+
+An install from v0.6.1 or earlier carries twelve `module` rows in `.claude/MAP.tsv`, marked
+`:remote` against a pinned `FETCH-BASE`. Those paths no longer exist upstream, so they now 404
+rather than resolving. Run `/sync-with-genericarch` to prune them; until then a lookup that hits one
+fails loudly instead of returning a doc for a layer the product does not have.
+
+---
+
 ## v0.6.1
 
 The theme: **the claims this base makes are checked against the base.** No shipped file was added or

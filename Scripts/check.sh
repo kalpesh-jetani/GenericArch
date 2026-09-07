@@ -43,7 +43,7 @@ report() {
 }
 
 echo "── Swift rules ────────────────────────────────────────────"
-report error "§2.4 system alert"     "Route through MessagePresenting (docs/modules/Messaging.md)." '\.(alert|confirmationDialog|actionSheet)[[:space:]]*\('
+report error "§2.4 system alert"     "Route through the single message presenter (CLAUDE.md §2.4)." '\.(alert|confirmationDialog|actionSheet)[[:space:]]*\('
 report error "§2.7 fatalError"       "Return a mapped AppError; assertions vanish in release."      '\bfatalError[[:space:]]*\('
 report error "§1 Combine"            "Use async/await and AsyncSequence."                           '^import Combine'
 report error "§1 DispatchQueue"      "Use @MainActor or structured concurrency."                    'DispatchQueue\.(main|global)'
@@ -182,8 +182,11 @@ echo "── Docs & keys ──────────────────�
 for pkg in Packages/*/ Packages/Features/*/; do
   [ -f "${pkg}Package.swift" ] || continue
   name=$(basename "$pkg")
-  if [ ! -f "docs/modules/$name.md" ] && [ ! -f "${pkg}$name.md" ]; then
-    printf '%s⚠ %s has no module doc%s\n' "$YEL" "$name" "$OFF"; warns=$((warns + 1))
+  # §2.16: every component carries its own CLAUDE.md — the rules that bind only inside it, loaded
+  # only when a session touches it. The reference doc beside it is optional (STRUCTURE.md).
+  if [ ! -f "${pkg}CLAUDE.md" ]; then
+    printf '%s⚠ %s has no CLAUDE.md — expected %sCLAUDE.md (§2.16)%s\n' "$YEL" "$name" "$pkg" "$OFF"
+    warns=$((warns + 1))
   fi
 done
 

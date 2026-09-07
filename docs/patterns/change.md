@@ -38,7 +38,7 @@ Walk these every time. They cost seconds now and a review round later.
 2. **The state you did not add** — a new failure path usually means a new `ContentState` case, not
    an `if` in the view (§2.5).
 3. **The error mapping** — a new thrown error needs its `AppError` case and `isRetryable` set
-   deliberately ([Core.md](../modules/Core.md)).
+   deliberately (CLAUDE.md §2.7).
 4. **The mock** — if you added a protocol requirement, the mock beside it must satisfy it, or every
    test using it stops compiling.
 5. **The note row** — a new screen, route, asset, colour, font or token changes an inventory. Edit

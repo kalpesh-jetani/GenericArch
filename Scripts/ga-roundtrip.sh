@@ -31,6 +31,8 @@
 #  16. --final with no rules  the record goes to GENERICARCH-ORPHANS.md instead
 #  17. CLAUDE.md migration    --with-claude-md backs theirs up, uninstall restores it byte-for-byte
 #  18. an edited CLAUDE.md    is kept, and so is their backup
+#  19. no module asserted     no installed skill or command tells a session a package
+#                             like DIKit exists — the content check case 6 lacks
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -228,6 +230,8 @@ T="$(new_repo case6existing)"
 if install_into "$T"; then
   leaked=""
   for x in Packages docs/modules; do
+    # docs/modules no longer exists upstream; kept as a regression guard — if it ever
+    # reappears in a target, something re-created the per-package docs this base retired.
     [ -e "$T/$x" ] && leaked="$leaked $x"
   done
   for x in .claude/skills/new-feature .claude/commands/review.md; do
@@ -248,8 +252,11 @@ fi
 # ── 7. the architecture layer is opt-in, and the opt-in works ──────────────
 T="$(new_repo case7)"
 if ( cd "$SRC" && GA_ASSUME_YES=1 ./install.sh "$T" --with-architecture ) >"$WORK/last.log" 2>&1; then
+  # The witness used to be MAP.tsv's `module` rows. There are none any more — this base ships no
+  # per-package docs — so the opt-in is proved by the two surfaces it actually adds, plus the
+  # `pattern` rows that ride with them and are dropped without it.
   if [ -e "$T/.claude/skills/new-feature" ] && [ -e "$T/.claude/commands/review.md" ] \
-     && [ -n "$(awk -F'\t' '$2 ~ /^module/' "$T/.claude/MAP.tsv" | grep -c . | grep -v '^0$')" ]; then
+     && [ -n "$(awk -F'\t' '$2 ~ /^pattern/' "$T/.claude/MAP.tsv" | grep -c . | grep -v '^0$')" ]; then
     pass "--with-architecture adds it to an existing repo"
   else
     fail "--with-architecture did not add the architecture layer"
@@ -507,6 +514,44 @@ if install_flags "$T" --with-claude-md; then
   fi
 else
   fail "case 18: install --with-claude-md failed"
+fi
+
+# ── 19. no installed rule or procedure asserts a module ───────────────────
+# The defect class the twelve module docs left behind. Case 6 asserts which PATHS are absent; it
+# never greps what installed files SAY. Two real defects shipped past every case in this suite
+# because of that gap: a command still listing nine packages, and prose in notes and commands
+# naming modules a target has no package for.
+#
+# Scope is skills and commands on purpose — that is where a rule or procedure sets a session's
+# beliefs. Deliberately NOT scoped to:
+#   - the target's CLAUDE.md, which may be the consumer's own and may legitimately name theirs
+#   - .claude/notes/, whose data rows are blanked at install and whose names are inventory values
+#   - Scripts/, where a conventional directory name is a detection heuristic that under-matches
+#     rather than asserting — a separate, recorded issue
+# `Core` is deliberately matched only as `Packages/Core`, never bare: Apple ships Core Data, Core
+# Graphics and Core Animation, so a bare `Core` flags legitimate prose. The other names are
+# distinctive enough to match on their own.
+MODULE_NAMES='Packages/Core|DIKit|NetworkKit|ImageCache|StorageKit|LocalizationKit|LoggingKit|NotificationKit|AppShell|DesignSystem|Messaging|Navigation'
+# Allowlist, and why each is here. An entry is a debt, not a permission.
+#   sync-app-notes.md — scan hints keyed to a `DesignSystem/` path, not claims that it exists.
+# project-init.md was here: its S2 table listed nine packages under "Default to Core + Navigation".
+# That table now asks for roles ("Shared core", "Routing", "Message presentation") derived from the
+# requirements, with no default and no package names — so the entry is gone and this test holds it.
+MODULE_ALLOW='^\.claude/commands/sync-app-notes\.md$'
+T="$(new_repo case19)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_into "$T"; then
+  asserted="$(grep -rlwE "$MODULE_NAMES" "$T/.claude/skills" "$T/.claude/commands" 2>/dev/null \
+                | sed "s|$T/||" | grep -vE "$MODULE_ALLOW" || true)"
+  if [ -n "$asserted" ]; then
+    fail "an installed skill or command names a module this target has no package for:"
+    printf '          %s\n' $asserted
+  else
+    pass "no installed skill or command asserts a module outside the recorded allowlist"
+  fi
+else
+  fail "case 19: install failed"
 fi
 
 echo

@@ -8,7 +8,7 @@
 #@out       stdout:plan, then the tombstone rows, the index rows pruned, any prose references left to fix, and the commit message
 #@exit      0=ok 1=path not owned|missing reason 2=usage 4=declined at the prompt
 #@effects   with --apply: MOVES the listed files to .genericarch/safetodelete/<path> (never deletes), appends to .genericarch/TOMBSTONES.tsv and docs/DECISIONS.md, prunes their rows from .claude/MAP.tsv and .claude/SCRIPTS.tsv
-#@when      delete an installed file|drop a doc that does not apply|decline a skill|remove module docs|why did a deleted file come back|tombstone|revive a declined file|where did the file go|recover a declined file|safetodelete directory
+#@when      delete an installed file|drop a doc that does not apply|decline a skill|retire a stale package doc|why did a deleted file come back|tombstone|revive a declined file|where did the file go|recover a declined file|safetodelete directory
 #
 # The gap this closes: install.sh treats "not on disk" as "never installed" and creates the file
 # again. So a file deleted by hand comes back on the next install or upgrade. That flip happened four
@@ -105,7 +105,7 @@ fi
 [ -n "$PATHS" ] || { sed -n '5,7p' "$0" >&2; ga_die "no paths given" "$GA_EX_USAGE"; }
 [ -n "$REASON" ] || ga_die "--reason is required: a deletion with no recorded reason is the thing this tool exists to prevent" "$GA_EX_ERR"
 
-# Expand directories into files: a tombstone is per-path, and "docs/modules" as one row would
+# Expand directories into files: a tombstone is per-path, and a directory as one row would
 # silently cover a file added to it later.
 EXPANDED=""
 for p in $PATHS; do
@@ -167,7 +167,7 @@ for rel in $EXPANDED; do
     "$GA_GRN" "$GA_OFF" "$rel" "$GA_DIM" "$GA_STATE_DIR" "$rel" "$GA_OFF"
   removed=$((removed + 1))
 done
-# Directories emptied by the removals go too — an empty docs/modules/ reads as "we have modules".
+# Directories emptied by the removals go too — an empty docs/patterns/ reads as "we have patterns".
 ga_prune_empty_dirs "$TARGET" $(printf '%s\n' $EXPANDED | sed 's|/[^/]*$||' | LC_ALL=C sort -u)
 
 # ── De-reference: the indexes first ────────────────────────────────────────

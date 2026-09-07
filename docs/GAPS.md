@@ -39,10 +39,10 @@ gains nothing from carrying "widgets" as an open question forever.
 |---|---|
 | CI/CD, signing automation, app versioning | [DELIVERY.md](DELIVERY.md) |
 | Launch budget, SwiftUI rendering performance | [PERFORMANCE.md](PERFORMANCE.md) |
-| App lifecycle, state restoration, force-update gate | [AppShell.md](modules/AppShell.md) |
-| Push notifications | [NotificationKit.md](modules/NotificationKit.md) |
-| Remote images and caching | [ImageCache.md](modules/ImageCache.md) *(extracted repo)* |
-| Pagination / partial content | `Paged<Item>` in [Core.md](modules/Core.md) |
+| App lifecycle, state restoration, force-update gate | the app shell ([REPO.md](REPO.md)) |
+| Push notifications | the notifications layer ([REPO.md](REPO.md)) |
+| Remote images and caching | the image-cache layer, extracted ([REPO.md](REPO.md)) |
+| Pagination / partial content | paging state nested in screen state (CLAUDE.md §2.5) |
 
 | Was over-specified | Trimmed to |
 |---|---|

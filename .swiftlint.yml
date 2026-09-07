@@ -79,14 +79,14 @@ custom_rules:
   no_system_alert:
     name: "§2.4 — no system alert surface"
     regex: '\.(alert|confirmationDialog|actionSheet)\s*\('
-    message: "Route through MessagePresenting instead (docs/modules/Messaging.md)."
+    message: "Route through the app's single message presenter instead of a system alert."
     severity: error
 
   no_raw_user_string:
     name: "§2.3 — no raw user-facing string"
     included: ".*/Views/.*\\.swift"
     regex: '\b(Text|Label|Button)\s*\(\s*"[^"]{2,}"'
-    message: "Use a localized key via L10n (docs/modules/LocalizationKit.md)."
+    message: "Use a localized key — no user-facing string literal in a view."
     severity: error
 
   no_fatal_error:
@@ -120,7 +120,7 @@ custom_rules:
     included: ".*/Features/.*\\.swift"
     excluded: ".*/DI/.*Assembly\\.swift"
     regex: '\bDIContainer\b|\bresolve\s*\('
-    message: "Take the protocol through init. Only the Assembly sees the container (docs/modules/DIKit.md)."
+    message: "Take the protocol through init. Only the feature's Assembly sees the container."
     severity: error
 
   no_shared_singleton:
@@ -134,7 +134,7 @@ custom_rules:
     name: "DesignSystem — no literal design value in a feature"
     included: ".*/Features/.*\\.swift"
     regex: 'Color\s*\(\s*(red|white|hex)\s*:|\.foregroundStyle\(\s*\.(white|black)\s*\)'
-    message: "Use a DesignSystem token (docs/modules/DesignSystem.md)."
+    message: "Use a design-system token, not a literal colour or size."
     severity: error
 
   no_geometric_direction:

@@ -111,12 +111,12 @@ Full flag list and exit codes are in each script's own header — `install.sh`, 
 |---|---|---|
 | **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · scan and lookup scripts · `ga-step`, `ga-remove`, `ga-reseal` · `ga-project-setup.sh` · `uninstall.sh` | They must be local to work |
 | **Scaffolded empty** | `docs/DECISIONS.md` · `docs/GAPS.md` · `.claude/notes/` · `.claude/memory/` · `.claude/CANDIDATES.tsv` | The prose is ours, the answers are yours |
-| **Fetched on demand** | `docs/modules/` · `docs/patterns/` · cross-cutting reference docs | A product should not carry docs for layers it does not have |
-| **On consent** | `--with-architecture` → `new-feature`, `/review`, module and pattern rows | A surface that cannot fire is worse than a missing one |
+| **Fetched on demand** | `docs/patterns/` · cross-cutting reference docs | A product should not carry docs it does not read |
+| **On consent** | `--with-architecture` → `new-feature`, `/review`, pattern rows | A surface that cannot fire is worse than a missing one |
 | **Opt-in** | `--with-lint` · `--with-meta` | Lint enforces conventions a product may have declined |
 | **Never** | `CLAUDE.md` · this repo's decisions, gaps, notes and memory · `install.sh`, `bootstrap.sh` · `README.md` · `.claude/settings.json` | Your rules are yours |
 
-It does **not** add `Packages/`, `docs/modules/`, or any Swift. `Scripts/adopt.sh` owns this list
+It does **not** add `Packages/` or any Swift. `Scripts/adopt.sh` owns this list
 and `install.sh` drives it — one answer, not two.
 
 ### Notes
@@ -317,13 +317,13 @@ half. Writes nothing.
 **Decline a file so it stays declined.** Never `rm` an installed file.
 
 ```bash
-./Scripts/ga-remove.sh docs/modules/StorageKit.md --reason "no StorageKit here" --apply
+./Scripts/ga-remove.sh docs/PERFORMANCE.md --reason "no perf budget here yet" --apply
 ```
 ```bash
 ./Scripts/ga-remove.sh --list
 ```
 ```bash
-./Scripts/ga-remove.sh --revive docs/modules/StorageKit.md --apply
+./Scripts/ga-remove.sh --revive docs/PERFORMANCE.md --apply
 ```
 
 **Keep the install removable** after any command or hand edit rewrote an installed file:
@@ -478,7 +478,7 @@ swift test --package-path Packages/Core
 | Find *where something is* — screen, route, endpoint, asset | `/find <name>` |
 | Know which command runs next, or why one refused | `./Scripts/ga-step.sh show` · [docs/SEQUENCE.md](docs/SEQUENCE.md) |
 | Know the resolved stack — min OS, Xcode, Swift | [.claude/notes/PROJECT.md](.claude/notes/PROJECT.md) |
-| Understand a specific layer | [docs/modules/](docs/modules/) — one doc per package |
+| Understand the layer shape, and what each owns | [docs/REPO.md](docs/REPO.md) |
 | Know why something is the way it is | [docs/DECISIONS.md](docs/DECISIONS.md) |
 | Know what's deliberately missing | [docs/GAPS.md](docs/GAPS.md) |
 | Set up a machine, or ship | [docs/REPO.md](docs/REPO.md) · [docs/DELIVERY.md](docs/DELIVERY.md) |
@@ -498,8 +498,8 @@ Packages/CLAUDE.md   scoped rules: extraction, wrappers, package testing
 OPERATORS-GUIDE.md   every file in this repo and what a person does with it
 CHANGELOG.md         the release history — a tag is what install.sh records in the manifest
 .swiftlint.yml       the §2 conventions as config, with .swiftformat — OPTIONAL (--with-lint)
-docs/                hand-written reasoning: module design + cross-cutting reference
-docs/modules/        one doc per package
+docs/                hand-written reasoning: cross-cutting reference
+docs/REPO.md         the layer shape and what each layer owns
 docs/patterns/       procedures not yet skills — /learn promotes one when it earns it
 .claude/INDEX.md     what THIS product has — the repo's own router is MAP.tsv, not this
 .claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable

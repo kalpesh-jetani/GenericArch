@@ -54,9 +54,9 @@ Each of these is a setting, not a coding habit, which is why they live here:
 - **`PrivacyInfo.xcprivacy` current per package**, including required-reason APIs. Per *package*,
 not
   once for the app: a manifest that omits a package's reasons fails review for the whole submission.
-- **Secrets in the Keychain only**, behind a protocol → [StorageKit.md](modules/StorageKit.md). Not
+- **Secrets in the Keychain only**, behind a protocol (CLAUDE.md §8). Not
   `UserDefaults`, not a plist, not an `.xcconfig` that ships in the bundle.
-- **No PII, tokens or response bodies in logs** → [LoggingKit.md](modules/LoggingKit.md). Anything
+- **No PII, tokens or response bodies in logs** (CLAUDE.md §8). Anything
   derived from a response or from user input is treated as private.
 - **Biometrics behind `BiometricAuthenticating`** — a protocol, so a test never touches the real
 one.
@@ -76,6 +76,6 @@ Targets, app groups and current entitlements:
 ## Localization
 
 Every user-facing string is a localized key from the first screen, and the language set is a project
-setting: [LocalizationKit.md](modules/LocalizationKit.md). A release ships no language whose keys
+setting: the localization layer. A release ships no language whose keys
 are
 incomplete — that is on the [DELIVERY.md](DELIVERY.md) *Release checklist*, not left to notice.

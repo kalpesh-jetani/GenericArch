@@ -8,12 +8,12 @@
 #@out       stdout:the report; with --write also .claude/notes/.evidence/INIT-SCAN.md and INIT-CONFLICTS.tsv
 #@exit      0=scan complete, nothing blocking 1=a generator failed (handoff report written) 2=usage 3=BLOCKING toolchain mismatch — /project-init cannot proceed
 #@effects   read-only by default; --write creates only .claude/notes/.evidence/ (gitignored, generated) and never touches an installed file
-#@when      before project-init|what conflicts does this repo have|adoption evidence|preflight an install|does the map resolve|which module docs are orphans|which rules clash with this repo
+#@when      before project-init|what conflicts does this repo have|adoption evidence|preflight an install|does the map resolve|stale package docs at the root|which rules clash with this repo
 #
 # Why this exists: /project-init is 565 lines and about half of them are deterministic scans of
 # files on disk — the mode, the toolchain mismatches, the eleven conflict rows in docs/ADOPTION.md
-# §A2, the name collisions in §A4, the routable-path validator in S0c, the orphan module docs in
-# S2c. Every one of those costs a session to produce output a shell script can hand over.
+# §A2, the name collisions in §A4, the routable-path validator in S0c, the stale root-level
+# package docs in S2c. Every one of those costs a session to produce output a shell script can hand over.
 #
 # So this gathers exactly that half, offline, and hands the command a bounded artifact to review.
 # The other half — which rule wins, what to migrate, what goes in CLAUDE.md — is asked, because
@@ -445,38 +445,34 @@ else
 fi
 say ""
 
-# ── §orphan-docs ──────────────────────────────────────────────────────────
-# S2c: a doc for a package that does not exist reads as current and describes code that is not
-# there. The removal is gated (§2.15) — this prints the exact command and runs none of it.
-say "## orphan-docs"
+# ── §root-package-docs ────────────────────────────────────────────────────
+# S2c: this base ships no per-package docs. One at the repo root reads as current and describes
+# code that may not be there, which is the loop it was retired to close — a package's doc belongs
+# beside its code. Anything found here came from an install older than that decision. The removal
+# is gated (§2.15) — this prints the exact command and runs none of it.
+say "## root-package-docs"
 say ""
 ORPH=0
-# The base checkout is the exception: it ships all twelve module docs as the blueprint, and its own
-# Packages/ holds only the Core+DIKit floor. Proposing removals there would be proposing to delete
-# the material every install copies.
-if [ "$TARGET" = "$SRC" ]; then
-  say "Skipped — this is the GenericArch base checkout, which ships the full \`docs/modules/\` set as"
-  say "the blueprint. The derivation only means something in a target repo."
-elif [ -d "$TARGET/docs/modules" ]; then
+if [ -d "$TARGET/docs/modules" ]; then
   for f in "$TARGET/docs/modules"/*.md; do
     [ -e "$f" ] || continue
     _pkg="$(basename "$f" .md)"
-    [ -d "$TARGET/Packages/$_pkg" ] && continue
-    # Features and Wrappers are directories of packages, not packages — their docs stay.
     case "$_pkg" in Features|Wrappers|README) continue ;; esac
     ORPH=$((ORPH + 1))
-    say "- \`docs/modules/$_pkg.md\` — no \`Packages/$_pkg\`"
+    if [ -d "$TARGET/Packages/$_pkg" ]; then
+      say "- \`docs/modules/$_pkg.md\` — move it beside the code as \`Packages/$_pkg/$_pkg.md\`"
+    else
+      say "- \`docs/modules/$_pkg.md\` — no \`Packages/$_pkg\` in this product"
+    fi
     say "  \`\`\`bash"
-    say "  ./Scripts/ga-remove.sh docs/modules/$_pkg.md --reason \"no $_pkg package in this product\" --apply"
+    say "  ./Scripts/ga-remove.sh docs/modules/$_pkg.md --reason \"per-package docs live beside the code\" --apply"
     say "  \`\`\`"
   done
 fi
-if [ "$TARGET" = "$SRC" ]; then
-  :
-elif [ ! -d "$TARGET/docs/modules" ]; then
-  say "No \`docs/modules/\` here — nothing to be orphaned from."
+if [ ! -d "$TARGET/docs/modules" ]; then
+  say "None — correct. This base ships no per-package docs; the layer shape is \`docs/REPO.md\`."
 elif [ "$ORPH" -eq 0 ]; then
-  say "None — every installed module doc has a package."
+  say "None — nothing left at the root."
 else
   say ""
   say "Nothing above has been removed. \`ga-remove.sh\` writes the tombstone *and* the DECISIONS.md"
@@ -522,7 +518,7 @@ ga_hdr "── init scan ──────────────────�
 printf '  mode          %s%s%s\n' "$GA_BLD" "$MODE" "$GA_OFF"
 printf '  conflicts     %s (evidence rows — severity is not ours to set)\n' "$N_CONFLICTS"
 printf '  collisions    %s\n' "$COLL"
-printf '  orphan docs   %s\n' "$ORPH"
+printf '  root pkg docs %s\n' "$ORPH"
 printf '  route issues  %s (unresolvable, missing-local, malformed — must be 0)\n' "$ROUTE_ISSUES"
 if [ "$WRITE" -eq 1 ] && [ -f "$ART" ]; then
   ga_ok "evidence: ${ART#"$TARGET"/}"

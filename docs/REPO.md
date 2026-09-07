@@ -12,19 +12,54 @@ Reference for working across the single repo and its two extracted packages.
 
 ## Layout
 
+**This is the shape a product *may* take, not an inventory of the one you are in.** A product has
+whatever subset of these layers it needs, under whatever names it chose — several ship with only a
+couple. Nothing here creates the layout: that is
+[GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup)'s job, settled before this
+base is installed. To find out what *this* repo actually has, read its `Packages/` directory or
+`./Scripts/find.sh <name>` — never this page.
+
+**In the GenericArch base itself there is no code at all** — no `Packages/`, no Swift. The layers
+below are specified, not implemented ([GAPS.md](GAPS.md)). Every §2 rule points here for *what a
+layer is responsible for*; what a given product actually built is its own `Packages/` directory.
+
 ```
-GenericArch/
-├── App/{GenericArch-iOS, GenericArch-macOS}    thin shells
+<Product>/
+├── App/{<Product>-iOS, <Product>-macOS}        thin shells
 ├── Packages/
-│   ├── Core, DIKit, StorageKit, LocalizationKit,
-│   │   LoggingKit, NotificationKit, Navigation, DesignSystem
+│   ├── the layers below, as needed
 │   ├── Wrappers/                               one target per external library (CLAUDE.md §7)
 │   └── Features/Feature<Name>/
 ├── docs/                                       reasoning
 └── .claude/{notes, skills, commands}
 ```
 
-Two packages are **not in this repo at all**:
+### What each layer owns
+
+Names are conventional, not required — a product may fold two together or call them something else.
+The **rule** column is what stays binding either way: a §2 rule holds whether or not a package with
+that name exists.
+
+| Layer | Owns | Rule it serves |
+|---|---|---|
+| Core | protocols two packages share, domain models, error mapping, content and paging state | §2.5 |
+| DI | dependency keys with live and test values, the container, the per-feature assembly | §2.6 |
+| Navigation | screens, deep links, iPad/Mac split view, state restoration | §2.1 |
+| DesignSystem | tokens, components, content-state rendering, platform gating | §2.5, §1.1 |
+| Localization | every user-visible string, plurals, dates, numbers, currency, languages | §2.3 |
+| Messaging | one presenter for messages, errors, confirmations, permission rationale | §2.4 |
+| Logging | log calls, and redaction of anything derived from a response or user input | §8 |
+| Storage | persistence, secrets in the Keychain, caches, migrations | §8 |
+| Networking | endpoints, middleware, auth and token refresh, transfers that survive suspension | §7 |
+| ImageCache | remote images, memory and disk cache, prefetch, off-main decode | §7 |
+| Notifications | push registration, payload handling, deep-linking from a notification | — |
+| App shell | composition root, scene phase, launch gates such as force-update | §2.10 |
+
+A layer with no consumer is instant drift — add one when the product needs it, not before.
+
+### Extracted packages
+
+Some layers live outside the repo entirely. In this base's own case that is two of them:
 
 | Extracted repo | Contains |
 |---|---|
@@ -114,7 +149,8 @@ Add to the list only what you would let run unattended a hundred times.
    a `platforms:` line copied from a sibling package — the floors live in the manifests, not here.
 2. Wire consumers with `.package(path:)`. Check the edge against CLAUDE.md §3's direction before
    adding it.
-3. Add its `<Name>.md` and one row to `.claude/MAP.tsv`.
+3. Add its doc **beside the code** as `Packages/<Name>/<Name>.md`, and one row to
+   `.claude/MAP.tsv` ([STRUCTURE.md](STRUCTURE.md)).
 4. Link it in the app targets; record it in [PROJECT.md](../.claude/notes/PROJECT.md).
 5. `swift test --package-path Packages/<Name>` must pass standalone.
 

@@ -124,11 +124,11 @@ The ordered path this checklist sits inside, and who owns each gate:
 - [ ] All packages green standalone
 - [ ] Zero warnings under strict concurrency
 - [ ] `./Scripts/detect-toolchain.sh` clean — deployment targets at or below the installed SDK
-- [ ] Localization complete for every shipping language ([LocalizationKit.md](modules/LocalizationKit.md))
+- [ ] Localization complete for every shipping language (CLAUDE.md §2.3)
 - [ ] Screenshots regenerated **per language and per device class** — the most-missed release task
 - [ ] What's New text localized
 - [ ] Privacy manifests current, including required-reason APIs ([PROJECT.md](../.claude/notes/PROJECT.md))
-- [ ] Force-update threshold set for the new version ([AppShell.md](modules/AppShell.md))
+- [ ] Force-update threshold set for the new version (the app shell's launch gate)
 - [ ] dSYMs uploaded
 - [ ] Phased release enabled, with the rollback plan written down before submitting
 
