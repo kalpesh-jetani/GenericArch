@@ -27,8 +27,8 @@
 #   Timestamps can corroborate ownership but never decide it: a content mismatch always wins and
 #   always protects the file. A path the manifest never mentioned is not looked at.
 #
-# Exit codes: 0 ok · 1 error (files left behind, or a manifest this version cannot read) ·
-#             2 usage · 4 declined
+# Exit codes: 0 ok · 1 error (files left behind, another install still recorded in this root, or a
+#             manifest this version cannot read) · 2 usage · 4 declined
 set -euo pipefail
 
 SELF="$(cd "$(dirname "$0")" && pwd)"
@@ -148,6 +148,28 @@ if [ ! -f "$MANIFEST" ]; then
   else
     MODE="fallback"
   fi
+fi
+
+# ── More than one manifest in this root ────────────────────────────────────
+# A root installed twice with no uninstall between keeps BOTH manifests, and one run removes only
+# the records of the version it was given. Observed on a real install: manifest-v0.2.0.json and
+# manifest-v0.4.2.json side by side; removing v0.4.2 exited 0, said "back to its pre-install state",
+# and left v0.2.0's manifest and every file it installed. The residue then keeps the root alive, so
+# the next install still refuses — one version further down.
+#
+# Say so before doing anything, and name the order. Oldest last: each run's records are independent,
+# and stopping halfway is then the newest-gone state rather than an arbitrary one.
+MANIFESTS_LEFT=0
+MANIFEST_COUNT=0
+for _m in $(ga_manifest_find "$TARGET"); do MANIFEST_COUNT=$((MANIFEST_COUNT + 1)); done
+if [ "$MANIFEST_COUNT" -gt 1 ]; then
+  echo
+  ga_warn "this root records $MANIFEST_COUNT installs, not one — it was installed again without an uninstall between"
+  for _m in $(ga_manifest_find "$TARGET"); do
+    printf '      %s  (%s)\n' "${_m#"$TARGET"/}" "$(ga_manifest_version "$_m" 2>/dev/null || echo unreadable)"
+  done
+  ga_dim "  This run removes $VERSION's records only. Run the others too, newest first, or the"
+  ga_dim "  leftovers keep this root live and the next install will still refuse."
 fi
 
 REMOVE="${TMPDIR:-/tmp}/ga-uninstall.remove.$$"
@@ -646,7 +668,24 @@ elif [ "$n_keep" -gt 0 ]; then
     printf 'the files themselves. Delete either once you are done with it.\n'
   fi
 else
-  printf '\nThe repo is back to its pre-install state.\n'
+  # "Back to its pre-install state" is the sentence an operator acts on, so it must not be said
+  # while another install's records are still sitting in this very root. Re-count rather than
+  # trusting MANIFEST_COUNT: this run has removed one since then.
+  LEFT=0
+  for _m in $(ga_manifest_find "$TARGET"); do LEFT=$((LEFT + 1)); done
+  if [ "$LEFT" -gt 0 ]; then
+    printf '\n%s%d other install(s) are still recorded in this root%s, so this repo is NOT back to its\n' \
+      "$GA_YEL" "$LEFT" "$GA_OFF"
+    printf 'pre-install state:\n'
+    for _m in $(ga_manifest_find "$TARGET"); do
+      printf '    %s  (%s)\n' "${_m#"$TARGET"/}" "$(ga_manifest_version "$_m" 2>/dev/null || echo unreadable)"
+    done
+    printf '\nRemove each of them from this root too. Until then their files remain, and an install\n'
+    printf 'here will keep refusing because the root still counts as live.\n'
+    MANIFESTS_LEFT=1
+  else
+    printf '\nThe repo is back to its pre-install state.\n'
+  fi
 fi
 
 # One root is not the checkout. An install at a nested project directory survives an uninstall run
@@ -690,6 +729,13 @@ fi
 #
 # --final is not a partial removal. The kept files were retired to the graveyard on purpose and the
 # working tree is clean, so the round-trip assertion holds and the exit code has to say so.
+# Another install still recorded in this root is a partial removal however well the rest went: the
+# round-trip claim is false, and a caller must learn that from the exit code rather than by parsing
+# stdout. Checked before --final, which is about files the operator chose to retire and says nothing
+# about a second release's records.
+if [ "$MANIFESTS_LEFT" -eq 1 ]; then
+  exit "$GA_EX_ERR"
+fi
 if [ "$AFTER" = "final" ]; then
   # --final is not a partial removal unless something refused to be retired. What was filed away
   # was filed away on purpose, so the round-trip assertion holds and the exit code says so.

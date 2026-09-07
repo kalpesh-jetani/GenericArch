@@ -594,6 +594,37 @@ else
   fail "case 20: install failed"
 fi
 
+# ── case 21 ────────────────────────────────────────────────────────────────
+# A root that records TWO installs must not be reported as fully cleaned after one of them is
+# removed. Found on a real install: manifest-v0.2.0.json and manifest-v0.4.2.json side by side,
+# because an install.sh predating the exit-6 gate let a second release land on top. Removing v0.4.2
+# exited 0 and printed "back to its pre-install state" while v0.2.0's manifest and files stayed.
+#
+# Today's gate makes that state unreachable forward, so the fixture recreates it the way it exists
+# on disk: a second manifest naming a different version. Detection and the closing claim are what
+# is under test, not how it got there.
+T="$(new_repo case21)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_as "$VERSION" "$T"; then
+  legacy="$T/.genericarch/manifest-$PREV_V.json"
+  sed "s/\"genericarch_version\": \"$VERSION\"/\"genericarch_version\": \"$PREV_V\"/" \
+    "$T/.genericarch/manifest-$VERSION.json" > "$legacy"
+  if uninstall_in "$T" "$VERSION"; then
+    fail "case 21: uninstall exited 0 with another install still recorded in the root"
+  elif grep -q "back to its pre-install state" "$WORK/last.log"; then
+    fail "case 21: claimed pre-install state while $PREV_V was still recorded"
+  elif ! grep -q "still recorded in this root" "$WORK/last.log"; then
+    fail "case 21: refused, but did not say another install remains"
+  elif [ ! -f "$legacy" ]; then
+    fail "case 21: removed the other install's manifest, which this run was not given"
+  else
+    pass "a second recorded install is named, and the pre-install claim is withheld"
+  fi
+else
+  fail "case 21: install failed"
+fi
+
 echo
 if [ "$fails" -eq 0 ]; then
   printf '%s✓ every case passed%s\n' "$GRN" "$OFF"
