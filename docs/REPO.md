@@ -19,6 +19,10 @@ couple. Nothing here creates the layout: that is
 base is installed. To find out what *this* repo actually has, read its `Packages/` directory or
 `./Scripts/find.sh <name>` — never this page.
 
+**In the GenericArch base itself there is no code at all** — no `Packages/`, no Swift. The layers
+below are specified, not implemented ([GAPS.md](GAPS.md)). Every §2 rule points here for *what a
+layer is responsible for*; what a given product actually built is its own `Packages/` directory.
+
 ```
 <Product>/
 ├── App/{<Product>-iOS, <Product>-macOS}        thin shells
@@ -145,7 +149,8 @@ Add to the list only what you would let run unattended a hundred times.
    a `platforms:` line copied from a sibling package — the floors live in the manifests, not here.
 2. Wire consumers with `.package(path:)`. Check the edge against CLAUDE.md §3's direction before
    adding it.
-3. Add its `<Name>.md` and one row to `.claude/MAP.tsv`.
+3. Add its doc **beside the code** as `Packages/<Name>/<Name>.md`, and one row to
+   `.claude/MAP.tsv` ([STRUCTURE.md](STRUCTURE.md)).
 4. Link it in the app targets; record it in [PROJECT.md](../.claude/notes/PROJECT.md).
 5. `swift test --package-path Packages/<Name>` must pass standalone.
 

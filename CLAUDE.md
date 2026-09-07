@@ -56,11 +56,10 @@ lower one**, so a newer API breaks the iOS build even where the Mac target would
 
 - Reach a newer API with `#if os(macOS)` or `if #available` **plus a working fallback**. Never both
   silently, and **never by raising a floor** — gate it or don't ship it.
-- The gate lives **inside a DesignSystem component or an infrastructure wrapper**. A feature must
-not
-  know which OS it is on.
+- The gate lives **inside a design-system component or an infrastructure wrapper**. A feature must
+  not know which OS it is on.
 - Until the cross-floor look-and-feel question ([DECISIONS.md](docs/DECISIONS.md) *Open*) is
-  answered, DesignSystem tokens stay platform-neutral.
+  answered, design-system tokens stay platform-neutral.
 
 Where the floors come from, and why "no `platforms:` line" means unanswered rather than missing:
 [PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
@@ -69,18 +68,17 @@ Where the floors come from, and why "no `platforms:` line" means unanswered rath
 
 ## 2. The rules that must never be broken
 
-1. **No package imports a sibling feature.** Features talk through `Core` protocols and navigate by
-   `Route` value → [Navigation.md](docs/modules/Navigation.md)
+1. **No package imports a sibling feature.** Features talk through shared protocols and navigate by
+   route value, never by importing each other → [REPO.md](docs/REPO.md)
 2. **No third-party type crosses a module boundary.** Wrapper always → §7
-3. **No hardcoded user-facing string.** Localized key, always →
-   [LocalizationKit.md](docs/modules/LocalizationKit.md)
+3. **No hardcoded user-facing string.** Localized key, always → [REPO.md](docs/REPO.md)
 4. **No system alert, action sheet, or system-styled message surface.** One presenter →
-   [Messaging.md](docs/modules/Messaging.md)
+   [REPO.md](docs/REPO.md)
 5. **Every data-driven screen handles every content state** — loading, empty, offline, error,
-   loaded, plus paging where paged → [Core.md](docs/modules/Core.md),
-   [DesignSystem.md](docs/modules/DesignSystem.md)
+   loaded, plus paging where paged. **One** state value per screen, never a boolean beside it →
+   [REPO.md](docs/REPO.md)
 6. **Every dependency injected via protocol.** No `.shared`, and no `resolve`, from inside a feature
-   type → [DIKit.md](docs/modules/DIKit.md)
+   type — one file per feature sees the container → [REPO.md](docs/REPO.md)
 7. **No `try?` that swallows an error**, no `fatalError` in a shipping path, no force-unwrap outside
    tests.
 8. **No `@unchecked Sendable`** without a comment justifying the manual synchronization.
@@ -123,10 +121,10 @@ protocol extensions, never base classes. Abstract on *capability*, not type (`Im
 Dependency direction is strictly downward, and **`Package.swift` enforces it, not repo walls** — a
 local package still cannot import a sibling feature.
 
-Downward is: app shell (thin) → features (never each other) → DesignSystem · Navigation →
-infrastructure → `Core` (zero dependencies). The two extracted packages —
-`GenericArch-NetworkKit`, `GenericArch-ImageCache` — sit outside it and map in at our boundary like
-any vendor (§7).
+Downward is: app shell (thin) → features (never each other) → presentation and routing →
+infrastructure → the shared core (zero dependencies). An extracted package sits outside that order
+and maps in at our boundary like any vendor (§7). Which layers exist, and what each owns:
+[REPO.md](docs/REPO.md).
 
 **Inheritable** — a new feature gets standard behavior free and can override any piece, through a
 **protocol + extension** supplying state handling, error mapping, retry, lifecycle. **No generic
@@ -141,8 +139,9 @@ composition root, one `Route` case. Use `/new-feature`.
 
 ### 4.1 Single repo, two extracted packages
 
-Local packages wire with `.package(path:)` and carry **no version numbers**. The two extracted
-packages have zero dependencies and neither imports `Core`.
+Local packages wire with `.package(path:)` and carry **no version numbers**. An extracted package
+has zero dependencies and does not import the shared core. Which ones this base extracted:
+[REPO.md](docs/REPO.md).
 
 ### 4.2 When to extract — all three must be true
 
@@ -169,9 +168,9 @@ Commands run in a fixed order — install → `/project-init` → `/gaps` → `/
 enforced by each command's first step. Exit 5 means an earlier one has not run →
 [SEQUENCE.md](docs/SEQUENCE.md).
 
-[`MAP.tsv`](.claude/MAP.tsv) carries every doc, note, pattern and skill; **read the module doc
-before
-touching a module.** [`SCRIPTS.tsv`](.claude/SCRIPTS.tsv) is each script's contract — **never read a
+[`MAP.tsv`](.claude/MAP.tsv) carries every doc, note, pattern and skill; **read
+[REPO.md](docs/REPO.md) for which layer owns what before touching one.**
+[`SCRIPTS.tsv`](.claude/SCRIPTS.tsv) is each script's contract — **never read a
 script's body to learn what it does**; read it only when a call fails, then fix it in the same
 change.
 
@@ -222,19 +221,18 @@ What a wrapper ships and how to remove one: [Packages/CLAUDE.md](Packages/CLAUDE
 ## 8. Multiplatform, accessibility, security
 
 **Adaptivity** — branch on **size class and platform capability**, never device model or width
-constants; navigation state is data → [Navigation.md](docs/modules/Navigation.md). `#if os(...)`
-lives **inside DesignSystem components**, not features. Which iPad and Mac affordances a screen must
-prove: [DONE.md](docs/DONE.md).
+constants; navigation state is data → [REPO.md](docs/REPO.md). `#if os(...)` lives **inside
+design-system components**, not features. Which iPad and Mac affordances a screen must prove:
+[DONE.md](docs/DONE.md).
 
 **Accessibility — a requirement, not polish.** **Never encode meaning in color alone.** Mostly
-guaranteed inside components → [DesignSystem.md](docs/modules/DesignSystem.md); what a screen must
-still prove, and at which sizes, is the checklist in [DONE.md](docs/DONE.md).
+guaranteed inside shared components → [REPO.md](docs/REPO.md); what a screen must still prove, and
+at which sizes, is the checklist in [DONE.md](docs/DONE.md).
 
 **Security & privacy** — two rules apply while writing code: **no PII, tokens or response bodies in
-logs** → [LoggingKit.md](docs/modules/LoggingKit.md), and **secrets to the Keychain only**, behind a
-protocol → [StorageKit.md](docs/modules/StorageKit.md). Everything else here is configuration — ATS,
-pinning, `PrivacyInfo.xcprivacy`, biometrics, capabilities:
-[PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
+logs**, and **secrets to the Keychain only**, behind a protocol → [REPO.md](docs/REPO.md).
+Everything else here is configuration — ATS, pinning, `PrivacyInfo.xcprivacy`, biometrics,
+capabilities: [PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
 
 ---
 
