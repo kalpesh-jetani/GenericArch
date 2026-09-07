@@ -450,7 +450,7 @@ ga_is_version_stamp() {
 # The releases whose footprint uninstall.sh knows how to clean without a manifest. A version
 # absent here is refused rather than guessed at: removing files by a list invented at runtime is
 # exactly the failure mode the manifest exists to prevent.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v0.6.1"
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v0.6.1 v0.7.0"
 GA_LATEST_VERSION="v0.6.1"
 
 ga_is_supported_version() {
@@ -535,6 +535,36 @@ ga_known_paths() {
         Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
         Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         Scaffold \
+        docs/DECISIONS.md docs/GAPS.md docs/resources \
+        uninstall.sh genericarch.installation.md \
+        .genericarch-version
+      ;;
+    v0.7.0)
+      # v0.6.1 plus openspec-sync.sh — the projector behind /openspec-install. It is COPIED, so a
+      # hash can prove ownership and it belongs here; the command file does not, because
+      # .claude/commands is already a directory entry.
+      #
+      # NOT listed, and this is the point: docs/OPENSPEC.md is REFERENCED, so it is fetched when
+      # read rather than copied, and nothing under openspec/ is ours at all. The two files this
+      # release writes INTO a target's openspec/ — config.yaml's marked span and openspec/CLAUDE.md
+      # — are generated there, never copied from the base, so no hash can prove ownership.
+      # uninstall.sh handles both by name, the same way it handles CLAUDE-BK.md.
+      printf '%s\n' \
+        .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
+        .claude/CANDIDATES.tsv .claude/notes .claude/memory \
+        .swiftlint.yml .swiftformat \
+        Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
+        Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
+        Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
+        Scripts/scan-unused-assets.py Scripts/scan-api-map.py Scripts/check-note-links.py \
+        Scripts/detect-capabilities.sh Scripts/claude-workflows Scripts/claude-utils \
+        Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
+        Scripts/session-script.sh Scripts/ga-lifecycle.sh \
+        Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh \
+        Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
+        Scripts/ga-cleanup-scan.sh Scripts/ga-sync-scan.sh \
+        Scripts/openspec-sync.sh \
+        Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         docs/DECISIONS.md docs/GAPS.md docs/resources \
         uninstall.sh genericarch.installation.md \
         .genericarch-version

@@ -24,7 +24,7 @@ The order the commands run in, what each one must leave behind, and what enforce
 | 4 | `sync-app-notes` | `/sync-app-notes` | Nine inventories in `.claude/notes/`, each with a `Last synced` line |
 | 5 | `ready` | recorded by step 4 | Nothing — it is the gate everything else waits on |
 
-After `ready`: `/find`, `/decide`, `/learn`, `/review`, `/verify`, `/build` and every skill run in
+After `ready`: `/find`, `/decide`, `/learn`, `/review`, `/verify`, `/build`, `/openspec-install` and every skill run in
 any order, as often as needed. They are not steps; they are the work.
 
 **An upgrade re-enters at step 1.** `install.sh` refuses over a different recorded version (exit 6),

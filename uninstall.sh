@@ -430,6 +430,29 @@ ga_ok "removed $removed file(s)"
 rm -f "$TARGET/.claude/notes/.evidence/INIT-SCAN.md" "$TARGET/.claude/notes/.evidence/INIT-CONFLICTS.tsv"
 rmdir "$TARGET/.claude/notes/.evidence" 2>/dev/null || true
 
+# The OpenSpec bridge, by name for the same reason: /openspec-install writes both of these INTO the
+# target rather than copying them from the base, so no hash can prove ownership.
+#
+# openspec/ is ANOTHER TOOL'S directory. Only the span we marked comes out of its config — the file
+# stays, and so does whatever context the product wrote around ours. Removing the key, or the file,
+# would be uninstalling something we never installed.
+OS_CFG="$TARGET/openspec/config.yaml"
+[ -f "$OS_CFG" ] || OS_CFG="$TARGET/openspec/config.yml"
+if [ -f "$OS_CFG" ] && grep -q '>>> GenericArch' "$OS_CFG" 2>/dev/null; then
+  OS_TMP="$OS_CFG.ga-tmp"
+  if awk '
+    index($0, ">>> GenericArch") { skip = 1 }
+    !skip                        { print }
+    skip && index($0, "<<< GenericArch") { skip = 0 }
+  ' "$OS_CFG" > "$OS_TMP" 2>/dev/null; then
+    mv "$OS_TMP" "$OS_CFG" && ga_ok "removed the GenericArch span from ${OS_CFG#"$TARGET"/}"
+  else
+    rm -f "$OS_TMP"
+    ga_warn "could not edit ${OS_CFG#"$TARGET"/} — remove the '>>> GenericArch' span by hand"
+  fi
+fi
+rm -f "$TARGET/openspec/CLAUDE.md"
+
 # ── What could not be removed, and what becomes of it ──────────────────────
 # A partial removal that reports success is the failure mode this closes. One run of an earlier
 # uninstaller removed 4 files out of about 110, printed nothing durable, and the next installer
@@ -546,7 +569,11 @@ fi
 
 # Retire directories that are now empty, deepest first. One holding a preserved file simply is not
 # empty, so it survives without being special-cased.
-DIRS="$(awk '{print}' "$REMOVE" | sed 's|/[^/]*$||' | grep -v '^$' | LC_ALL=C sort -ru || true)"
+# openspec/ is excluded explicitly. Nothing under it is ever recorded as installed, so it should
+# never appear here — but ga_prune_empty_dirs walks UP with rmdir until one fails, and a run that
+# reached it would delete another tool's root directory. Cheap guard against an expensive bug.
+DIRS="$(awk '{print}' "$REMOVE" | sed 's|/[^/]*$||' | grep -v '^$' | grep -v '^openspec$' \
+        | grep -v '^openspec/' | LC_ALL=C sort -ru || true)"
 if [ -n "$DIRS" ]; then
   # shellcheck disable=SC2086
   ga_prune_empty_dirs "$TARGET" $DIRS

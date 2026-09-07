@@ -167,6 +167,7 @@ You type these. Anything that must **never** trigger by inference is a command, 
 | `/upgrade-stack` | Reconcile project settings with your machine — asks twice before changing anything |
 | `/sync-with-genericarch` | Bring an install up to date with the base, and promote patterns the code now justifies |
 | `/clean-up-genericarch-extra-memory` | Apply removals `/project-init` only reported — asks per candidate |
+| `/openspec-install` | Install [OpenSpec](https://github.com/Fission-AI/openspec) from its live URL and wire it to these rules, both ways |
 
 ### Notes
 
@@ -174,6 +175,9 @@ You type these. Anything that must **never** trigger by inference is a command, 
   the repo is `ready` — `/find` included, which is why it gates on `sync-app-notes` having finished.
 - `/sync-app-notes` and `/build` are commands precisely because a full rescan or a build must never
   fire by inference.
+- `/openspec-install` is optional and idempotent: run it to install, and again any time to
+  re-project or to check. It installs software and writes into another tool's config, which is
+  exactly why it is typed and never inferred ([docs/OPENSPEC.md](docs/OPENSPEC.md)).
 
 ---
 
@@ -395,6 +399,13 @@ Exit `1` from `find-script.sh` is the only thing that justifies improvising one:
 ./Scripts/verify-memory.sh
 ```
 ```bash
+./Scripts/openspec-sync.sh --check
+```
+
+`openspec-sync.sh` exits `7` where there is no OpenSpec config, so it is a no-op in a repo that
+never wired it — and `./Scripts/check.sh` runs it for you, which is why keeping the projection fresh
+is not a habit anyone has to remember.
+```bash
 python3 Scripts/check-note-links.py
 ```
 ```bash
@@ -485,6 +496,7 @@ swift test --package-path Packages/Core
 | Know when a change is actually finished | [docs/DONE.md](docs/DONE.md), or `/verify` |
 | Know where a new doc belongs | [docs/STRUCTURE.md](docs/STRUCTURE.md) |
 | Know what earlier sessions learned | [.claude/memory/INDEX.md](.claude/memory/INDEX.md) — tracked, survives a clone |
+| Plan with spec-driven workflows, and keep them on these rules | [docs/OPENSPEC.md](docs/OPENSPEC.md), then `/openspec-install` |
 
 ### Layout
 
@@ -500,6 +512,7 @@ CHANGELOG.md         the release history — a tag is what install.sh records in
 .swiftlint.yml       the §2 conventions as config, with .swiftformat — OPTIONAL (--with-lint)
 docs/                hand-written reasoning: cross-cutting reference
 docs/REPO.md         the layer shape and what each layer owns
+docs/OPENSPEC.md     the OpenSpec bridge — what is projected where, and the two gaps it cannot close
 docs/patterns/       procedures not yet skills — /learn promotes one when it earns it
 .claude/INDEX.md     what THIS product has — the repo's own router is MAP.tsv, not this
 .claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable

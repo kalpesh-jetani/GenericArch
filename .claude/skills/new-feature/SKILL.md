@@ -32,12 +32,18 @@ features, one line in the composition root, and one case in `Route`.
 ```bash
 grep -i -e feature -e lint -e audit .claude/SCRIPTS.tsv   # 1. which script covers this
 ./Scripts/find.sh <ScreenOrRoute>                         # 2. does it already exist?
+[ -d openspec ] && ./Scripts/openspec-sync.sh             # 2b. already proposed? (if OpenSpec is wired)
 ./Scripts/claude-utils/init-claude-env.sh --list          # 3. is the project registered?
 ./Scripts/claude-workflows/run-task.sh <proj> <task> status  # 4. if installed: task already open?
 ```
 
 Order matters: **2 before 3** (an existing screen means this is `change`, not scaffolding), and
 **4 before any phase** (resuming beats restarting — the artifacts are already on disk).
+
+**2b is the same test one layer out.** An `IN-FLIGHT` row means this feature is already proposed and
+probably already specced — scaffolding over it produces a package that contradicts the plan someone
+approved. Read the change first, then build to it rather than beside it
+([OPENSPEC.md](../../../docs/OPENSPEC.md)). No `openspec/`, no step.
 
 If no script covers a step you end up doing by hand more than once, say so and offer
 `/learn --script` — it captures the sequence as a registered script for next time.

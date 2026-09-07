@@ -47,3 +47,4 @@ Convert relative dates to absolute — "last week" is unreadable in six months.
 |---|---|
 | [`claude-md-section-numbers-are-load-bearing.md`](claude-md-section-numbers-are-load-bearing.md) | ~380 repo-wide §N citations — shrink CLAUDE.md bodies, never move a heading |
 | [`per-feature-router-shape.md`](per-feature-router-shape.md) | One router enum per feature, `path` in an extension — the shape that found 0 endpoints until scan-api-map.py got a second pass |
+| [`openspec-upstream-moves-fast.md`](openspec-upstream-moves-fast.md) | The five upstream-dependent assumptions the OpenSpec bridge rests on — re-verify this table, don't re-derive it |

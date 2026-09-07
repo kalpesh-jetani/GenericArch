@@ -58,6 +58,46 @@ An install from v0.6.1 or earlier carries twelve `module` rows in `.claude/MAP.t
 rather than resolving. Run `/sync-with-genericarch` to prune them; until then a lookup that hits one
 fails loudly instead of returning a doc for a layer the product does not have.
 
+### The OpenSpec bridge
+
+[OpenSpec](https://github.com/Fission-AI/openspec) is a spec-driven workflow an agent follows step
+by step; this layer had the rules but no such workflow. `/openspec-install` installs it and wires
+the two together, and **nothing about it is recorded here except that URL** — no version, no package
+name, no install command, no copy of its spec format, no forked schema. Its repo is revised by other
+people, so a copy of any part of it is stale the moment they change it.
+
+- **`/openspec-install`** — resolves the install from the live URL each run, shows what came back,
+  and asks before running it. Idempotent: run it again to re-project, or to check.
+- **`Scripts/openspec-sync.sh`** — projects this repo's own `CLAUDE.md` §2 headlines, the
+  *Do not re-propose* rows, the §0 ask-list and the detected toolchain into OpenSpec's documented
+  injection point (~1.5 KB, because every byte is re-sent on every artifact command). Reading the
+  repo it *runs in* is deliberate: `CLAUDE.md` does not travel and `DECISIONS.md` arrives empty, so a
+  projector reading the base would arrive with its inputs missing. It **writes no YAML** — the
+  command applies, the way `sync-notes.sh` and `/sync-app-notes` already split.
+- **The reverse direction** reads their `--json` CLI, never their markdown, and reports `IN-FLIGHT`,
+  `FEATURE-ROW` and `FINDINGS` candidates. An interface it cannot read is `SHAPE-UNRECOGNISED` and
+  prints a ready-to-run `gh issue create` rather than guessing a row — a wrong `FEATURES.md` row is
+  worse than a missing one. An **issue only**, naming the branch: no commit, no PR, so §2.11 is
+  untouched.
+- **`Scripts/check.sh` now warns when the projection is stale**, skipping where there is no OpenSpec
+  config. Editing a §2 rule silently staled the span that carries those rules, and nothing said so;
+  hanging it off the gate that already runs before a PR removes a habit nobody would keep.
+- **`check-skill-triggers.py` guards the boundary both ways.** A product that installs OpenSpec gets
+  a dozen `openspec-*` skills in `.claude/skills/`, which fire by inference alongside `debug` and
+  `new-feature`. It asserts that none of ours claims spec-workflow language and none of theirs claims
+  house work — never which of theirs should win, because that would pin wording we do not control.
+- **`new-feature` step 2b** checks for an in-flight change before scaffolding, for the same reason
+  step 2 checks whether the screen exists.
+- Two gaps are stated rather than papered over: their explore and verify steps have **no injection
+  point at all**. What reaches explore is an always-loaded rule and nothing stronger, and
+  [docs/DONE.md](docs/DONE.md) stays the authority on done.
+
+**Release note — tag this `v0.7.0`.** `install.sh` derives the version from git tags, and
+`ga_known_paths` gained a `v0.7.0` arm listing `Scripts/openspec-sync.sh`. Tagging it anything else
+leaves that script unaccounted for in a fallback uninstall. The plugin path carries the **command
+only** — `build-plugin.sh` copies `.claude/skills` and `.claude/commands`, so a plugin-only consumer
+gets no script and no doc; the command detects that and says so.
+
 ---
 
 ## v0.6.1

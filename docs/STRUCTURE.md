@@ -56,6 +56,12 @@ takes a paragraph, the paragraph goes in the module doc and the rule gets a link
 | `.claude/commands/` | things the user triggers explicitly | no |
 | `.claude/memory/` | what earlier sessions learned about *this* repo | index only |
 
+**`openspec/` is not a seventh home.** It belongs to another tool, and the rules it carries are a
+*projection* of the six above — generated from `CLAUDE.md` §2 and [DECISIONS.md](DECISIONS.md) by
+`./Scripts/openspec-sync.sh`, never authored there. So nothing new is ever written into it: write the
+rule in its real home and re-project. It is still an always-on rule level in practice, which is why
+[OPENSPEC.md](OPENSPEC.md) exists and why `Scripts/check.sh` warns when the projection goes stale.
+
 Deciding where something goes:
 
 - A rule true only inside one component → that component's `CLAUDE.md` (§2.16). Never the root

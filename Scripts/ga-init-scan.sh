@@ -496,8 +496,20 @@ _mem="$(ls "$HOME"/.claude/projects/*/memory/*.md 2>/dev/null | wc -l | tr -d ' 
 say "| User | this user | CLAUDE.md: $([ "$_user" -gt 0 ] && echo yes || echo no) · project-scoped memories: $_mem |"
 say "| Project | everyone who clones | $(printf '%s' "$CMDS" | grep -c . | tr -d ' ') CLAUDE.md file(s) |"
 say "| Plugin | every repo that installs it | $([ -d "$TARGET/.claude-plugin" ] && echo yes || echo no) |"
+# The fifth level, and the one S0 would otherwise miss: an OpenSpec config carries this repo's rules
+# into every artifact its agent generates. It is a PROJECTION of the levels above, so a rule stated
+# in both is duplication that S0 must see rather than a second opinion to reconcile.
+_oscfg="$TARGET/openspec/config.yaml"; [ -f "$_oscfg" ] || _oscfg="$TARGET/openspec/config.yml"
+if [ -f "$_oscfg" ]; then
+  _osspan=$(grep -c '>>> GenericArch' "$_oscfg" 2>/dev/null | tr -d ' ')
+  say "| OpenSpec | every artifact its agent generates | yes — projected span: $([ "${_osspan:-0}" -gt 0 ] && echo present || echo absent) |"
+else
+  say "| OpenSpec | every artifact its agent generates | no |"
+fi
 say ""
 say "A project-scoped memory directory adds no reach over the repo itself — a rule in both is pure duplication."
+say ""
+say "The OpenSpec level is generated, never authored — fix the rule in its real home and re-project with \`./Scripts/openspec-sync.sh\`."
 say ""
 
 # ── Emit ──────────────────────────────────────────────────────────────────

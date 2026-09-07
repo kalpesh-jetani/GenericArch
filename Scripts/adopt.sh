@@ -98,6 +98,7 @@ Scripts/ga-reseal.sh
 Scripts/ga-init-scan.sh
 Scripts/ga-cleanup-scan.sh
 Scripts/ga-sync-scan.sh
+Scripts/openspec-sync.sh
 uninstall.sh
 "
 
@@ -178,7 +179,8 @@ SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/
 REFERENCED="docs/STRUCTURE.md docs/CONVENTIONS.md docs/DONE.md docs/REPO.md docs/DELIVERY.md
 docs/patterns docs/PERFORMANCE.md docs/ADOPTION.md docs/SHARING.md docs/PATTERN-SEARCH.md
 docs/SCAN-TRAPS.md docs/CLAUDE-TASKS.md docs/INSTALL-MANIFEST.md
-docs/SEQUENCE.md docs/BUILD-PROCESS.md docs/DEPLOYMENT-PROCESS.md docs/PROJECT-SETTINGS.md"
+docs/SEQUENCE.md docs/BUILD-PROCESS.md docs/DEPLOYMENT-PROCESS.md docs/PROJECT-SETTINGS.md
+docs/OPENSPEC.md"
 # BASE is newline-separated and EXCLUDED is "path|reason" — flatten both to a space-delimited
 # list of bare paths before matching, or every entry looks unaccounted for.
 KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|.*//' | tr '\n' ' ') $SCAFFOLDED $OPTIONAL_ALL "
