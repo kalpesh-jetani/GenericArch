@@ -47,7 +47,7 @@ Real rows link the file; this example uses plain backticks so the path verifier 
      - a call site whose method could not be read
      - a screen whose title could not be resolved
      - two enums that both look like routers (one is probably legacy)
-     - a path built by string concatenation in a feature (CLAUDE.md §2 / NetworkKit)
+     - a path built by string concatenation in a feature (CLAUDE.md §2)
 -->
 
 **Never treat "never called" as "safe to delete".** A case can be reached through a variable, a

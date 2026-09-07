@@ -100,7 +100,7 @@ Each extension is its own target with its own bundle ID (`<app-id>.<extension>`)
 entitlements, and its own `Info.plist`.
 
 An extension **links packages directly** — it never imports the app. That's a payoff of the
-modular design: a share extension can link `Core` + `StorageKit` and stay tiny. Shared data goes
+modular design: a share extension links only the layers it needs and stays tiny. Shared data goes
 through an **App Group**, listed in the entitlement matrix below.
 
 | Extension | Bundle ID | Shares via | Packages linked |

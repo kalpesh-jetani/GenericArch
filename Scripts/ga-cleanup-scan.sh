@@ -147,8 +147,16 @@ if want index; then
     say "  no .claude/MAP.tsv here"
   elif awk -F'\t' '/^# FETCH-BASE:/{found=1} END{exit !found}' "$MAP"; then
     refuse index "$MAP" "stamp well-formed" "docs/ rows resolve; ga-init-scan.sh reports the counts"
-  elif grep -q 'FETCH-BASE' "$MAP"; then
+  elif grep -qE '^#[[:space:]]*FETCH-BASE' "$MAP"; then
+    # Anchored on purpose. An unanchored 'FETCH-BASE' also matches the map's own header prose, which
+    # explains the stamp to a reader — so the base repo reported its own documentation as a
+    # malformed stamp. This form matches an attempted stamp ('#<tab>FETCH-BASE:') and not a sentence
+    # mentioning one.
     row index "$MAP" "stamp present but MALFORMED" "must be '# FETCH-BASE:<tab><url>' as line 1 — every tool greps that exact form"
+  elif ga_is_source_checkout "$TARGET"; then
+    # The base has every docs/ file on disk, so there is nothing for a fetch base to resolve. Only
+    # an install needs the stamp; install.sh adds it.
+    refuse index "$MAP" "GenericArch source checkout" "no stamp needed — every docs/ row is local here"
   else
     row index "$MAP" "no stamp at all" "every docs/ row is unresolvable until one is added"
   fi

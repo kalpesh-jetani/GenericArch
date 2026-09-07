@@ -537,8 +537,8 @@ If the user declines, say plainly what it costs per session and move on — it i
 State explicitly:
 
 - What was created, and what was **left untouched** because it already existed.
-- **Packages approved and packages skipped** — record in DECISIONS.md *Open* what "no StorageKit yet"
-  blocks (e.g. "Blocks when user data persistence is added").
+- **Packages approved and packages skipped** — record in DECISIONS.md *Open* what each skipped
+  layer blocks (e.g. "no persistence layer yet — blocks when user data is stored").
 - **Skills installed** — and any **cleanup candidates** found, handed to
   `/clean-up-genericarch-extra-memory`. This command removed nothing; say so explicitly.
 - Every rule conflict (Path A only) and how it was resolved — including the ones resolved as "keep theirs".
