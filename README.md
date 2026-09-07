@@ -401,6 +401,9 @@ Exit `1` from `find-script.sh` is the only thing that justifies improvising one:
 ```bash
 ./Scripts/openspec-sync.sh --check
 ```
+```bash
+./Scripts/ga-roots.sh
+```
 
 `openspec-sync.sh` exits `7` where there is no OpenSpec config, so it is a no-op in a repo that
 never wired it — and `./Scripts/check.sh` runs it for you, which is why keeping the projection fresh

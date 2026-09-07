@@ -73,6 +73,7 @@ These run whenever the situation calls for them, and gate on `install` only:
 |---|---|---|
 | Gather what `/project-init` can establish without asking | `Scripts/ga-init-scan.sh` | Preflight, not a step: read-only, records nothing, and `install.sh` runs it once the manifest lands. `project-init` is still the step, because the asking is the step |
 | Take a base update | `Scripts/adopt-review.sh` | Reacts to upstream moving, not to a phase |
+| Work out which of two install roots to keep | `Scripts/ga-roots.sh` | A consolidation decision. Both `install.sh` and `ga-sync-scan.sh` refuse while it is pending, so it precedes the sequence rather than sitting in it |
 | Decline a file (moves it to `safetodelete/`) | `Scripts/ga-remove.sh` | A decision, recordable at any point |
 | Re-seal after editing installed files | `Scripts/ga-reseal.sh` | Runs *after* any command that rewrote them |
 | Remove everything | `./uninstall.sh <version>` | Ends the lifecycle |

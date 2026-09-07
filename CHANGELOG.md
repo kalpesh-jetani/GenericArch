@@ -58,6 +58,37 @@ An install from v0.6.1 or earlier carries twelve `module` rows in `.claude/MAP.t
 rather than resolving. Run `/sync-with-genericarch` to prune them; until then a lookup that hits one
 fails loudly instead of returning a doc for a layer the product does not have.
 
+### Five lifecycle defects a real adopted project found
+
+Running the whole lifecycle against a real iOS install — v0.5.0, through
+`/project-init`, `/gaps` and `/sync-app-notes` to `ready` — turned up five things, all now closed.
+Two of them made the uninstaller claim success it had not earned.
+
+- **[#13](https://github.com/kalpesh-jetani/GenericArch/issues/13) — two roots had no way out.**
+  `install.sh` and `ga-sync-scan.sh` both refuse while a checkout has two roots, and neither could
+  say which to keep. New `Scripts/ga-roots.sh` ranks them by how far each got through `GA_STEPS`,
+  counts stacked manifests against a root, and prints the exact retire commands. It retires nothing
+  itself: that is `uninstall.sh`'s job, per root, with the manifest as the authority.
+- **[#14](https://github.com/kalpesh-jetani/GenericArch/issues/14) — a twice-installed root reported
+  a false clean.** Both manifests survive, one run removes one version's records, and it still said
+  *"back to its pre-install state"* and exited 0. Now it names every manifest up front, withholds
+  that claim while any remain, and exits non-zero.
+- **[#15](https://github.com/kalpesh-jetani/GenericArch/issues/15) — `.genericarch-version` outlived
+  the uninstall.** Its content *is* the version, so hash-comparing it always failed and it was kept
+  as "you edited it" — still naming v0.2.0. Manifest mode now proves it by format, as the
+  no-manifest path always did, and rewrites it when another install remains.
+- **[#16](https://github.com/kalpesh-jetani/GenericArch/issues/16) — a newer `uninstall.sh` beside
+  an older library lost functions in silence.** Six `ga_footprint_at: command not found` *after*
+  printing success, so the second-root check never ran. `set -u` cannot catch it — an unset function
+  is not an unset variable. The surface is now asserted with `command -v` before anything is removed.
+- **[#17](https://github.com/kalpesh-jetani/GenericArch/issues/17) — the second-root refusal pointed
+  at the wrong root.** It advised "install into that root instead" by position, which meant
+  abandoning a root at `ready` for residue from two superseded installs. It now quotes
+  `ga-roots.sh`'s ranking.
+
+`ga-roundtrip.sh` gains cases 20–24, one per defect. The suite never removed a manifest before, so
+the fallback path had no coverage at all.
+
 ### The OpenSpec bridge
 
 [OpenSpec](https://github.com/Fission-AI/openspec) is a spec-driven workflow an agent follows step
