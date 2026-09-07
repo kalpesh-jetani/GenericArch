@@ -100,4 +100,13 @@ One `/decide` row per resolution, in both directions:
 
 An override that isn't recorded gets re-litigated, which is worse than never having asked.
 
+**This is now enforced, not merely required.** `/project-init` S5 lists every conflict from
+`INIT-CONFLICTS.tsv` that has no row in `DECISIONS.md` and refuses to record the step until each
+one does. The failure it closes was observed on a real adoption: §2/§3 had been declined, the
+resolution lived only in that session's transcript, and the next run asked again — forever
+([DECISIONS.md](DECISIONS.md), *Recording a resolution*).
+
+**"Keep theirs" is a resolution.** It is the one most often left unrecorded, because nothing
+changed on disk — and it is exactly the one that gets re-litigated.
+
 ---

@@ -77,6 +77,24 @@ These run whenever the situation calls for them, and gate on `install` only:
 | Re-seal after editing installed files | `Scripts/ga-reseal.sh` | Runs *after* any command that rewrote them |
 | Remove everything | `./uninstall.sh <version>` | Ends the lifecycle |
 
+## Never offer a command whose gate you have not satisfied
+
+A step command must not suggest running another command mid-run unless that command's `require`
+line would pass **at that moment**. It usually would not: a step records itself at its *end*, so
+anything gated on it is refused for the whole of its own run.
+
+That produced a real loop. `/project-init` S3 offered `/sync-app-notes`, whose gate needs
+`install`, `project-init` and `gaps` recorded — but `project-init` records at S5. The user accepted,
+the gate exited 5, the command's header said stop, and the next run offered it again. `--force` is
+never the way out; the offer was the bug.
+
+**So: describe what comes next, and run nothing.** Name the commands in order and let the user
+start them once this one has recorded. Checking is one line:
+
+```bash
+./Scripts/ga-step.sh next        # what the ledger says may run now
+```
+
 ## Adding a command
 
 1. Decide whether it is a **step** (it must precede other work) or **work** (it needs `ready`).

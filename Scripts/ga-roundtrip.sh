@@ -528,13 +528,16 @@ fi
 #   - .claude/notes/, whose data rows are blanked at install and whose names are inventory values
 #   - Scripts/, where a conventional directory name is a detection heuristic that under-matches
 #     rather than asserting — a separate, recorded issue
-MODULE_NAMES='Core|DIKit|NetworkKit|ImageCache|StorageKit|LocalizationKit|LoggingKit|NotificationKit|AppShell|DesignSystem|Messaging|Navigation'
+# `Core` is deliberately matched only as `Packages/Core`, never bare: Apple ships Core Data, Core
+# Graphics and Core Animation, so a bare `Core` flags legitimate prose. The other names are
+# distinctive enough to match on their own.
+MODULE_NAMES='Packages/Core|DIKit|NetworkKit|ImageCache|StorageKit|LocalizationKit|LoggingKit|NotificationKit|AppShell|DesignSystem|Messaging|Navigation'
 # Allowlist, and why each is here. An entry is a debt, not a permission.
-#   project-init.md   — KNOWN OUTSTANDING: its S2 section still lists nine packages under a
-#                       "Default to Core + Navigation" heading. Remove this entry when that table
-#                       is replaced; this test is what then holds the line.
 #   sync-app-notes.md — scan hints keyed to a `DesignSystem/` path, not claims that it exists.
-MODULE_ALLOW='^\.claude/commands/(project-init|sync-app-notes)\.md$'
+# project-init.md was here: its S2 table listed nine packages under "Default to Core + Navigation".
+# That table now asks for roles ("Shared core", "Routing", "Message presentation") derived from the
+# requirements, with no default and no package names — so the entry is gone and this test holds it.
+MODULE_ALLOW='^\.claude/commands/sync-app-notes\.md$'
 T="$(new_repo case19)"
 : > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
 ( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
