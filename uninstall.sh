@@ -17,7 +17,7 @@
 # going unowned forever.
 #
 # The version argument is REQUIRED. Supported: v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.4.1, v0.4.2,
-# v0.5.0, v0.6.0, v0.6.1 (latest).
+# v0.5.0, v0.6.0, v0.6.1, v0.7.0 (latest).
 #
 # What this will and will not delete:
 #
@@ -40,6 +40,32 @@ else
   echo "  Run it from the repo it was installed into, or from a GenericArch checkout with --target." >&2
   exit 1
 fi
+
+# The library travels with the INSTALL, this file may not. docs/INSTALL-MANIFEST.md tells the
+# operator to fetch the uninstaller matching the manifest, so a current uninstall.sh beside an older
+# installed library is an ordinary move — and it used to lose functions in silence. `set -u` cannot
+# help: an unset function is not an unset variable, so the run printed "back to its pre-install
+# state" and exited 0 having skipped every check those functions performed.
+#
+# Assert with `command -v` only, which needs nothing from the library, so this works no matter how
+# old the copy is.
+_ga_missing=""
+for _ga_fn in ga_block_append ga_block_present ga_block_strip ga_confirm ga_die ga_dim \
+              ga_footprint_at ga_grave_path ga_hdr ga_is_supported_version ga_is_version_stamp \
+              ga_json_field ga_known_paths ga_manifest_find ga_manifest_path ga_manifest_records \
+              ga_manifest_version ga_now_iso ga_ok ga_prune_empty_dirs ga_sha256 ga_step_path \
+              ga_tombstone_path ga_warn; do
+  command -v "$_ga_fn" >/dev/null 2>&1 || _ga_missing="$_ga_missing $_ga_fn"
+done
+if [ -n "$_ga_missing" ]; then
+  echo "uninstall.sh: $SELF/Scripts/ga-lifecycle.sh is too old for this uninstaller." >&2
+  echo "  found library version: ${GA_LIB_VERSION:-pre-versioning}" >&2
+  echo "  missing:$_ga_missing" >&2
+  echo "  Nothing was removed. Use the uninstall.sh that matches the installed version —" >&2
+  echo "  .genericarch/manifest-v<version>.json names it — or replace Scripts/ too." >&2
+  exit 1
+fi
+unset _ga_missing _ga_fn
 
 usage() { sed -n '2,20p' "$0"; }
 

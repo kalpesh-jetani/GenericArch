@@ -49,6 +49,18 @@ GA_EX_PLATFORM=78 # not macOS — EX_CONFIG, the same code Scripts/claude-utils/
 #          refuses a schema it does not know rather than doing its best with it.
 GA_MANIFEST_SCHEMA=2
 
+# The library's own surface version. Bump it whenever a function is ADDED, because callers travel
+# separately from the library: uninstall.sh sources whichever copy sits in the target it runs in,
+# and docs/INSTALL-MANIFEST.md tells the operator to fetch the uninstaller matching the manifest.
+# A newer caller beside an older library used to lose functions silently — an unset *function* is
+# not an unset variable, so `set -u` never fired, and the run reported success having skipped the
+# checks those functions performed.
+#
+# Callers must not test this constant alone: an old library does not define it at all. Test the
+# functions with `command -v`, which needs nothing from the library, and use this only to say which
+# version was found.
+GA_LIB_VERSION=2
+
 # Everything GenericArch owns lives under this one directory, so a reader can see the whole
 # footprint of the install state in one place.
 GA_STATE_DIR=".genericarch"
@@ -451,7 +463,7 @@ ga_is_version_stamp() {
 # absent here is refused rather than guessed at: removing files by a list invented at runtime is
 # exactly the failure mode the manifest exists to prevent.
 GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v0.6.1 v0.7.0"
-GA_LATEST_VERSION="v0.6.1"
+GA_LATEST_VERSION="v0.7.0"
 
 ga_is_supported_version() {
   case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) return 0 ;; *) return 1 ;; esac

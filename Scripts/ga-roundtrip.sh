@@ -554,6 +554,46 @@ else
   fail "case 19: install failed"
 fi
 
+# ── case 20 ────────────────────────────────────────────────────────────────
+# A current uninstall.sh beside an OLDER installed Scripts/ga-lifecycle.sh must refuse before it
+# removes anything. It used to lose functions in silence — `ga_footprint_at: command not found` six
+# times, AFTER printing "back to its pre-install state" and exiting 0, so the second-root detection
+# those calls perform was skipped while the run claimed complete success. An unset function is not
+# an unset variable, so `set -u` never fired.
+#
+# The stub keeps the handful of things the sourcing itself needs and drops the rest, which is
+# exactly the shape of a genuinely older library.
+T="$(new_repo case20)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_into "$T"; then
+  cat > "$T/Scripts/ga-lifecycle.sh" <<'OLDLIB'
+# Deliberately incomplete: an older release's surface.
+GA_EX_OK=0; GA_EX_ERR=1; GA_EX_USAGE=2; GA_EX_ABORT=4
+GA_STATE_DIR=".genericarch"
+GA_RED=''; GA_YEL=''; GA_GRN=''; GA_DIM=''; GA_BLD=''; GA_OFF=''
+ga_die()  { echo "$1" >&2; exit "${2:-1}"; }
+ga_warn() { echo "$1" >&2; }
+ga_ok()   { echo "$1"; }
+ga_hdr()  { echo "$1"; }
+OLDLIB
+  before="$(find "$T/.claude" -type f 2>/dev/null | wc -l | tr -d ' ')"
+  if uninstall_in "$T" "$VERSION"; then
+    fail "case 20: uninstall succeeded against a library too old for it"
+  else
+    after="$(find "$T/.claude" -type f 2>/dev/null | wc -l | tr -d ' ')"
+    if ! grep -q "too old for this uninstaller" "$WORK/last.log"; then
+      fail "case 20: refused, but not with the too-old diagnostic"
+    elif [ "$before" != "$after" ]; then
+      fail "case 20: refused but still removed files ($before -> $after)"
+    else
+      pass "a library too old for the uninstaller is refused before anything is removed"
+    fi
+  fi
+else
+  fail "case 20: install failed"
+fi
+
 echo
 if [ "$fails" -eq 0 ]; then
   printf '%s✓ every case passed%s\n' "$GRN" "$OFF"
