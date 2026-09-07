@@ -31,6 +31,8 @@
 #  16. --final with no rules  the record goes to GENERICARCH-ORPHANS.md instead
 #  17. CLAUDE.md migration    --with-claude-md backs theirs up, uninstall restores it byte-for-byte
 #  18. an edited CLAUDE.md    is kept, and so is their backup
+#  19. no module asserted     no installed skill or command tells a session a package
+#                             like DIKit exists — the content check case 6 lacks
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -512,6 +514,41 @@ if install_flags "$T" --with-claude-md; then
   fi
 else
   fail "case 18: install --with-claude-md failed"
+fi
+
+# ── 19. no installed rule or procedure asserts a module ───────────────────
+# The defect class the twelve module docs left behind. Case 6 asserts which PATHS are absent; it
+# never greps what installed files SAY. Two real defects shipped past every case in this suite
+# because of that gap: a command still listing nine packages, and prose in notes and commands
+# naming modules a target has no package for.
+#
+# Scope is skills and commands on purpose — that is where a rule or procedure sets a session's
+# beliefs. Deliberately NOT scoped to:
+#   - the target's CLAUDE.md, which may be the consumer's own and may legitimately name theirs
+#   - .claude/notes/, whose data rows are blanked at install and whose names are inventory values
+#   - Scripts/, where a conventional directory name is a detection heuristic that under-matches
+#     rather than asserting — a separate, recorded issue
+MODULE_NAMES='Core|DIKit|NetworkKit|ImageCache|StorageKit|LocalizationKit|LoggingKit|NotificationKit|AppShell|DesignSystem|Messaging|Navigation'
+# Allowlist, and why each is here. An entry is a debt, not a permission.
+#   project-init.md   — KNOWN OUTSTANDING: its S2 section still lists nine packages under a
+#                       "Default to Core + Navigation" heading. Remove this entry when that table
+#                       is replaced; this test is what then holds the line.
+#   sync-app-notes.md — scan hints keyed to a `DesignSystem/` path, not claims that it exists.
+MODULE_ALLOW='^\.claude/commands/(project-init|sync-app-notes)\.md$'
+T="$(new_repo case19)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_into "$T"; then
+  asserted="$(grep -rlwE "$MODULE_NAMES" "$T/.claude/skills" "$T/.claude/commands" 2>/dev/null \
+                | sed "s|$T/||" | grep -vE "$MODULE_ALLOW" || true)"
+  if [ -n "$asserted" ]; then
+    fail "an installed skill or command names a module this target has no package for:"
+    printf '          %s\n' $asserted
+  else
+    pass "no installed skill or command asserts a module outside the recorded allowlist"
+  fi
+else
+  fail "case 19: install failed"
 fi
 
 echo
