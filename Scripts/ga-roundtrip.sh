@@ -40,6 +40,7 @@
 #  22. the version stamp      is rewritten to the install that is still recorded, never left naming
 #                             a release that has gone
 #  23. two roots classified   the root that got furthest through the sequence is the one kept
+#  24. the refusal advises    the second-root message recommends that root, not the other one
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -681,6 +682,36 @@ elif ( cd "$SRC" && ./Scripts/ga-roots.sh "$T" >/dev/null 2>&1 ); then
   fail "case 23: exited 0 with a consolidation decision pending"
 else
   pass "two roots are classified, and the one that got furthest is the one kept"
+fi
+
+# ── case 24 ────────────────────────────────────────────────────────────────
+# The second-root refusal must not send the operator to the wrong root. It used to advise "install
+# into that root instead" unconditionally, so a target that had come through the whole sequence was
+# told to prefer older residue one level down. Now it quotes ga-roots.sh's ranking.
+#
+# Here the OUTER root is the live one, and the install being refused is the outer one — so the
+# message must say to keep here and retire the other, and must NOT tell us to install into App.
+T="$(new_repo case24)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_into "$T"; then
+  mkdir -p "$T/App/.genericarch"
+  printf '{\n  "schema": 1,\n  "genericarch_version": "v0.2.0",\n  "files": []\n}\n' \
+    > "$T/App/.genericarch/manifest-v0.2.0.json"
+  printf '#\tstep\tat\tnote\ninstall\t2025-01-01T00:00:00Z\tx\n' > "$T/App/.genericarch/STEPS.tsv"
+  if install_into "$T"; then
+    fail "case 24: install succeeded with a second root present"
+  elif ! grep -q "the one that got furthest" "$WORK/last.log"; then
+    fail "case 24: refused without quoting the ranking"
+  elif grep -q "Install into that root instead" "$WORK/last.log"; then
+    fail "case 24: still advised installing into the root that got less far"
+  elif ! grep -q "ga-roots.sh" "$WORK/last.log"; then
+    fail "case 24: did not name the tool that prints the retire commands"
+  else
+    pass "the second-root refusal recommends the root that got furthest, not the other one"
+  fi
+else
+  fail "case 24: install failed"
 fi
 
 echo
