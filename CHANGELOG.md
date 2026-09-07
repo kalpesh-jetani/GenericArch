@@ -123,11 +123,35 @@ people, so a copy of any part of it is stale the moment they change it.
   point at all**. What reaches explore is an always-loaded rule and nothing stronger, and
   [docs/DONE.md](docs/DONE.md) stays the authority on done.
 
-**Release note — tag this `v0.7.0`.** `install.sh` derives the version from git tags, and
-`ga_known_paths` gained a `v0.7.0` arm listing `Scripts/openspec-sync.sh`. Tagging it anything else
-leaves that script unaccounted for in a fallback uninstall. The plugin path carries the **command
-only** — `build-plugin.sh` copies `.claude/skills` and `.claude/commands`, so a plugin-only consumer
-gets no script and no doc; the command detects that and says so.
+**Release note — tag this `v0.6.2`.** `install.sh` derives the version from git tags, and
+`ga_known_paths` has a `v0.6.2` arm listing `Scripts/openspec-sync.sh` and `Scripts/ga-roots.sh`.
+Tagging it anything else leaves both unaccounted for in a fallback uninstall. The plugin path
+carries the **command only** — `build-plugin.sh` copies `.claude/skills` and `.claude/commands`, so
+a plugin-only consumer gets no script and no doc; the command detects that and says so.
+
+### v0.6 is the LTS line, and everything below it is deprecated
+
+`v0.6.0` opens the supported line and every `v0.6.x` belongs to it; `v0.6.1` is its current patch
+and this release lands as `v0.6.2`. Two constants say so rather than a convention:
+`GA_LTS_LINE="v0.6"` and `GA_LATEST_VERSION="v0.6.1"`.
+
+**Versions are now two tiers, because installing an old release and removing one are different
+questions.**
+
+| | Tier | Versions |
+|---|---|---|
+| **Removable** | `GA_SUPPORTED_VERSIONS` — every release ever shipped | v0.1.0 … v0.6.2 |
+| **Installable** | at or above `GA_INSTALL_FLOOR` | v0.6.0 and up |
+
+`install.sh` refuses anything below the floor with exit 6 and writes nothing, naming the checkout
+fix — the usual cause is an old tag being checked out. `uninstall.sh` still accepts every version in
+the supported list, and says "deprecated" in its header while removing one.
+
+That asymmetry is the whole design. Stripping the old entries would have stranded every existing
+install below the floor with no way off it, which is the opposite of what deprecating them is for.
+It would also have broken `ga-roots.sh`, whose entire output for the case that prompted it is
+`./uninstall.sh v0.4.2` then `v0.2.0` against older nested residue. Case 25 pins both halves:
+install refused and nothing written, uninstall still clean.
 
 ---
 

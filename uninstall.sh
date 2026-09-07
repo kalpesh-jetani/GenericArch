@@ -16,8 +16,12 @@
 # terminal AND is read by the next install.sh, so an edited file is picked up again instead of
 # going unowned forever.
 #
-# The version argument is REQUIRED. Supported: v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.4.1, v0.4.2,
-# v0.5.0, v0.6.0, v0.6.1, v0.7.0 (latest).
+# The version argument is REQUIRED. Every release this tool has ever shipped stays REMOVABLE:
+# v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.4.1, v0.4.2, v0.5.0, v0.6.0, v0.6.1, v0.6.2.
+#
+# Anything below v0.6.0 is deprecated — install.sh refuses to put it on a repo, and this script
+# still takes it off one. That asymmetry is the point: deprecating a release must not strand the
+# installs that already have it.
 #
 # What this will and will not delete:
 #
@@ -51,7 +55,8 @@ fi
 # old the copy is.
 _ga_missing=""
 for _ga_fn in ga_block_append ga_block_present ga_block_strip ga_confirm ga_die ga_dim \
-              ga_footprint_at ga_grave_path ga_hdr ga_is_supported_version ga_is_version_stamp \
+              ga_footprint_at ga_grave_path ga_hdr ga_is_deprecated_version ga_is_supported_version \
+              ga_is_version_stamp \
               ga_json_field ga_known_paths ga_manifest_find ga_manifest_path ga_manifest_records \
               ga_manifest_version ga_now_iso ga_ok ga_prune_empty_dirs ga_sha256 ga_step_path \
               ga_tombstone_path ga_warn; do
@@ -122,6 +127,12 @@ TARGET="$(cd "$TARGET" && pwd)"
 ga_hdr "GenericArch uninstaller"
 printf '  from     %s\n' "$TARGET"
 printf '  version  %s%s%s\n' "$GA_BLD" "$VERSION" "$GA_OFF"
+if ga_is_deprecated_version "$VERSION"; then
+  printf '  status   %sdeprecated%s — below the %s install floor, so it cannot be reinstalled\n' \
+    "$GA_YEL" "$GA_OFF" "$GA_INSTALL_FLOOR"
+  printf '           %sRemoving it is still fully supported. The current line is %s (%s).%s\n' \
+    "$GA_DIM" "$GA_LTS_LINE" "$GA_LATEST_VERSION" "$GA_OFF"
+fi
 if [ "$DRY_RUN" -eq 1 ]; then
   printf '  mode     %sdry run%s — the plan only, nothing is removed\n' "$GA_YEL" "$GA_OFF"
 fi

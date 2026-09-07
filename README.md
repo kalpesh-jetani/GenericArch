@@ -103,7 +103,18 @@ plus `XCODE-SETUP.md`. Offered during install; to run it yourself, or again late
 
 Full flag list and exit codes are in each script's own header — `install.sh`, `bootstrap.sh`,
 `uninstall.sh`. Exit codes: `0` ok · `1` error · `2` usage · `3` incompatible target ·
-`4` declined · `6` uninstall first · `78` not macOS.
+`4` declined · `6` uninstall first, or the version is deprecated · `78` not macOS.
+
+**Version support — v0.6 is the LTS line.**
+
+| | Which | What it means |
+|---|---|---|
+| **Supported** | `v0.6.x` | Install, upgrade and remove. `v0.6.1` is the current patch |
+| **Deprecated** | below `v0.6.0` | **Removable, never installable.** `install.sh` refuses with exit 6; `uninstall.sh` still takes it off and says so |
+
+Deprecating a release must not strand the installs that already have it, so removal stays supported
+for every version this tool has ever shipped. If `install.sh` refuses on a deprecated version you
+most likely have an old tag checked out — the error names the fix.
 
 ### What it adds, and what it does not
 

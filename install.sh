@@ -241,6 +241,26 @@ ga_is_supported_version "$GA_VERSION" \
   || ga_warn "$GA_VERSION is not in uninstall.sh's supported list ($GA_SUPPORTED_VERSIONS).
   The manifest will still drive a clean uninstall; only the no-manifest fallback is unavailable."
 
+# ── The install floor ──────────────────────────────────────────────────────
+# Everything below GA_INSTALL_FLOOR is deprecated: still removable, never installable. Refused here
+# rather than warned about, because the alternative is putting a release nobody maintains onto a
+# repo that did not have it — and the operator usually got here by having an old tag checked out,
+# which is a mistake with a one-line fix.
+#
+# Removal is deliberately NOT gated: uninstall.sh still accepts every version in the supported
+# list. Deprecating a release has to mean "do not put this on anything new", never "you can no
+# longer get it off" — otherwise every existing install below the floor is stranded.
+if ga_is_deprecated_version "$GA_VERSION"; then
+  ga_die "$GA_VERSION is deprecated and can no longer be installed.
+  The supported line is $GA_LTS_LINE (current: $GA_LATEST_VERSION); the floor is $GA_INSTALL_FLOOR.
+
+  You most likely have an old tag checked out. Install the current release instead:
+      git -C \"$SRC\" checkout $GA_LATEST_VERSION && ./install.sh \"$TARGET\"
+
+  Existing $GA_VERSION installs are unaffected and still removable:
+      ./uninstall.sh $GA_VERSION" "$GA_EX_UPGRADE"
+fi
+
 # ── One version at a time ──────────────────────────────────────────────────
 # Re-running the installer over an OLDER install is not an upgrade, and the summary line is the
 # only thing that says so. A file we installed, that the operator never touched, and that the base

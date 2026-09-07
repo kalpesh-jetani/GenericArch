@@ -41,6 +41,8 @@
 #                             a release that has gone
 #  23. two roots classified   the root that got furthest through the sequence is the one kept
 #  24. the refusal advises    the second-root message recommends that root, not the other one
+#  25. the deprecation        below the install floor: install is refused and writes nothing, while
+#                             uninstall still works — deprecating must not strand an old install
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -74,8 +76,9 @@ install_as()    { v="$1"; t="$2"; shift 2
                   ( cd "$SRC" && GA_VERSION="$v" GA_ASSUME_YES=1 ./install.sh "$t" "$@" ) >"$WORK/last.log" 2>&1; }
 uninstall_flags() { t="$1"; v="$2"; shift 2
                     ( cd "$t" && GA_ASSUME_YES=1 ./uninstall.sh "$v" "$@" ) >"$WORK/last.log" 2>&1; }
-# A supported version that is NOT the one under test, for the upgrade gate.
-PREV_V=v0.4.2
+# A supported version that is NOT the one under test, for the upgrade gate. Must be at or above
+# GA_INSTALL_FLOOR: install.sh now refuses a deprecated version, so v0.4.2 can no longer be installed.
+PREV_V=v0.6.0
 
 VERSION="${GA_VERSION:-$(git -C "$SRC" tag --sort=-v:refname --merged HEAD 2>/dev/null | head -1)}"
 [ -n "$VERSION" ] || { echo "no version tag reachable from HEAD — set GA_VERSION" >&2; exit 1; }
@@ -712,6 +715,44 @@ if install_into "$T"; then
   fi
 else
   fail "case 24: install failed"
+fi
+
+# ── case 25 ────────────────────────────────────────────────────────────────
+# The deprecation is asymmetric on purpose: below the floor you cannot INSTALL, but you can still
+# UNINSTALL. Removing the old versions from the supported list outright would have stranded every
+# install that already had one — including the real v0.5.0 and nested v0.2.0/v0.4.2 roots that
+# prompted this — and would have broken ga-roots.sh, whose output is the uninstall command for
+# exactly that residue.
+DEPRECATED_V=v0.4.2
+T="$(new_repo case25)"
+if install_as "$DEPRECATED_V" "$T"; then
+  fail "case 25: installed $DEPRECATED_V, which is below the floor"
+elif ! grep -q "deprecated and can no longer be installed" "$WORK/last.log"; then
+  fail "case 25: refused the deprecated install, but not with the deprecation diagnostic"
+elif [ -d "$T/.claude" ]; then
+  fail "case 25: refused but still wrote into the target"
+else
+  pass "a version below the install floor is refused, and nothing is written"
+fi
+
+# The other half: it must still come off. Install the current release, then relabel its manifest as
+# the deprecated version — the shape an existing old install has on disk — and remove it.
+T="$(new_repo case25b)"
+if install_into "$T"; then
+  mv "$T/.genericarch/manifest-$VERSION.json" "$T/.genericarch/manifest-$DEPRECATED_V.json"
+  sed -i '' "s/\"genericarch_version\": \"$VERSION\"/\"genericarch_version\": \"$DEPRECATED_V\"/" \
+    "$T/.genericarch/manifest-$DEPRECATED_V.json"
+  if ! uninstall_in "$T" "$DEPRECATED_V"; then
+    fail "case 25b: a deprecated version could not be uninstalled — that strands every old install"
+  elif ! grep -q "deprecated" "$WORK/last.log"; then
+    fail "case 25b: removed it without saying the version is deprecated"
+  elif [ -d "$T/.claude" ]; then
+    fail "case 25b: reported success but left .claude/ behind"
+  else
+    pass "a deprecated version is still fully removable, and says so while doing it"
+  fi
+else
+  fail "case 25b: install failed"
 fi
 
 echo
