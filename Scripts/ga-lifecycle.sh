@@ -475,7 +475,7 @@ GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v
 # The LTS line. v0.6.0 opens it and every v0.6.x is part of it; GA_LATEST_VERSION is its current
 # patch, which is what a usage message should name.
 GA_LTS_LINE="v0.6"
-GA_LATEST_VERSION="v0.6.1"
+GA_LATEST_VERSION="v0.6.2"
 
 # No NEW install below this. Everything under it is deprecated: still removable, never installable.
 GA_INSTALL_FLOOR="v0.6.0"
