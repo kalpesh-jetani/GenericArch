@@ -67,9 +67,11 @@ Two mechanisms cover it, and neither is a mechanical gate:
 
 - `openspec/CLAUDE.md`, written at install, loads whenever anything under `openspec/` is touched —
   which covers proposing and applying, but not an explore that only reads source.
-- A line in `CLAUDE.md` §5 is the only unconditional path, because that file loads every session. It
-  is approval-gated (§12), so it may not be present. **If it is not, this bridge does not reach
-  explore at all** — check before relying on it.
+- A line in `CLAUDE.md` §5 is the only unconditional path, because that file loads every session.
+  **It is present in this base** — §5, directly under the memory paragraph. In a consumer repo it
+  may not be: `CLAUDE.md` does not travel, and adding it there is a §12 edit that repo has to
+  approve for itself. **Without it this bridge does not reach explore at all**, so check before
+  relying on it.
 
 So "always uses the repo's memory" here means *an always-loaded rule*, exactly as strong as any
 other §2 rule. It is not enforced.
