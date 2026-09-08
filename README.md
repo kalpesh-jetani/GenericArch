@@ -72,6 +72,12 @@ install → /project-init → /gaps → /sync-app-notes → ready
 ./Scripts/ga-step.sh show
 ```
 
+Optional once `ready`, and idempotent — run it again any time to re-project or check:
+
+```
+/openspec-install
+```
+
 Then, on your own machine:
 
 ```bash
@@ -103,13 +109,24 @@ plus `XCODE-SETUP.md`. Offered during install; to run it yourself, or again late
 
 Full flag list and exit codes are in each script's own header — `install.sh`, `bootstrap.sh`,
 `uninstall.sh`. Exit codes: `0` ok · `1` error · `2` usage · `3` incompatible target ·
-`4` declined · `6` uninstall first · `78` not macOS.
+`4` declined · `6` uninstall first, or the version is deprecated · `78` not macOS.
+
+**Version support — v0.6 is the LTS line.**
+
+| | Which | What it means |
+|---|---|---|
+| **Supported** | `v0.6.x` | Install, upgrade and remove. `v0.6.1` is the current patch |
+| **Deprecated** | below `v0.6.0` | **Removable, never installable.** `install.sh` refuses with exit 6; `uninstall.sh` still takes it off and says so |
+
+Deprecating a release must not strand the installs that already have it, so removal stays supported
+for every version this tool has ever shipped. If `install.sh` refuses on a deprecated version you
+most likely have an old tag checked out — the error names the fix.
 
 ### What it adds, and what it does not
 
 | | What | Why |
 |---|---|---|
-| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · scan and lookup scripts · `ga-step`, `ga-remove`, `ga-reseal` · `ga-project-setup.sh` · `uninstall.sh` | They must be local to work |
+| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · scan and lookup scripts · `ga-step`, `ga-remove`, `ga-reseal`, `ga-roots` · `ga-project-setup.sh` · `openspec-sync.sh` · `uninstall.sh` | They must be local to work |
 | **Scaffolded empty** | `docs/DECISIONS.md` · `docs/GAPS.md` · `.claude/notes/` · `.claude/memory/` · `.claude/CANDIDATES.tsv` | The prose is ours, the answers are yours |
 | **Fetched on demand** | `docs/patterns/` · cross-cutting reference docs | A product should not carry docs it does not read |
 | **On consent** | `--with-architecture` → `new-feature`, `/review`, pattern rows | A surface that cannot fire is worse than a missing one |
@@ -167,6 +184,7 @@ You type these. Anything that must **never** trigger by inference is a command, 
 | `/upgrade-stack` | Reconcile project settings with your machine — asks twice before changing anything |
 | `/sync-with-genericarch` | Bring an install up to date with the base, and promote patterns the code now justifies |
 | `/clean-up-genericarch-extra-memory` | Apply removals `/project-init` only reported — asks per candidate |
+| `/openspec-install` | Install [OpenSpec](https://github.com/Fission-AI/openspec) from its live URL and wire it to these rules, both ways |
 
 ### Notes
 
@@ -174,6 +192,9 @@ You type these. Anything that must **never** trigger by inference is a command, 
   the repo is `ready` — `/find` included, which is why it gates on `sync-app-notes` having finished.
 - `/sync-app-notes` and `/build` are commands precisely because a full rescan or a build must never
   fire by inference.
+- `/openspec-install` is optional and idempotent: run it to install, and again any time to
+  re-project or to check. It installs software and writes into another tool's config, which is
+  exactly why it is typed and never inferred ([docs/OPENSPEC.md](docs/OPENSPEC.md)).
 
 ---
 
@@ -297,9 +318,31 @@ version and exits `6`.
 ./uninstall.sh v0.6.1 --yes
 ```
 
-Supported: `v0.1.0` · `v0.2.0` · `v0.3.0` · `v0.4.0` · `v0.4.1` · `v0.4.2` · `v0.5.0` · `v0.6.0` ·
-`v0.6.1` (latest). At the end it asks what becomes of any files it could not remove: `--upgrade`
-leaves them for a re-install, `--final` retires them to `.genericarch/safetodelete/`.
+**Removable: every version this tool has ever shipped** — `v0.1.0` through `v0.6.2` — including the
+deprecated ones. Only *installing* is floored at `v0.6.0` ([version support](#1-install)), so an old
+install always has a way off. `uninstall.sh` prints `deprecated` in its header when the version is
+below the floor and removes it anyway.
+
+At the end it asks what becomes of any files it could not remove: `--upgrade` leaves them for a
+re-install, `--final` retires them to `.genericarch/safetodelete/`.
+
+**Two things block an upgrade, and both say so rather than failing vaguely.**
+
+*The version you have is deprecated.* `install.sh` exits `6` and names the fix — you almost
+certainly have an old tag checked out. Uninstall first, then install the current release:
+
+```bash
+(cd /path/to/YourApp && ./uninstall.sh v0.4.2) && ./install.sh /path/to/YourApp
+```
+
+*There are two install roots in the checkout.* Both `install.sh` and `ga-sync-scan.sh` refuse while
+that is true, because a sync would update one and leave the other shadowing it. This ranks them by
+how far each got through the sequence and prints the exact commands to retire the one you do not
+want — it removes nothing itself:
+
+```bash
+./Scripts/ga-roots.sh /path/to/YourApp
+```
 
 **Take upstream fixes into an adopted repo.** `install.sh` never overwrites, so this is the other
 half. Writes nothing.
@@ -395,6 +438,16 @@ Exit `1` from `find-script.sh` is the only thing that justifies improvising one:
 ./Scripts/verify-memory.sh
 ```
 ```bash
+./Scripts/openspec-sync.sh --check
+```
+```bash
+./Scripts/ga-roots.sh
+```
+
+`openspec-sync.sh` exits `7` where there is no OpenSpec config, so it is a no-op in a repo that
+never wired it — and `./Scripts/check.sh` runs it for you, which is why keeping the projection fresh
+is not a habit anyone has to remember.
+```bash
 python3 Scripts/check-note-links.py
 ```
 ```bash
@@ -485,6 +538,7 @@ swift test --package-path Packages/Core
 | Know when a change is actually finished | [docs/DONE.md](docs/DONE.md), or `/verify` |
 | Know where a new doc belongs | [docs/STRUCTURE.md](docs/STRUCTURE.md) |
 | Know what earlier sessions learned | [.claude/memory/INDEX.md](.claude/memory/INDEX.md) — tracked, survives a clone |
+| Plan with spec-driven workflows, and keep them on these rules | [docs/OPENSPEC.md](docs/OPENSPEC.md), then `/openspec-install` |
 
 ### Layout
 
@@ -500,6 +554,7 @@ CHANGELOG.md         the release history — a tag is what install.sh records in
 .swiftlint.yml       the §2 conventions as config, with .swiftformat — OPTIONAL (--with-lint)
 docs/                hand-written reasoning: cross-cutting reference
 docs/REPO.md         the layer shape and what each layer owns
+docs/OPENSPEC.md     the OpenSpec bridge — what is projected where, and the two gaps it cannot close
 docs/patterns/       procedures not yet skills — /learn promotes one when it earns it
 .claude/INDEX.md     what THIS product has — the repo's own router is MAP.tsv, not this
 .claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable

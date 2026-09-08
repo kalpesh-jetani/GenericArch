@@ -168,13 +168,38 @@ if [ -n "$OTHER_ROOT" ] && [ "$ROOT_OK" -eq 0 ]; then
     _fix_there="./install.sh \"$OTHER_ROOT\""
     _fix_both="./install.sh \"$TARGET\" --root-ok"
   fi
+  # Which root to prefer is a judgement, and this message used to make it by position: the other
+  # root was always the one to "install into instead". On a real checkout that was backwards — the
+  # target had come through the whole sequence to `ready` and the other root was residue from two
+  # stacked installs — so the advice pointed at the dead copy. ga-roots.sh ranks them by how far
+  # each got through GA_STEPS, so quote it rather than guessing.
+  _rank=""
+  if [ -x "$SRC/Scripts/ga-roots.sh" ]; then
+    _rank="$("$SRC/Scripts/ga-roots.sh" "$TARGET" --tsv 2>/dev/null || true)"
+  fi
+  _keep="$(printf '%s\n' "$_rank" | awk -F'\t' '$1=="KEEP" {print $2; exit}')"
+  _target_p="$(cd "$TARGET" 2>/dev/null && pwd -P || printf '%s' "$TARGET")"
+  if [ -n "$_keep" ] && [ "$_keep" = "$_target_p" ]; then
+    _verdict="  This root is the one that got furthest through the sequence, so it is the one to keep.
+  Retire the other, then install here again:
+      ./Scripts/ga-roots.sh \"$TARGET\"     # the exact uninstall commands, newest version first"
+  elif [ -n "$_keep" ]; then
+    _verdict="  That root got furthest through the sequence, so it is the one to keep:
+      $_fix_there
+  Or see both ranked, with the commands to retire either:
+      ./Scripts/ga-roots.sh \"$TARGET\""
+  else
+    _verdict="  Rank them, and get the commands to retire whichever you do not want:
+      ./Scripts/ga-roots.sh \"$TARGET\"
+  Or install into that root instead:
+      $_fix_there"
+  fi
   ga_die "GenericArch is already installed at another root in this checkout:
     here:      $TARGET
     already:   $OTHER_ROOT  ($installed_ver)
   Two live copies duplicate every command and skill, and only one of them can be uninstalled.
 
-  Install into that root instead, or upgrade it:
-      $_fix_there
+$_verdict
   If two products really do share this checkout:
       $_fix_both" "$GA_EX_ERR"
 fi
@@ -215,6 +240,26 @@ fi
 ga_is_supported_version "$GA_VERSION" \
   || ga_warn "$GA_VERSION is not in uninstall.sh's supported list ($GA_SUPPORTED_VERSIONS).
   The manifest will still drive a clean uninstall; only the no-manifest fallback is unavailable."
+
+# ── The install floor ──────────────────────────────────────────────────────
+# Everything below GA_INSTALL_FLOOR is deprecated: still removable, never installable. Refused here
+# rather than warned about, because the alternative is putting a release nobody maintains onto a
+# repo that did not have it — and the operator usually got here by having an old tag checked out,
+# which is a mistake with a one-line fix.
+#
+# Removal is deliberately NOT gated: uninstall.sh still accepts every version in the supported
+# list. Deprecating a release has to mean "do not put this on anything new", never "you can no
+# longer get it off" — otherwise every existing install below the floor is stranded.
+if ga_is_deprecated_version "$GA_VERSION"; then
+  ga_die "$GA_VERSION is deprecated and can no longer be installed.
+  The supported line is $GA_LTS_LINE (current: $GA_LATEST_VERSION); the floor is $GA_INSTALL_FLOOR.
+
+  You most likely have an old tag checked out. Install the current release instead:
+      git -C \"$SRC\" checkout $GA_LATEST_VERSION && ./install.sh \"$TARGET\"
+
+  Existing $GA_VERSION installs are unaffected and still removable:
+      ./uninstall.sh $GA_VERSION" "$GA_EX_UPGRADE"
+fi
 
 # ── One version at a time ──────────────────────────────────────────────────
 # Re-running the installer over an OLDER install is not an upgrade, and the summary line is the

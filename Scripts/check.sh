@@ -20,6 +20,28 @@ cd "$(dirname "$0")/.."
 RED=$'\033[31m'; YEL=$'\033[33m'; GRN=$'\033[32m'; DIM=$'\033[2m'; OFF=$'\033[0m'
 fails=0; warns=0
 GREPOPTS=(-rnE --include='*.swift' --exclude-dir=.build --exclude-dir=Tests)
+
+# ── The OpenSpec projection ────────────────────────────────────────────────
+# Runs BEFORE the no-Swift exit below, on purpose: the projection is built from CLAUDE.md and
+# docs/DECISIONS.md, so it can drift in a repo that has no Swift in it at all.
+#
+# It is here rather than in a habit the user has to remember. Editing a §2 rule silently staled the
+# span that carries those rules into OpenSpec, and nothing said so — so this is the one gate that
+# already runs before a PR (docs/DELIVERY.md) picking that up for free.
+#
+# A warning, never a failure: a stale projection is a one-command fix and has no business blocking
+# an unrelated Swift change. Exit 7 is "this repo has no OpenSpec config", which is not a finding.
+if [ -x Scripts/openspec-sync.sh ]; then
+  Scripts/openspec-sync.sh --check --tsv >/dev/null 2>&1
+  case $? in
+    0|7) : ;;
+    *)   printf '%s⚠ the OpenSpec projection is stale%s\n' "$YEL" "$OFF"
+         printf '  %srun /openspec-install (or ./Scripts/openspec-sync.sh --check to see the drift)%s\n' \
+           "$DIM" "$OFF"
+         warns=$((warns + 1)) ;;
+  esac
+fi
+
 ROOTS=()
 [ -d Packages ] && ROOTS+=(Packages)
 [ -d App ] && ROOTS+=(App)

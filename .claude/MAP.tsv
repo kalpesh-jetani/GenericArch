@@ -67,3 +67,6 @@ Scripts/claude-utils/_common.sh	tool	common helpers exit codes kv artifact md_se
 Scripts/claude-utils/register-scripts.sh	tool	register regenerate script metadata header sync registry	After adding or changing any script's #@ header
 Scripts/claude-utils/survey-repo.sh	tool	survey migrate migration revise existing repo score match adopt legacy	Before adopting into an existing repo — is this a revision or a migration?
 Scripts/claude-utils/audit-feature.sh	tool	audit feature package existing recommendations rules conformance	Reviewing a feature package that already exists
+docs/OPENSPEC.md	cross	openspec spec-driven proposal specs design tasks artifact context rules bridge projection	Wiring OpenSpec into a repo, or working out why a proposal ignored a rule
+.claude/commands/openspec-install.md	command	openspec install wire bridge live upstream	Installing OpenSpec and projecting this repo's rules into it
+Scripts/ga-roots.sh	tool	roots consolidate second root nested install which root keep retire	Two install roots in one checkout, or deciding which to keep

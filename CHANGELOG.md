@@ -58,6 +58,101 @@ An install from v0.6.1 or earlier carries twelve `module` rows in `.claude/MAP.t
 rather than resolving. Run `/sync-with-genericarch` to prune them; until then a lookup that hits one
 fails loudly instead of returning a doc for a layer the product does not have.
 
+### Five lifecycle defects a real adopted project found
+
+Running the whole lifecycle against a real iOS install — v0.5.0, through
+`/project-init`, `/gaps` and `/sync-app-notes` to `ready` — turned up five things, all now closed.
+Two of them made the uninstaller claim success it had not earned.
+
+- **[#13](https://github.com/kalpesh-jetani/GenericArch/issues/13) — two roots had no way out.**
+  `install.sh` and `ga-sync-scan.sh` both refuse while a checkout has two roots, and neither could
+  say which to keep. New `Scripts/ga-roots.sh` ranks them by how far each got through `GA_STEPS`,
+  counts stacked manifests against a root, and prints the exact retire commands. It retires nothing
+  itself: that is `uninstall.sh`'s job, per root, with the manifest as the authority.
+- **[#14](https://github.com/kalpesh-jetani/GenericArch/issues/14) — a twice-installed root reported
+  a false clean.** Both manifests survive, one run removes one version's records, and it still said
+  *"back to its pre-install state"* and exited 0. Now it names every manifest up front, withholds
+  that claim while any remain, and exits non-zero.
+- **[#15](https://github.com/kalpesh-jetani/GenericArch/issues/15) — `.genericarch-version` outlived
+  the uninstall.** Its content *is* the version, so hash-comparing it always failed and it was kept
+  as "you edited it" — still naming v0.2.0. Manifest mode now proves it by format, as the
+  no-manifest path always did, and rewrites it when another install remains.
+- **[#16](https://github.com/kalpesh-jetani/GenericArch/issues/16) — a newer `uninstall.sh` beside
+  an older library lost functions in silence.** Six `ga_footprint_at: command not found` *after*
+  printing success, so the second-root check never ran. `set -u` cannot catch it — an unset function
+  is not an unset variable. The surface is now asserted with `command -v` before anything is removed.
+- **[#17](https://github.com/kalpesh-jetani/GenericArch/issues/17) — the second-root refusal pointed
+  at the wrong root.** It advised "install into that root instead" by position, which meant
+  abandoning a root at `ready` for residue from two superseded installs. It now quotes
+  `ga-roots.sh`'s ranking.
+
+`ga-roundtrip.sh` gains cases 20–24, one per defect. The suite never removed a manifest before, so
+the fallback path had no coverage at all.
+
+### The OpenSpec bridge
+
+[OpenSpec](https://github.com/Fission-AI/openspec) is a spec-driven workflow an agent follows step
+by step; this layer had the rules but no such workflow. `/openspec-install` installs it and wires
+the two together, and **nothing about it is recorded here except that URL** — no version, no package
+name, no install command, no copy of its spec format, no forked schema. Its repo is revised by other
+people, so a copy of any part of it is stale the moment they change it.
+
+- **`/openspec-install`** — resolves the install from the live URL each run, shows what came back,
+  and asks before running it. Idempotent: run it again to re-project, or to check.
+- **`Scripts/openspec-sync.sh`** — projects this repo's own `CLAUDE.md` §2 headlines, the
+  *Do not re-propose* rows, the §0 ask-list and the detected toolchain into OpenSpec's documented
+  injection point (~1.5 KB, because every byte is re-sent on every artifact command). Reading the
+  repo it *runs in* is deliberate: `CLAUDE.md` does not travel and `DECISIONS.md` arrives empty, so a
+  projector reading the base would arrive with its inputs missing. It **writes no YAML** — the
+  command applies, the way `sync-notes.sh` and `/sync-app-notes` already split.
+- **The reverse direction** reads their `--json` CLI, never their markdown, and reports `IN-FLIGHT`,
+  `FEATURE-ROW` and `FINDINGS` candidates. An interface it cannot read is `SHAPE-UNRECOGNISED` and
+  prints a ready-to-run `gh issue create` rather than guessing a row — a wrong `FEATURES.md` row is
+  worse than a missing one. An **issue only**, naming the branch: no commit, no PR, so §2.11 is
+  untouched.
+- **`Scripts/check.sh` now warns when the projection is stale**, skipping where there is no OpenSpec
+  config. Editing a §2 rule silently staled the span that carries those rules, and nothing said so;
+  hanging it off the gate that already runs before a PR removes a habit nobody would keep.
+- **`check-skill-triggers.py` guards the boundary both ways.** A product that installs OpenSpec gets
+  a dozen `openspec-*` skills in `.claude/skills/`, which fire by inference alongside `debug` and
+  `new-feature`. It asserts that none of ours claims spec-workflow language and none of theirs claims
+  house work — never which of theirs should win, because that would pin wording we do not control.
+- **`new-feature` step 2b** checks for an in-flight change before scaffolding, for the same reason
+  step 2 checks whether the screen exists.
+- Two gaps are stated rather than papered over: their explore and verify steps have **no injection
+  point at all**. What reaches explore is an always-loaded rule and nothing stronger, and
+  [docs/DONE.md](docs/DONE.md) stays the authority on done.
+
+**Release note — tag this `v0.6.2`.** `install.sh` derives the version from git tags, and
+`ga_known_paths` has a `v0.6.2` arm listing `Scripts/openspec-sync.sh` and `Scripts/ga-roots.sh`.
+Tagging it anything else leaves both unaccounted for in a fallback uninstall. The plugin path
+carries the **command only** — `build-plugin.sh` copies `.claude/skills` and `.claude/commands`, so
+a plugin-only consumer gets no script and no doc; the command detects that and says so.
+
+### v0.6 is the LTS line, and everything below it is deprecated
+
+`v0.6.0` opens the supported line and every `v0.6.x` belongs to it; `v0.6.1` is its current patch
+and this release lands as `v0.6.2`. Two constants say so rather than a convention:
+`GA_LTS_LINE="v0.6"` and `GA_LATEST_VERSION="v0.6.1"`.
+
+**Versions are now two tiers, because installing an old release and removing one are different
+questions.**
+
+| | Tier | Versions |
+|---|---|---|
+| **Removable** | `GA_SUPPORTED_VERSIONS` — every release ever shipped | v0.1.0 … v0.6.2 |
+| **Installable** | at or above `GA_INSTALL_FLOOR` | v0.6.0 and up |
+
+`install.sh` refuses anything below the floor with exit 6 and writes nothing, naming the checkout
+fix — the usual cause is an old tag being checked out. `uninstall.sh` still accepts every version in
+the supported list, and says "deprecated" in its header while removing one.
+
+That asymmetry is the whole design. Stripping the old entries would have stranded every existing
+install below the floor with no way off it, which is the opposite of what deprecating them is for.
+It would also have broken `ga-roots.sh`, whose entire output for the case that prompted it is
+`./uninstall.sh v0.4.2` then `v0.2.0` against older nested residue. Case 25 pins both halves:
+install refused and nothing written, uninstall still clean.
+
 ---
 
 ## v0.6.1
