@@ -5,7 +5,7 @@
 #@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, the macOS/Swift compatibility gate. Sourced, never executed.
 #@usage     . Scripts/ga-lifecycle.sh
 #@in        n/a (sourced). Honours GA_ASSUME_YES=1, GA_DRY_RUN=1, NO_COLOR
-#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_footprint_at ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
+#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_footprint_at ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_is_deprecated_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
 #@exit      0=sourced ok 2=executed directly instead of sourced
 #@effects   none on its own; every write is performed by the caller through these helpers
 #@when      installer helper|manifest format|install exit codes|hashing a manifest|uninstall helper
@@ -48,6 +48,18 @@ GA_EX_PLATFORM=78 # not macOS — EX_CONFIG, the same code Scripts/claude-utils/
 #          try to DELETE an orphan — the operator's own edited file. That is why uninstall.sh
 #          refuses a schema it does not know rather than doing its best with it.
 GA_MANIFEST_SCHEMA=2
+
+# The library's own surface version. Bump it whenever a function is ADDED, because callers travel
+# separately from the library: uninstall.sh sources whichever copy sits in the target it runs in,
+# and docs/INSTALL-MANIFEST.md tells the operator to fetch the uninstaller matching the manifest.
+# A newer caller beside an older library used to lose functions silently — an unset *function* is
+# not an unset variable, so `set -u` never fired, and the run reported success having skipped the
+# checks those functions performed.
+#
+# Callers must not test this constant alone: an old library does not define it at all. Test the
+# functions with `command -v`, which needs nothing from the library, and use this only to say which
+# version was found.
+GA_LIB_VERSION=2
 
 # Everything GenericArch owns lives under this one directory, so a reader can see the whole
 # footprint of the install state in one place.
@@ -447,14 +459,41 @@ ga_is_version_stamp() {
 }
 
 # ── Versions ───────────────────────────────────────────────────────────────
-# The releases whose footprint uninstall.sh knows how to clean without a manifest. A version
-# absent here is refused rather than guessed at: removing files by a list invented at runtime is
-# exactly the failure mode the manifest exists to prevent.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v0.6.1"
+# Two tiers, because installing an old release and REMOVING one are not the same question.
+#
+# Removable is the wider list: every release whose footprint uninstall.sh knows how to clean
+# without a manifest. A version absent here is refused rather than guessed at — removing files by a
+# list invented at runtime is exactly the failure mode the manifest exists to prevent.
+#
+# Installable is the narrower one. Deprecating a release has to mean "do not put this on anything
+# new", never "you can no longer get it off". Stripping the old entries would have stranded every
+# existing install below the floor with no way out, which is the opposite of what deprecating them
+# is for — and it would have broken ga-roots.sh, whose whole output is the uninstall command for
+# the older residue it found.
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v0.6.1 v0.6.2"
+
+# The LTS line. v0.6.0 opens it and every v0.6.x is part of it; GA_LATEST_VERSION is its current
+# patch, which is what a usage message should name.
+GA_LTS_LINE="v0.6"
 GA_LATEST_VERSION="v0.6.1"
+
+# No NEW install below this. Everything under it is deprecated: still removable, never installable.
+GA_INSTALL_FLOOR="v0.6.0"
 
 ga_is_supported_version() {
   case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
+
+# True when a version is below the install floor — deprecated, so removable but not installable.
+# sort -V is the comparison; a tie with the floor is not below it. BSD sort has had -V since
+# 10.14, and the fallback keeps this honest on anything older rather than silently passing.
+ga_is_deprecated_version() {
+  [ -n "${1:-}" ] || return 1
+  case " $GA_SUPPORTED_VERSIONS " in *" $1 "*) ;; *) return 1 ;; esac
+  [ "$1" = "$GA_INSTALL_FLOOR" ] && return 1
+  _ga_first="$(printf '%s\n%s\n' "$1" "$GA_INSTALL_FLOOR" | LC_ALL=C sort -V 2>/dev/null | head -1)"
+  [ -n "$_ga_first" ] || return 1
+  [ "$_ga_first" = "$1" ]
 }
 
 # Top-level paths a given release is known to install. This is the FALLBACK ONLY — used when the
@@ -535,6 +574,36 @@ ga_known_paths() {
         Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
         Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         Scaffold \
+        docs/DECISIONS.md docs/GAPS.md docs/resources \
+        uninstall.sh genericarch.installation.md \
+        .genericarch-version
+      ;;
+    v0.6.2)
+      # v0.6.1 plus openspec-sync.sh and ga-roots.sh — the projector behind /openspec-install. It is COPIED, so a
+      # hash can prove ownership and it belongs here; the command file does not, because
+      # .claude/commands is already a directory entry.
+      #
+      # NOT listed, and this is the point: docs/OPENSPEC.md is REFERENCED, so it is fetched when
+      # read rather than copied, and nothing under openspec/ is ours at all. The two files this
+      # release writes INTO a target's openspec/ — config.yaml's marked span and openspec/CLAUDE.md
+      # — are generated there, never copied from the base, so no hash can prove ownership.
+      # uninstall.sh handles both by name, the same way it handles CLAUDE-BK.md.
+      printf '%s\n' \
+        .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
+        .claude/CANDIDATES.tsv .claude/notes .claude/memory \
+        .swiftlint.yml .swiftformat \
+        Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
+        Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
+        Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
+        Scripts/scan-unused-assets.py Scripts/scan-api-map.py Scripts/check-note-links.py \
+        Scripts/detect-capabilities.sh Scripts/claude-workflows Scripts/claude-utils \
+        Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
+        Scripts/session-script.sh Scripts/ga-lifecycle.sh \
+        Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh \
+        Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
+        Scripts/ga-cleanup-scan.sh Scripts/ga-sync-scan.sh Scripts/ga-roots.sh \
+        Scripts/openspec-sync.sh \
+        Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         docs/DECISIONS.md docs/GAPS.md docs/resources \
         uninstall.sh genericarch.installation.md \
         .genericarch-version

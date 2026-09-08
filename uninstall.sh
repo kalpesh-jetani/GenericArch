@@ -16,8 +16,12 @@
 # terminal AND is read by the next install.sh, so an edited file is picked up again instead of
 # going unowned forever.
 #
-# The version argument is REQUIRED. Supported: v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.4.1, v0.4.2,
-# v0.5.0, v0.6.0, v0.6.1 (latest).
+# The version argument is REQUIRED. Every release this tool has ever shipped stays REMOVABLE:
+# v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.4.1, v0.4.2, v0.5.0, v0.6.0, v0.6.1, v0.6.2.
+#
+# Anything below v0.6.0 is deprecated — install.sh refuses to put it on a repo, and this script
+# still takes it off one. That asymmetry is the point: deprecating a release must not strand the
+# installs that already have it.
 #
 # What this will and will not delete:
 #
@@ -27,8 +31,8 @@
 #   Timestamps can corroborate ownership but never decide it: a content mismatch always wins and
 #   always protects the file. A path the manifest never mentioned is not looked at.
 #
-# Exit codes: 0 ok · 1 error (files left behind, or a manifest this version cannot read) ·
-#             2 usage · 4 declined
+# Exit codes: 0 ok · 1 error (files left behind, another install still recorded in this root, or a
+#             manifest this version cannot read) · 2 usage · 4 declined
 set -euo pipefail
 
 SELF="$(cd "$(dirname "$0")" && pwd)"
@@ -40,6 +44,33 @@ else
   echo "  Run it from the repo it was installed into, or from a GenericArch checkout with --target." >&2
   exit 1
 fi
+
+# The library travels with the INSTALL, this file may not. docs/INSTALL-MANIFEST.md tells the
+# operator to fetch the uninstaller matching the manifest, so a current uninstall.sh beside an older
+# installed library is an ordinary move — and it used to lose functions in silence. `set -u` cannot
+# help: an unset function is not an unset variable, so the run printed "back to its pre-install
+# state" and exited 0 having skipped every check those functions performed.
+#
+# Assert with `command -v` only, which needs nothing from the library, so this works no matter how
+# old the copy is.
+_ga_missing=""
+for _ga_fn in ga_block_append ga_block_present ga_block_strip ga_confirm ga_die ga_dim \
+              ga_footprint_at ga_grave_path ga_hdr ga_is_deprecated_version ga_is_supported_version \
+              ga_is_version_stamp \
+              ga_json_field ga_known_paths ga_manifest_find ga_manifest_path ga_manifest_records \
+              ga_manifest_version ga_now_iso ga_ok ga_prune_empty_dirs ga_sha256 ga_step_path \
+              ga_tombstone_path ga_warn; do
+  command -v "$_ga_fn" >/dev/null 2>&1 || _ga_missing="$_ga_missing $_ga_fn"
+done
+if [ -n "$_ga_missing" ]; then
+  echo "uninstall.sh: $SELF/Scripts/ga-lifecycle.sh is too old for this uninstaller." >&2
+  echo "  found library version: ${GA_LIB_VERSION:-pre-versioning}" >&2
+  echo "  missing:$_ga_missing" >&2
+  echo "  Nothing was removed. Use the uninstall.sh that matches the installed version —" >&2
+  echo "  .genericarch/manifest-v<version>.json names it — or replace Scripts/ too." >&2
+  exit 1
+fi
+unset _ga_missing _ga_fn
 
 usage() { sed -n '2,20p' "$0"; }
 
@@ -96,6 +127,12 @@ TARGET="$(cd "$TARGET" && pwd)"
 ga_hdr "GenericArch uninstaller"
 printf '  from     %s\n' "$TARGET"
 printf '  version  %s%s%s\n' "$GA_BLD" "$VERSION" "$GA_OFF"
+if ga_is_deprecated_version "$VERSION"; then
+  printf '  status   %sdeprecated%s — below the %s install floor, so it cannot be reinstalled\n' \
+    "$GA_YEL" "$GA_OFF" "$GA_INSTALL_FLOOR"
+  printf '           %sRemoving it is still fully supported. The current line is %s (%s).%s\n' \
+    "$GA_DIM" "$GA_LTS_LINE" "$GA_LATEST_VERSION" "$GA_OFF"
+fi
 if [ "$DRY_RUN" -eq 1 ]; then
   printf '  mode     %sdry run%s — the plan only, nothing is removed\n' "$GA_YEL" "$GA_OFF"
 fi
@@ -122,6 +159,28 @@ if [ ! -f "$MANIFEST" ]; then
   else
     MODE="fallback"
   fi
+fi
+
+# ── More than one manifest in this root ────────────────────────────────────
+# A root installed twice with no uninstall between keeps BOTH manifests, and one run removes only
+# the records of the version it was given. Observed on a real install: manifest-v0.2.0.json and
+# manifest-v0.4.2.json side by side; removing v0.4.2 exited 0, said "back to its pre-install state",
+# and left v0.2.0's manifest and every file it installed. The residue then keeps the root alive, so
+# the next install still refuses — one version further down.
+#
+# Say so before doing anything, and name the order. Oldest last: each run's records are independent,
+# and stopping halfway is then the newest-gone state rather than an arbitrary one.
+MANIFESTS_LEFT=0
+MANIFEST_COUNT=0
+for _m in $(ga_manifest_find "$TARGET"); do MANIFEST_COUNT=$((MANIFEST_COUNT + 1)); done
+if [ "$MANIFEST_COUNT" -gt 1 ]; then
+  echo
+  ga_warn "this root records $MANIFEST_COUNT installs, not one — it was installed again without an uninstall between"
+  for _m in $(ga_manifest_find "$TARGET"); do
+    printf '      %s  (%s)\n' "${_m#"$TARGET"/}" "$(ga_manifest_version "$_m" 2>/dev/null || echo unreadable)"
+  done
+  ga_dim "  This run removes $VERSION's records only. Run the others too, newest first, or the"
+  ga_dim "  leftovers keep this root live and the next install will still refuse."
 fi
 
 REMOVE="${TMPDIR:-/tmp}/ga-uninstall.remove.$$"
@@ -232,6 +291,12 @@ if [ "$MODE" = "manifest" ]; then
     if [ ! -e "$file" ]; then continue; fi
     now="$(ga_sha256 "$file" || echo "")"
     if [ "$now" = "$want" ]; then
+      printf '%s\n' "$rel" >> "$REMOVE"
+    elif [ "$rel" = ".genericarch-version" ] && ga_is_version_stamp "$file"; then
+      # The stamp records WHICH version is here, so its content differs per install by design — a
+      # hash cannot prove ownership of it, and comparing one is how it outlived every uninstall of a
+      # twice-installed root while still naming the older release. Its FORMAT is the proof, which is
+      # the test the no-manifest path has always used; manifest mode was the half that hashed it.
       printf '%s\n' "$rel" >> "$REMOVE"
     else
       printf '%s\tyou edited it — content hash does not match the manifest\n' "$rel" >> "$KEEP"
@@ -430,6 +495,29 @@ ga_ok "removed $removed file(s)"
 rm -f "$TARGET/.claude/notes/.evidence/INIT-SCAN.md" "$TARGET/.claude/notes/.evidence/INIT-CONFLICTS.tsv"
 rmdir "$TARGET/.claude/notes/.evidence" 2>/dev/null || true
 
+# The OpenSpec bridge, by name for the same reason: /openspec-install writes both of these INTO the
+# target rather than copying them from the base, so no hash can prove ownership.
+#
+# openspec/ is ANOTHER TOOL'S directory. Only the span we marked comes out of its config — the file
+# stays, and so does whatever context the product wrote around ours. Removing the key, or the file,
+# would be uninstalling something we never installed.
+OS_CFG="$TARGET/openspec/config.yaml"
+[ -f "$OS_CFG" ] || OS_CFG="$TARGET/openspec/config.yml"
+if [ -f "$OS_CFG" ] && grep -q '>>> GenericArch' "$OS_CFG" 2>/dev/null; then
+  OS_TMP="$OS_CFG.ga-tmp"
+  if awk '
+    index($0, ">>> GenericArch") { skip = 1 }
+    !skip                        { print }
+    skip && index($0, "<<< GenericArch") { skip = 0 }
+  ' "$OS_CFG" > "$OS_TMP" 2>/dev/null; then
+    mv "$OS_TMP" "$OS_CFG" && ga_ok "removed the GenericArch span from ${OS_CFG#"$TARGET"/}"
+  else
+    rm -f "$OS_TMP"
+    ga_warn "could not edit ${OS_CFG#"$TARGET"/} — remove the '>>> GenericArch' span by hand"
+  fi
+fi
+rm -f "$TARGET/openspec/CLAUDE.md"
+
 # ── What could not be removed, and what becomes of it ──────────────────────
 # A partial removal that reports success is the failure mode this closes. One run of an earlier
 # uninstaller removed 4 files out of about 110, printed nothing durable, and the next installer
@@ -546,7 +634,11 @@ fi
 
 # Retire directories that are now empty, deepest first. One holding a preserved file simply is not
 # empty, so it survives without being special-cased.
-DIRS="$(awk '{print}' "$REMOVE" | sed 's|/[^/]*$||' | grep -v '^$' | LC_ALL=C sort -ru || true)"
+# openspec/ is excluded explicitly. Nothing under it is ever recorded as installed, so it should
+# never appear here — but ga_prune_empty_dirs walks UP with rmdir until one fails, and a run that
+# reached it would delete another tool's root directory. Cheap guard against an expensive bug.
+DIRS="$(awk '{print}' "$REMOVE" | sed 's|/[^/]*$||' | grep -v '^$' | grep -v '^openspec$' \
+        | grep -v '^openspec/' | LC_ALL=C sort -ru || true)"
 if [ -n "$DIRS" ]; then
   # shellcheck disable=SC2086
   ga_prune_empty_dirs "$TARGET" $DIRS
@@ -593,7 +685,40 @@ elif [ "$n_keep" -gt 0 ]; then
     printf 'the files themselves. Delete either once you are done with it.\n'
   fi
 else
-  printf '\nThe repo is back to its pre-install state.\n'
+  # "Back to its pre-install state" is the sentence an operator acts on, so it must not be said
+  # while another install's records are still sitting in this very root. Re-count rather than
+  # trusting MANIFEST_COUNT: this run has removed one since then.
+  LEFT=0
+  for _m in $(ga_manifest_find "$TARGET"); do LEFT=$((LEFT + 1)); done
+  if [ "$LEFT" -gt 0 ]; then
+    printf '\n%s%d other install(s) are still recorded in this root%s, so this repo is NOT back to its\n' \
+      "$GA_YEL" "$LEFT" "$GA_OFF"
+    printf 'pre-install state:\n'
+    for _m in $(ga_manifest_find "$TARGET"); do
+      printf '    %s  (%s)\n' "${_m#"$TARGET"/}" "$(ga_manifest_version "$_m" 2>/dev/null || echo unreadable)"
+    done
+    printf '\nRemove each of them from this root too. Until then their files remain, and an install\n'
+    printf 'here will keep refusing because the root still counts as live.\n'
+    MANIFESTS_LEFT=1
+    # The stamp was removed with this version's records, but a live install is still here, so leaving
+    # the root without one trades a stamp that named the wrong version for no stamp at all. Rewrite
+    # it to the newest release still recorded, so it and the manifests agree.
+    if [ ! -f "$TARGET/.genericarch-version" ]; then
+      newest=""
+      for _m in $(ga_manifest_find "$TARGET"); do newest="$_m"; done
+      newest_v="$(ga_manifest_version "$newest" 2>/dev/null || true)"
+      if [ -n "$newest_v" ]; then
+        _ref="$(ga_json_field "$(head -5 "$newest")" source_ref 2>/dev/null || true)"
+        { printf '%s\n' "$newest_v"
+          printf 'repo=https://github.com/kalpesh-jetani/GenericArch.git\n'
+          [ -n "$_ref" ] && printf 'ref=%s\n' "$_ref"
+        } > "$TARGET/.genericarch-version"
+        printf '\n.genericarch-version now reads %s, matching the install that is still here.\n' "$newest_v"
+      fi
+    fi
+  else
+    printf '\nThe repo is back to its pre-install state.\n'
+  fi
 fi
 
 # One root is not the checkout. An install at a nested project directory survives an uninstall run
@@ -637,6 +762,13 @@ fi
 #
 # --final is not a partial removal. The kept files were retired to the graveyard on purpose and the
 # working tree is clean, so the round-trip assertion holds and the exit code has to say so.
+# Another install still recorded in this root is a partial removal however well the rest went: the
+# round-trip claim is false, and a caller must learn that from the exit code rather than by parsing
+# stdout. Checked before --final, which is about files the operator chose to retire and says nothing
+# about a second release's records.
+if [ "$MANIFESTS_LEFT" -eq 1 ]; then
+  exit "$GA_EX_ERR"
+fi
 if [ "$AFTER" = "final" ]; then
   # --final is not a partial removal unless something refused to be retired. What was filed away
   # was filed away on purpose, so the round-trip assertion holds and the exit code says so.

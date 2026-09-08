@@ -102,8 +102,8 @@ that write anything need `--apply` or a confirmation.
 ## 2b. What the install adds
 
 You get the tooling and the lookup layer: skills, commands, the indexes, the scan and lifecycle
-scripts, `ga-project-setup.sh`, `uninstall.sh`. You do **not** get `Packages/`, `docs/modules/` or
-any Swift — your structure is yours, and a doc for a layer you do not have is a dead lookup.
+scripts, `ga-project-setup.sh`, `uninstall.sh`. You do **not** get `Packages/` or any Swift —
+your structure is yours, and a doc for a layer you do not have is a dead lookup.
 
 The **architecture layer** — `new-feature` and `/review` — waits for a yes: `/project-init` offers it
 after the conflict table, or `--with-architecture` takes it up front. In a repo with no `Packages/`,
@@ -224,13 +224,14 @@ Nothing here is loaded automatically. Open one when the situation calls for it �
 | `docs/SCAN-TRAPS.md` | A scan result surprised you, or you are changing a scan script |
 | `docs/CLAUDE-TASKS.md` | Editing a `CLAUDE.md` through the recorded nine-phase pipeline |
 
-### One doc per layer, one per pattern
+### One doc per pattern
 
-- **`docs/modules/*.md`** — twelve docs, one per package: `Core`, `NetworkKit`, `ImageCache`,
-  `StorageKit`, `DIKit`, `DesignSystem`, `LocalizationKit`, `Messaging`, `Navigation`,
-  `NotificationKit`, `LoggingKit`, `AppShell`. Read the one you are about to touch.
-  **Not copied into an installed repo** — they are fetched on demand, so a product only ever holds
-  docs for layers it actually has.
+- **`docs/REPO.md`** — the layer shape and what each layer owns. It describes the shape a product
+  *may* take, never an inventory of the one you are in: a product has whatever subset it needs,
+  under whatever names it chose. **There are no per-package docs here.** One for a package a
+  product may not have reads as current and describes code that is not there, which sent every
+  session looking for it — a package's doc belongs beside its code, as
+  `Packages/<Name>/<Name>.md`.
 - **`docs/patterns/*.md`** — six recurring jobs that are documented but not yet skills:
   `change`, `style-guide`, `dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`.
   `/learn <name>` promotes one to a skill once the code it describes exists.
@@ -316,7 +317,7 @@ reason, so the next person knows why it was skipped:
 **Get rid of a file this thing installed**
 
 ```bash
-./Scripts/ga-remove.sh docs/modules/StorageKit.md --reason "no StorageKit here" --apply
+./Scripts/ga-remove.sh docs/PERFORMANCE.md --reason "no perf budget here yet" --apply
 ./Scripts/ga-remove.sh --list          # what is declined
 ```
 
@@ -327,7 +328,7 @@ sentence should go, change, or point somewhere else.
 **Changed your mind**
 
 ```bash
-./Scripts/ga-remove.sh --revive docs/modules/StorageKit.md --apply
+./Scripts/ga-remove.sh --revive docs/PERFORMANCE.md --apply
 ```
 
 The file comes back byte-identical from `.genericarch/safetodelete/`. Two things it leaves to you:

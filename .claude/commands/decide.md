@@ -40,7 +40,7 @@ Record the decision described by: `$ARGUMENTS`
    no prose paragraphs. The `Why` is **one clause**, not a paragraph: the log says *what* was decided
    and points at the detail; it does not restate it.
 
-4. **Point `Detail` at the real home** — a CLAUDE.md section number, or a `docs/modules/*.md` file.
+4. **Point `Detail` at the real home** — a CLAUDE.md section number, or a `docs/*.md` reference file.
    If the detail doesn't exist anywhere yet, say so: the decision may need a module doc before it
    needs a log row.
 

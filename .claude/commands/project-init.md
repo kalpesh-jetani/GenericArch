@@ -143,14 +143,19 @@ real choice, not a formality:
 | Scope | File | Use for |
 |---|---|---|
 | **Project** | root `CLAUDE.md` | Rules that apply everywhere. Always-on cost for every session |
-| **Directory** | `Packages/<Name>/CLAUDE.md` | Rules only true inside that package — loaded only when it's touched |
+| **Component** | `<component-dir>/CLAUDE.md` | Rules only true inside that component — loaded only when it's touched (§2.16) |
 
-Directory-level is the right home for anything package-specific, and it keeps the root file small
-(§5). Two worked examples to offer:
+Directory-level is **required**, not offered: §2.16 gives every component its own `CLAUDE.md`,
+carrying its boundary and the rules true only inside it. It keeps the root file small (§5) and costs
+nothing until that directory is touched. What belongs in one:
+[STRUCTURE.md](../../docs/STRUCTURE.md).
+
+Two illustrations — **not a set to create up front.** A component gets its file when the component
+gets created:
 
 - `Packages/Features/CLAUDE.md` — "no `#if DEBUG`", "no `resolve` outside `DI/`", "no sibling
   feature import". These are only meaningful inside a feature.
-- `Packages/DesignSystem/CLAUDE.md` — "`#if os(...)` is allowed here and nowhere else".
+- a design-system component directory — "`#if os(...)` is allowed here and nowhere else".
 
 Skills and commands can be directory-scoped the same way. Ask whether any should be.
 
@@ -279,9 +284,10 @@ Two rules for this round:
 
 - **Recommend the latest the machine supports, don't impose it.** A team on Swift 5 mode with a
   large codebase has a reason; ask for it rather than assuming a migration.
-- **Say what a divergent choice invalidates.** UIKit means [DesignSystem.md](../../docs/modules/DesignSystem.md)
-  and the `dark-light-mode`/`rtl-support` skills no longer fit as written. Combine means §6 does not
-  apply. Naming that up front is the difference between an informed choice and a broken adoption.
+- **Say what a divergent choice invalidates.** UIKit means the `dark-light-mode`/`rtl-support`
+  skills no longer fit as written, and any SwiftUI-shaped component guidance goes with them.
+  Combine means §6 does not apply. Naming that up front is the difference between an informed
+  choice and a broken adoption.
 
 Record every answer with `/decide`, then propose the §1 table from `--markdown` — **and wait for
 approval before writing it to CLAUDE.md** ([STRUCTURE.md](../../docs/STRUCTURE.md)).
@@ -323,37 +329,48 @@ is the record of what ships ([REPO.md](../../docs/REPO.md)).
 
 ## S2. Scaffold only what was approved
 
-**Ask which packages this product needs.** Default to Core + Navigation; add others only if the
-product will use them. Packages with no consumer are instant drift.
+**Ask which layers this product needs — derive them, never default them.** Read the requirements
+and propose only what they call for; a layer with no consumer is instant drift. There is **no
+default set**: the base ships no architecture ([REPO.md](../../docs/REPO.md)), and a list of layers
+a product "should" have is what the retired per-module docs were.
 
-| Package | Add when | Skip if |
+The rows below are **illustrations of what a layer is for**, to phrase the question with — not a
+set to create, and not ordered by preference. Skip any the requirements do not reach.
+
+| Layer | Add when | Skip if |
 |---|---|---|
-| Core | Always | Never |
-| DIKit | Any dependency injection in features | Trivial app, no features yet |
-| DesignSystem | Any multi-screen UI | Web app, headless service |
-| Navigation | Any multi-screen routing | Single-screen app |
-| StorageKit | Any persistence (local or encrypted) | Read-only, no user data |
-| LocalizationKit | Any user-facing string OR any language beyond English | Monolingual, hardcoded |
-| LoggingKit | Any production logging or analytics | Debug-only logging |
-| NotificationKit | Push notifications OR local notifications | No notifications |
-| Messaging | Any system alert, sheet, or message surface | Direct UI, no popups |
+| Shared core | Two or more layers need the same protocol, model or error | Nothing is shared yet — one feature needs no core |
+| Dependency injection | Features receive collaborators they do not construct | No features yet, or nothing to inject |
+| Routing | More than one screen, or any deep link | Single screen |
+| Design system | Any repeated visual value or component | One screen, no repetition |
+| Localization | Any user-visible string, or a second language | Nothing user-visible yet |
+| Message presentation | Any alert, confirmation or permission rationale | No message surfaces |
+| Logging | Anything logged in a shipping build | Debug printing only |
+| Storage | Anything persisted, or any secret | Nothing outlives the process |
+| Networking | Any request | Fully offline |
+| Image caching | Remote images in a scrolling view | No remote images |
+| Notifications | Push or local notifications | Neither |
+
+Names are the product's to choose — these are roles, not package names. What each role owns:
+[REPO.md](../../docs/REPO.md).
 
 **Explicitly do NOT ask about:**
 - Wrappers/ (added as vendors require it)
 - Features/ (added per `/new-feature`)
-- The two extracted repos NetworkKit + ImageCache (separate repos; reuse test in §4.2)
+- Any layer this product resolves from its own repository (separate repos; reuse test in §4.2)
 
 Then scaffold:
 
 1. `.gitignore` and `.claude/settings.json` — exactly the consented entries, merged not replaced.
-2. **`Packages/Core` first** — zero dependencies, nothing compiles without it.
-   a `platforms:` line copied from a sibling package, or from `./Scripts/detect-toolchain.sh`
-   in a repo that has none yet.
-3. Then the approved packages in §3's layering order.
-4. The `.xcodeproj` shell with four configurations and their `.xcconfig` files, using the answered
+2. **The shared layer first, if one was approved** — it has zero dependencies and everything else
+   compiles against it. Give it a `platforms:` line copied from a sibling package, or from
+   `./Scripts/detect-toolchain.sh` in a repo that has none yet.
+3. Then the rest, in §3's layering order — downward only, each depending on what precedes it.
+4. Each approved layer gets its `CLAUDE.md` **before its first source file** (§2.16).
+5. The `.xcodeproj` shell with four configurations and their `.xcconfig` files, using the answered
    bundle ID and Team ID.
-5. **Not** the two extracted repos — they're separate repositories and fail the "actually reused"
-   test until a second product exists (CLAUDE.md §4.2).
+6. **Nothing extracted to its own repository** — extraction fails the "actually reused" test until
+   a second product exists (CLAUDE.md §4.2).
 
 ## S2b. Confirm which skills are actually installed
 
@@ -380,23 +397,24 @@ without paying for it.
 
 ## S3. Populate the notes
 
-**Check if there's code to scan.** If scaffolding just created empty `Packages/`, offer
-`/sync-app-notes` **only** when the user is ready to add the first feature or asset:
+**Never offer `/sync-app-notes` inside this command.** Its gate is
+`ga-step.sh require sync-app-notes`, which needs `install`, `project-init` **and** `gaps` recorded —
+and `project-init` is not recorded until S5, below. Offering it here produced a loop: the user
+accepts, the gate exits 5, its header says stop, and the next run offers it again. The order is not
+negotiable and `--force` is never the answer (§5, [SEQUENCE.md](../../docs/SEQUENCE.md)).
 
-> "Once you add features to `Packages/Features/` or image/color assets to the catalog, run
-> `/sync-app-notes` to populate the inventories. That command rewrites 9 files; it's best run
-> once after you have real content."
+So this step **describes what comes next** and runs nothing:
 
-**Do not run it here.** It is the user's command, and initialisation is not blanket consent to
-rewrite nine files. Running it on empty `Packages/` produces scaffold-only inventories that look
-current but are mostly blank.
+> "Initialisation is done. Next: `/gaps` to triage what this architecture should cover, then
+> `/sync-app-notes` to build the inventories from what is actually on disk. That second command
+> rewrites nine files, so it is worth running once there is real content — an empty `Packages/`
+> produces inventories that look current and are mostly blank."
 
-**If the project already has code** (e.g. adopting into an existing codebase), ask:
+**Say which of the two the repo is ready for.** A repo that already has code is ready for both as
+soon as this command records; a freshly scaffolded one should wait for its first feature or asset
+before the notes are worth building.
 
-> "The project already has code. Run `/sync-app-notes` now to inventory features, screens, routes,
-> assets, and build config? (~X tokens, creates 9 `.claude/notes/*.md` files.)"
-
-Then fill by hand what no scan can know: the marketing version in `Base.xcconfig`, signing rows in
+Then note, for the user to fill by hand later what no scan can know: the marketing version in `Base.xcconfig`, signing rows in
 [SCHEMES.md](../notes/SCHEMES.md), Team ID in [PROJECT.md](../notes/PROJECT.md).
 
 **Link every note back to CLAUDE.md.** Each inventory should cite the relevant section so Claude
@@ -477,21 +495,14 @@ impossible to review, and impossible to undo cleanly if a conflict answer change
 
 So collect, and hand over:
 
-```bash
-grep -m1 'orphan docs' .claude/notes/.evidence/INIT-SCAN.md    # expect 0 on a current install
-```
-
-`docs/modules/` is not installed any more — the module docs are among the ~35 reference docs fetched
-on demand, so a `docs/modules/X.md` path that is not on disk is a fetch instruction, not a missing
-file. Earlier versions did copy all 12, which is why the check still runs; on a current install it
-comes back empty, and that is the expected result.
-
-`## orphan-docs` in the evidence artifact lists any module doc with no package behind it. Treat it as
-what it is — a candidate list, never a decision. A package approved but not yet scaffolded keeps its
-doc.
-
 **Report each candidate with the reason it is one**, then stop. If the list is empty, say that too:
 "nothing to clean up" is a useful sentence, and it stops the next session going looking.
+
+This base ships **no per-package docs at all** — a doc for a package a product may not have reads as
+current and describes code that is not there, which is the loop it was retired to close
+([DECISIONS.md](../../docs/DECISIONS.md)). A package's doc belongs beside its code as
+`Packages/<Name>/<Name>.md` ([STRUCTURE.md](../../docs/STRUCTURE.md)); the shape the layers take is
+[REPO.md](../../docs/REPO.md).
 
 ## S3a. Offer the architecture layer — after the conflicts, never before
 
@@ -543,13 +554,20 @@ If the user declines, say plainly what it costs per session and move on — it i
 State explicitly:
 
 - What was created, and what was **left untouched** because it already existed.
-- **Packages approved and packages skipped** — record in DECISIONS.md *Open* what "no StorageKit yet"
-  blocks (e.g. "Blocks when user data persistence is added").
+- **Layers approved and layers skipped** — each one a **Settled** row, not *Open*. §0 reads an
+  *Open* row as unanswered and asks again, which is the loop: "no persistence layer — decided
+  <date>, revisit when user data is stored" is settled; the same text under *Open* is not.
 - **Skills installed** — and any **cleanup candidates** found, handed to
   `/clean-up-genericarch-extra-memory`. This command removed nothing; say so explicitly.
-- Every rule conflict (Path A only) and how it was resolved — including the ones resolved as "keep theirs".
+- Every rule conflict and how it was resolved — **including the ones resolved as "keep theirs",
+  which is the resolution most often left unrecorded.** A dropped rule goes to *Do not re-propose*;
+  an adopted one to *Settled*; only a genuine deferral to *Open*
+  ([ADOPTION.md](../../docs/ADOPTION.md) §A6).
 - **What was skipped, and which unanswered question blocks it.**
 - What was recorded in [DECISIONS.md](../../docs/DECISIONS.md), and what remains *Open*.
+
+**A resolution that exists only in this conversation is not recorded.** The transcript is gone next
+session; `DECISIONS.md` is what survives a clone. S5 will not let the step be recorded without it.
 
 A report that reads as complete when a question went unanswered, or that omits a cleanup candidate,
 or a package you didn't ask about, is the failure mode of this whole command.
@@ -558,6 +576,20 @@ or a package you didn't ask about, is the failure mode of this whole command.
 
 This command rewrites installed files. Both lines, always — the first keeps them removable, the
 second unblocks the next step:
+
+First, prove every conflict the scan found is now a recorded decision. An unrecorded resolution
+lives only in this transcript, and the next run re-asks it — the loop §A6 warns about:
+
+```bash
+awk -F'\t' 'NR>1 && $1 != "" {print $1}' .claude/notes/.evidence/INIT-CONFLICTS.tsv 2>/dev/null \
+  | while IFS= read -r sig; do
+      grep -qiF "$sig" docs/DECISIONS.md || printf 'UNRECORDED: %s\n' "$sig"
+    done
+```
+
+**Any `UNRECORDED:` line means stop and record it** — with `/decide`, in the section §A6 gives for
+its direction. Then both lines below, always: the first keeps the files removable, the second
+unblocks the next step.
 
 ```bash
 ./Scripts/ga-reseal.sh --apply

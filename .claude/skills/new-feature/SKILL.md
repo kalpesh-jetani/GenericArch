@@ -32,12 +32,18 @@ features, one line in the composition root, and one case in `Route`.
 ```bash
 grep -i -e feature -e lint -e audit .claude/SCRIPTS.tsv   # 1. which script covers this
 ./Scripts/find.sh <ScreenOrRoute>                         # 2. does it already exist?
+[ -d openspec ] && ./Scripts/openspec-sync.sh             # 2b. already proposed? (if OpenSpec is wired)
 ./Scripts/claude-utils/init-claude-env.sh --list          # 3. is the project registered?
 ./Scripts/claude-workflows/run-task.sh <proj> <task> status  # 4. if installed: task already open?
 ```
 
 Order matters: **2 before 3** (an existing screen means this is `change`, not scaffolding), and
 **4 before any phase** (resuming beats restarting — the artifacts are already on disk).
+
+**2b is the same test one layer out.** An `IN-FLIGHT` row means this feature is already proposed and
+probably already specced — scaffolding over it produces a package that contradicts the plan someone
+approved. Read the change first, then build to it rather than beside it
+([OPENSPEC.md](../../../docs/OPENSPEC.md)). No `openspec/`, no step.
 
 If no script covers a step you end up doing by hand more than once, say so and offer
 `/learn --script` — it captures the sequence as a registered script for next time.
@@ -69,7 +75,7 @@ If one matches the work at hand, **offer it rather than assuming it applies**:
 Two cautions:
 
 - **A derived skill records what was done once, not what is correct forever.** If it contradicts a
-  rule in CLAUDE.md §2 or a module doc, the rule wins and the skill is stale — say so.
+  rule in CLAUDE.md §2, the rule wins and the skill is stale — say so.
 - If it half-fits, take the sequence and say which steps you are dropping. Silently deviating from a
   pattern you announced is worse than not offering it.
 
@@ -135,23 +141,33 @@ propose extracting it; feature packages fail all three §4.2 tests by definition
 ```
 Packages/Features/Feature<Name>/
   Package.swift
-  Feature<Name>.md              required — see step 8
+  CLAUDE.md                     required (§2.16) — the boundary, then rules true only here
+  Feature<Name>.md              optional reference — see step 8
   Sources/Feature<Name>/
     Models/                     domain types, Sendable value types
     Services/                   protocols + live impls (actors or Sendable structs)
-    ViewModels/                 @MainActor, exposes ContentState<T>
+    ViewModels/                 @MainActor, exposes one state value per screen
     Views/                      SwiftUI only, zero raw values, zero raw strings
     Localization/               <Feature>.xcstrings + generated L10n accessors
-    DI/                         <Name>Assembly.swift — the ONLY file seeing DIContainer
+    DI/                         <Name>Assembly.swift — the ONLY file seeing the container
   Tests/Feature<Name>Tests/
 ```
 
 `Package.swift`: copy the `platforms:` line from a sibling package — never type a version from
-memory (CLAUDE.md §1.1). Wired with `.package(path:)` to `Core`,
-`DesignSystem`, `Navigation`, and the infrastructure it actually uses. **Never on another feature**
-(§2.1) — the manifest is what enforces that now, so get it right.
+memory (CLAUDE.md §1.1). Wire it with `.package(path:)` to the shared and infrastructure layers this
+product actually has — read `Packages/` to see which those are, and depend only on what the feature
+uses. **Never on another feature** (§2.1) — the manifest is what enforces that now, so get it right.
 
 Register it in the app targets' package list ([PROJECT.md](../../notes/PROJECT.md)).
+
+**Write `CLAUDE.md` in the new package before any Swift** (§2.16). It opens with the boundary — what
+this feature owns, what it may depend on, what it must never import — and then carries only rules
+true inside this directory. It is loaded when a session touches the feature and costs nothing until
+then. What belongs in it, and what must not:
+[STRUCTURE.md](../../../docs/STRUCTURE.md).
+
+Writing it first is deliberate: stating "never imports another feature" before the manifest exists
+is what stops §2.1 being discovered at compile time.
 
 ## 5. What to produce — not just the happy path
 
@@ -159,37 +175,43 @@ For every capability: **protocol + mock + live implementation**. The mock ships 
 for tests *and* previews.
 
 For every screen:
-- A view model exposing `ContentState<T>` from Core — no ad-hoc `isLoading` flags.
-- All six states rendered via `ContentStateView` (DesignSystem.md): idle, loading (skeleton),
-  loaded, empty, offline, failed.
-- **Paged list?** `ContentState<Paged<Item>>`, and render the footer states too. A failed page must
-  never blank the rows already loaded (Core.md).
-- Empty and error copy as **localized keys**, `<feature>_<screen>_<element>_<role>`
-  (LocalizationKit.md).
-- Errors mapped to `AppError` with `isRetryable` set deliberately.
+- A view model exposing **one state value** covering every case — never ad-hoc `isLoading` flags
+  alongside it. Use this product's existing state type if it has one; a boolean pair beside it is
+  the drift §2.5 exists to prevent.
+- **Every state rendered**, through whatever shared component this product renders them with: idle,
+  loading, loaded, empty, offline, failed.
+- **Paged list?** Page state nests *inside* the screen state, and the footer states render too. A
+  failed page must never blank the rows already loaded.
+- Empty and error copy as **localized keys**, `<feature>_<screen>_<element>_<role>` (§2.3).
+- Errors mapped to the product's error type, with retryability set deliberately rather than
+  defaulted.
 
-Messages, confirmations, and permission rationales go through `MessagePresenting`
-(Messaging.md). Never `.alert`.
+Messages, confirmations, and permission rationales go through the product's single message
+presenter (§2.4). Never `.alert`.
 
 ## 6. Wiring
 
+**One file is the seam.** The feature's `Assembly` is the only place that touches the container;
+every other type takes its dependencies through `init` as protocols (§2.6). Match the shape this
+product already uses — the assembly resolves, constructs, and hands over:
+
 ```swift
-// DI/<Name>Assembly.swift — the seam. Nothing else in the feature sees the container.
+// DI/<Name>Assembly.swift — nothing else in the feature sees the container.
 public struct AuthAssembly {
-    public static func loginViewModel(_ c: DIContainer) -> LoginViewModel {
-        LoginViewModel(auth: c[AuthenticatingKey.self],
-                       presenter: c[MessagePresentingKey.self])
+    public static func loginViewModel(_ container: SomeContainer) -> LoginViewModel {
+        LoginViewModel(auth: container.resolved(), presenter: container.resolved())
     }
 }
 ```
 
-Then: one `Route` case, one line in the shell's `navigationDestination` switch. That's the whole
+Then: one route case, one line in the shell's `navigationDestination` switch. That's the whole
 integration surface.
 
 ## 7. Tests
 
-- Every view model and mapper, against mocks. No network (DIKit.md `testValue`).
-- Previews per screen covering every `ContentState`.
+- Every view model and mapper, against mocks. **No network** (§9) — that is what a dependency
+  key's test value is for.
+- Previews per screen covering every state case.
 - Hand over `swift test --package-path Packages/Features/Feature<Name>` — the user runs it (§2.12).
   Standalone package tests are what enforce the module boundaries.
 
@@ -213,6 +235,6 @@ index gets one row, nothing more.
 
 ## 9. Before calling it done
 
-Run [DONE.md](../../../docs/DONE.md), or `/verify`. Missed most often here: every `ContentState`
+Run [DONE.md](../../../docs/DONE.md), or `/verify`. Missed most often here: every state case
 implemented, the feature's `.md` written, and rows added to `FEATURES.md` and `NAVIGATION.md` —
 targeted edits, never a `/sync-app-notes` run. Then `feature-complete` closes it out.

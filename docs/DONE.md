@@ -26,21 +26,21 @@ Not every line is machine-checkable, and pretending otherwise is how a checklist
 ## Rules that are mechanically checkable
 
 - [ ] 🤖 No raw user-facing string; keys added to the catalog **in every supported language**
-      ([LocalizationKit.md](modules/LocalizationKit.md))
+      (CLAUDE.md §2.3)
 - [ ] 🤖 No new `@unchecked Sendable` without its justification comment
 - [ ] 🤖 No force-unwrap outside tests, no `try?` that swallows, no `fatalError` in a shipping path
 - [ ] 🤖 No `#if DEBUG` or build-flag branch inside a feature package
       ([SCHEMES.md](../.claude/notes/SCHEMES.md))
 - [ ] 🤖 No `.alert` / `.confirmationDialog` / system-styled message surface
-      ([Messaging.md](modules/Messaging.md))
+      (CLAUDE.md §2.4)
 - [ ] 🤖 No `resolve` call inside a feature type — only root, `Assembly`, previews, tests
-      ([DIKit.md](modules/DIKit.md))
+      (CLAUDE.md §2.6)
 - [ ] 🤖 No literal color, font, spacing, radius, or duration outside DesignSystem
 
 ## Behavior
 
 - [ ] 👁 **Every content state implemented** — loading / empty / offline / error / loaded, plus the
-      footer states if the list is paged ([Core.md](modules/Core.md))
+      footer states if the list is paged (CLAUDE.md §2.5)
 - [ ] 👁 Errors mapped to `AppError` with `isRetryable` set deliberately
 - [ ] 👁 Any external library touched only through its wrapper (CLAUDE.md §7)
 - [ ] 🤖 Dependencies injected by protocol; a mock ships beside each one
@@ -74,7 +74,7 @@ DesignSystem components — these lines are what a *screen* still has to prove.
 
 - [ ] 🤖 View models, mappers, and services unit-tested against mocks; **no network**
 - [ ] 👁 Snapshots within scope: full matrix for DesignSystem components; screens get `loaded` + one
-      failure state ([DesignSystem.md](modules/DesignSystem.md))
+      failure state (CLAUDE.md §2.5)
 - [ ] 👁 Contract tests updated if a wrapper or an extracted package changed
 
 ## Documentation — same change, not later

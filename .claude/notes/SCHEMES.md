@@ -70,7 +70,7 @@ the environment it points at and its crash-reporting destination, the rehearsal 
 - Production API. Certificate pinning **off unless the threat model demands it** (CLAUDE.md §8) —
   if enabled, it needs a documented rotation plan and a remote kill switch
 - No debug menu, no `TEST`/`BETA` compilation conditions, log level `info` and above with
-  redaction enforced ([LoggingKit.md](../../docs/modules/LoggingKit.md))
+  redaction enforced by the logging layer
 - Assertions compiled out — which is exactly why CLAUDE.md §2.7 forbids `fatalError` in shipping
   paths and relies on typed errors instead
 

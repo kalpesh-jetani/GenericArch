@@ -49,15 +49,24 @@ takes a paragraph, the paragraph goes in the module doc and the rule gets a link
 | Home | Holds | Auto-loaded |
 |---|---|---|
 | `CLAUDE.md` | always-on rules for building the app | **yes** — keep it small |
+| `<component>/CLAUDE.md` | rules that bind only inside one component (§2.16) | **only when that directory is touched** |
 | `docs/` | hand-written reasoning: module design, cross-cutting reference | no |
 | `.claude/notes/` | inventories generated from the code | no |
 | `.claude/skills/` | procedures Claude should recognise and apply on its own | descriptions only |
 | `.claude/commands/` | things the user triggers explicitly | no |
 | `.claude/memory/` | what earlier sessions learned about *this* repo | index only |
 
+**`openspec/` is not a seventh home.** It belongs to another tool, and the rules it carries are a
+*projection* of the six above — generated from `CLAUDE.md` §2 and [DECISIONS.md](DECISIONS.md) by
+`./Scripts/openspec-sync.sh`, never authored there. So nothing new is ever written into it: write the
+rule in its real home and re-project. It is still an always-on rule level in practice, which is why
+[OPENSPEC.md](OPENSPEC.md) exists and why `Scripts/check.sh` warns when the projection goes stale.
+
 Deciding where something goes:
 
-- Specific to one module → `docs/modules/<Module>.md`. One index row in CLAUDE.md, nothing more.
+- A rule true only inside one component → that component's `CLAUDE.md` (§2.16). Never the root
+  file, and never a root-level doc keyed to a component name.
+- Reference material about one component → `<component>/<Name>.md`, beside the code. Optional.
 - A repeatable multi-step procedure → a skill. **No CLAUDE.md edit** — it's found from its
   `description:`.
 - Something the user runs → a command. **No CLAUDE.md edit.**
@@ -96,18 +105,60 @@ Two rules keep it from becoming a second copy of the docs:
 touched. Anything true of one package belongs there, not at the root — it is cheaper and more
 accurate. Same for directory-scoped skills.
 
-## Module doc contract
+## Component CLAUDE.md contract
 
-Every `docs/modules/<Module>.md` opens with exactly three lines:
+**Every component carries its own `CLAUDE.md`.** A component is any directory that owns a concern —
+a package, a wrapper target, a feature, a design-system area, the place assets live, the place API
+conventions live. **There is no list of them**, and one must never be written: the rule follows the
+directory that exists, not a catalogue of directories that should. A catalogue is what the retired
+per-module docs were (DECISIONS.md).
+
+It is `<component-dir>/CLAUDE.md`, and the harness loads it **only when a session touches that
+directory** — which is the whole point. A rule stated here costs nothing until it is about to be
+broken.
+
+**Every component CLAUDE.md opens with its boundary**, because that is the one thing that is always
+component-specific and always worth stating:
 
 ```markdown
-- **Package:** `Packages/<Name>` (local)   |   `GenericArch-<Name>` — extracted repo
-- **Used by:** …
-- **When to read this:** …
+# <Component> — rules that only bind here
+
+- **Owns:** …
+- **May depend on:** …
+- **Never imports:** …
 ```
 
-`Used by:` is how something stays out of CLAUDE.md — if it's relevant to one module, say so there
-rather than promoting it.
+Then, and only then, the rules true *inside this directory and nowhere else*.
+
+**What must not go in one.** It is auto-loaded, so it is charged to every session that edits here:
+
+| Don't | Because | Where instead |
+|---|---|---|
+| What the component is, who calls it | Reference, read once, not a rule | `<component>/<Name>.md` |
+| A rule true repo-wide | Drifts, and the stale copy is the one nobody reads | root `CLAUDE.md` — approval-gated |
+| A rule true in one file | Too narrow to charge the directory for | a `///` doc comment |
+| API listings, tutorials, examples | Not rules, and they go stale | a doc, or the code |
+
+**Worked examples** — these are illustrations, not a required set:
+
+- a feature — "no `#if DEBUG`", "no `resolve` outside `DI/`", "no sibling feature import"
+- a design-system area — "`#if os(...)` is allowed here and nowhere else"
+- a vendor wrapper — "only this target may import the vendor; our types at the boundary"
+- an assets area — how a new asset is named and which appearances it must carry
+- an API layer — how an endpoint is declared, and that no feature builds a path by concatenation
+
+## Package reference doc — optional, and deliberately so
+
+A component **may** also carry `<component>/<Name>.md` for reference material: what it is, who uses
+it, when to read it. **Optional on purpose.** `CLAUDE.md` is mandatory because rules must reach the
+session that is about to break them; reference is looked up when wanted, and making it mandatory
+buys a file nobody opens. Write it when there is something a caller genuinely needs.
+
+Never as a root-level doc keyed to a component name. A doc at the root outlives the component: it
+reads as current, describes code that is not there, and the index routes to it forever. That is the
+loop this base removed when it retired its own per-module docs (DECISIONS.md).
+
+The shape a product's layers take, and what each owns: [REPO.md](REPO.md).
 
 ## Notes contract
 

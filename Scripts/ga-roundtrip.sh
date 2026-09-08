@@ -31,6 +31,18 @@
 #  16. --final with no rules  the record goes to GENERICARCH-ORPHANS.md instead
 #  17. CLAUDE.md migration    --with-claude-md backs theirs up, uninstall restores it byte-for-byte
 #  18. an edited CLAUDE.md    is kept, and so is their backup
+#  19. no module asserted     no installed skill or command tells a session a package
+#                             like DIKit exists — the content check case 6 lacks
+#  20. library too old        a newer uninstall.sh beside an older ga-lifecycle.sh refuses before
+#                             removing anything, instead of losing functions in silence
+#  21. two manifests          removing one of two recorded installs names the other and withholds
+#                             the "pre-install state" claim
+#  22. the version stamp      is rewritten to the install that is still recorded, never left naming
+#                             a release that has gone
+#  23. two roots classified   the root that got furthest through the sequence is the one kept
+#  24. the refusal advises    the second-root message recommends that root, not the other one
+#  25. the deprecation        below the install floor: install is refused and writes nothing, while
+#                             uninstall still works — deprecating must not strand an old install
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -64,8 +76,9 @@ install_as()    { v="$1"; t="$2"; shift 2
                   ( cd "$SRC" && GA_VERSION="$v" GA_ASSUME_YES=1 ./install.sh "$t" "$@" ) >"$WORK/last.log" 2>&1; }
 uninstall_flags() { t="$1"; v="$2"; shift 2
                     ( cd "$t" && GA_ASSUME_YES=1 ./uninstall.sh "$v" "$@" ) >"$WORK/last.log" 2>&1; }
-# A supported version that is NOT the one under test, for the upgrade gate.
-PREV_V=v0.4.2
+# A supported version that is NOT the one under test, for the upgrade gate. Must be at or above
+# GA_INSTALL_FLOOR: install.sh now refuses a deprecated version, so v0.4.2 can no longer be installed.
+PREV_V=v0.6.0
 
 VERSION="${GA_VERSION:-$(git -C "$SRC" tag --sort=-v:refname --merged HEAD 2>/dev/null | head -1)}"
 [ -n "$VERSION" ] || { echo "no version tag reachable from HEAD — set GA_VERSION" >&2; exit 1; }
@@ -228,6 +241,8 @@ T="$(new_repo case6existing)"
 if install_into "$T"; then
   leaked=""
   for x in Packages docs/modules; do
+    # docs/modules no longer exists upstream; kept as a regression guard — if it ever
+    # reappears in a target, something re-created the per-package docs this base retired.
     [ -e "$T/$x" ] && leaked="$leaked $x"
   done
   for x in .claude/skills/new-feature .claude/commands/review.md; do
@@ -248,8 +263,11 @@ fi
 # ── 7. the architecture layer is opt-in, and the opt-in works ──────────────
 T="$(new_repo case7)"
 if ( cd "$SRC" && GA_ASSUME_YES=1 ./install.sh "$T" --with-architecture ) >"$WORK/last.log" 2>&1; then
+  # The witness used to be MAP.tsv's `module` rows. There are none any more — this base ships no
+  # per-package docs — so the opt-in is proved by the two surfaces it actually adds, plus the
+  # `pattern` rows that ride with them and are dropped without it.
   if [ -e "$T/.claude/skills/new-feature" ] && [ -e "$T/.claude/commands/review.md" ] \
-     && [ -n "$(awk -F'\t' '$2 ~ /^module/' "$T/.claude/MAP.tsv" | grep -c . | grep -v '^0$')" ]; then
+     && [ -n "$(awk -F'\t' '$2 ~ /^pattern/' "$T/.claude/MAP.tsv" | grep -c . | grep -v '^0$')" ]; then
     pass "--with-architecture adds it to an existing repo"
   else
     fail "--with-architecture did not add the architecture layer"
@@ -507,6 +525,234 @@ if install_flags "$T" --with-claude-md; then
   fi
 else
   fail "case 18: install --with-claude-md failed"
+fi
+
+# ── 19. no installed rule or procedure asserts a module ───────────────────
+# The defect class the twelve module docs left behind. Case 6 asserts which PATHS are absent; it
+# never greps what installed files SAY. Two real defects shipped past every case in this suite
+# because of that gap: a command still listing nine packages, and prose in notes and commands
+# naming modules a target has no package for.
+#
+# Scope is skills and commands on purpose — that is where a rule or procedure sets a session's
+# beliefs. Deliberately NOT scoped to:
+#   - the target's CLAUDE.md, which may be the consumer's own and may legitimately name theirs
+#   - .claude/notes/, whose data rows are blanked at install and whose names are inventory values
+#   - Scripts/, where a conventional directory name is a detection heuristic that under-matches
+#     rather than asserting — a separate, recorded issue
+# `Core` is deliberately matched only as `Packages/Core`, never bare: Apple ships Core Data, Core
+# Graphics and Core Animation, so a bare `Core` flags legitimate prose. The other names are
+# distinctive enough to match on their own.
+MODULE_NAMES='Packages/Core|DIKit|NetworkKit|ImageCache|StorageKit|LocalizationKit|LoggingKit|NotificationKit|AppShell|DesignSystem|Messaging|Navigation'
+# Allowlist, and why each is here. An entry is a debt, not a permission.
+#   sync-app-notes.md — scan hints keyed to a `DesignSystem/` path, not claims that it exists.
+# project-init.md was here: its S2 table listed nine packages under "Default to Core + Navigation".
+# That table now asks for roles ("Shared core", "Routing", "Message presentation") derived from the
+# requirements, with no default and no package names — so the entry is gone and this test holds it.
+MODULE_ALLOW='^\.claude/commands/sync-app-notes\.md$'
+T="$(new_repo case19)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_into "$T"; then
+  asserted="$(grep -rlwE "$MODULE_NAMES" "$T/.claude/skills" "$T/.claude/commands" 2>/dev/null \
+                | sed "s|$T/||" | grep -vE "$MODULE_ALLOW" || true)"
+  if [ -n "$asserted" ]; then
+    fail "an installed skill or command names a module this target has no package for:"
+    printf '          %s\n' $asserted
+  else
+    pass "no installed skill or command asserts a module outside the recorded allowlist"
+  fi
+else
+  fail "case 19: install failed"
+fi
+
+# ── case 20 ────────────────────────────────────────────────────────────────
+# A current uninstall.sh beside an OLDER installed Scripts/ga-lifecycle.sh must refuse before it
+# removes anything. It used to lose functions in silence — `ga_footprint_at: command not found` six
+# times, AFTER printing "back to its pre-install state" and exiting 0, so the second-root detection
+# those calls perform was skipped while the run claimed complete success. An unset function is not
+# an unset variable, so `set -u` never fired.
+#
+# The stub keeps the handful of things the sourcing itself needs and drops the rest, which is
+# exactly the shape of a genuinely older library.
+T="$(new_repo case20)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_into "$T"; then
+  cat > "$T/Scripts/ga-lifecycle.sh" <<'OLDLIB'
+# Deliberately incomplete: an older release's surface.
+GA_EX_OK=0; GA_EX_ERR=1; GA_EX_USAGE=2; GA_EX_ABORT=4
+GA_STATE_DIR=".genericarch"
+GA_RED=''; GA_YEL=''; GA_GRN=''; GA_DIM=''; GA_BLD=''; GA_OFF=''
+ga_die()  { echo "$1" >&2; exit "${2:-1}"; }
+ga_warn() { echo "$1" >&2; }
+ga_ok()   { echo "$1"; }
+ga_hdr()  { echo "$1"; }
+OLDLIB
+  before="$(find "$T/.claude" -type f 2>/dev/null | wc -l | tr -d ' ')"
+  if uninstall_in "$T" "$VERSION"; then
+    fail "case 20: uninstall succeeded against a library too old for it"
+  else
+    after="$(find "$T/.claude" -type f 2>/dev/null | wc -l | tr -d ' ')"
+    if ! grep -q "too old for this uninstaller" "$WORK/last.log"; then
+      fail "case 20: refused, but not with the too-old diagnostic"
+    elif [ "$before" != "$after" ]; then
+      fail "case 20: refused but still removed files ($before -> $after)"
+    else
+      pass "a library too old for the uninstaller is refused before anything is removed"
+    fi
+  fi
+else
+  fail "case 20: install failed"
+fi
+
+# ── case 21 ────────────────────────────────────────────────────────────────
+# A root that records TWO installs must not be reported as fully cleaned after one of them is
+# removed. Found on a real install: manifest-v0.2.0.json and manifest-v0.4.2.json side by side,
+# because an install.sh predating the exit-6 gate let a second release land on top. Removing v0.4.2
+# exited 0 and printed "back to its pre-install state" while v0.2.0's manifest and files stayed.
+#
+# Today's gate makes that state unreachable forward, so the fixture recreates it the way it exists
+# on disk: a second manifest naming a different version. Detection and the closing claim are what
+# is under test, not how it got there.
+T="$(new_repo case21)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_as "$VERSION" "$T"; then
+  legacy="$T/.genericarch/manifest-$PREV_V.json"
+  sed "s/\"genericarch_version\": \"$VERSION\"/\"genericarch_version\": \"$PREV_V\"/" \
+    "$T/.genericarch/manifest-$VERSION.json" > "$legacy"
+  if uninstall_in "$T" "$VERSION"; then
+    fail "case 21: uninstall exited 0 with another install still recorded in the root"
+  elif grep -q "back to its pre-install state" "$WORK/last.log"; then
+    fail "case 21: claimed pre-install state while $PREV_V was still recorded"
+  elif ! grep -q "still recorded in this root" "$WORK/last.log"; then
+    fail "case 21: refused, but did not say another install remains"
+  elif [ ! -f "$legacy" ]; then
+    fail "case 21: removed the other install's manifest, which this run was not given"
+  else
+    pass "a second recorded install is named, and the pre-install claim is withheld"
+  fi
+  # ── case 22 ──────────────────────────────────────────────────────────────
+  # Same fixture, one assertion further: .genericarch-version must not be left naming a release that
+  # is no longer the one recorded. In manifest mode the stamp used to be hash-compared like any
+  # installed file — but its content is the version, so it differs per install by design and the
+  # comparison always failed, preserving it as "you edited it". On a real twice-installed root it
+  # outlived the uninstall still reading v0.2.0.
+  stamp="$T/.genericarch-version"
+  if [ ! -f "$stamp" ]; then
+    fail "case 22: the stamp is gone, but an install is still recorded here"
+  elif [ "$(head -1 "$stamp")" != "$PREV_V" ]; then
+    fail "case 22: stamp reads $(head -1 "$stamp"), but $PREV_V is what remains recorded"
+  else
+    pass "the version stamp is rewritten to the install that is still recorded"
+  fi
+else
+  fail "case 21: install failed"
+fi
+
+# ── case 23 ────────────────────────────────────────────────────────────────
+# Two roots must produce a recommendation, not just a refusal. Before ga-roots.sh, install.sh said
+# "install into that root instead" and ga-sync-scan.sh said consolidating "is its own decision" —
+# so a real checkout with a live root at `ready` and older residue one level down was told to prefer
+# the residue, with no tool that could say otherwise.
+#
+# The fixture is that shape exactly: outer root through the whole sequence, inner root carrying two
+# stacked manifests and stuck at `install`. The outer one must win.
+T="$(new_repo case23)"
+mkdir -p "$T/.genericarch" "$T/App/.genericarch"
+printf '{\n  "schema": 2,\n  "genericarch_version": "%s",\n  "files": []\n}\n' "$VERSION" \
+  > "$T/.genericarch/manifest-$VERSION.json"
+printf '#\tstep\tat\tnote\ninstall\t2026-01-01T00:00:00Z\tx\nproject-init\t2026-01-02T00:00:00Z\tx\ngaps\t2026-01-03T00:00:00Z\tx\nsync-app-notes\t2026-01-04T00:00:00Z\tx\nready\t2026-01-05T00:00:00Z\tx\n' \
+  > "$T/.genericarch/STEPS.tsv"
+printf '{\n  "schema": 1,\n  "genericarch_version": "v0.2.0",\n  "files": []\n}\n' \
+  > "$T/App/.genericarch/manifest-v0.2.0.json"
+printf '{\n  "schema": 1,\n  "genericarch_version": "%s",\n  "files": []\n}\n' "$PREV_V" \
+  > "$T/App/.genericarch/manifest-$PREV_V.json"
+printf '#\tstep\tat\tnote\ninstall\t2025-01-01T00:00:00Z\tx\n' > "$T/App/.genericarch/STEPS.tsv"
+# /var/folders is a symlink to /private/var/folders on macOS and ga-roots.sh resolves with pwd -P,
+# so compare resolved paths or every assertion here fails on the prefix alone.
+T_P="$(cd "$T" && pwd -P)"
+rows="$( ( cd "$SRC" && ./Scripts/ga-roots.sh "$T" --tsv ) 2>/dev/null )"
+keep="$(printf '%s\n' "$rows" | awk -F'\t' '$1=="KEEP"  {print $2}')"
+retire="$(printf '%s\n' "$rows" | awk -F'\t' '$1=="RETIRE"{print $2}')"
+if [ "$(printf '%s\n' "$rows" | wc -l | tr -d ' ')" != "2" ]; then
+  fail "case 23: expected two roots, got: $(printf '%s' "$rows" | tr '\n' ' ')"
+elif [ "$keep" != "$T_P" ]; then
+  fail "case 23: kept $keep — the root that reached ready is $T_P"
+elif [ "$retire" != "$T_P/App" ]; then
+  fail "case 23: retire target was $retire, expected $T_P/App"
+elif ( cd "$SRC" && ./Scripts/ga-roots.sh "$T" >/dev/null 2>&1 ); then
+  fail "case 23: exited 0 with a consolidation decision pending"
+else
+  pass "two roots are classified, and the one that got furthest is the one kept"
+fi
+
+# ── case 24 ────────────────────────────────────────────────────────────────
+# The second-root refusal must not send the operator to the wrong root. It used to advise "install
+# into that root instead" unconditionally, so a target that had come through the whole sequence was
+# told to prefer older residue one level down. Now it quotes ga-roots.sh's ranking.
+#
+# Here the OUTER root is the live one, and the install being refused is the outer one — so the
+# message must say to keep here and retire the other, and must NOT tell us to install into App.
+T="$(new_repo case24)"
+: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
+if install_into "$T"; then
+  mkdir -p "$T/App/.genericarch"
+  printf '{\n  "schema": 1,\n  "genericarch_version": "v0.2.0",\n  "files": []\n}\n' \
+    > "$T/App/.genericarch/manifest-v0.2.0.json"
+  printf '#\tstep\tat\tnote\ninstall\t2025-01-01T00:00:00Z\tx\n' > "$T/App/.genericarch/STEPS.tsv"
+  if install_into "$T"; then
+    fail "case 24: install succeeded with a second root present"
+  elif ! grep -q "the one that got furthest" "$WORK/last.log"; then
+    fail "case 24: refused without quoting the ranking"
+  elif grep -q "Install into that root instead" "$WORK/last.log"; then
+    fail "case 24: still advised installing into the root that got less far"
+  elif ! grep -q "ga-roots.sh" "$WORK/last.log"; then
+    fail "case 24: did not name the tool that prints the retire commands"
+  else
+    pass "the second-root refusal recommends the root that got furthest, not the other one"
+  fi
+else
+  fail "case 24: install failed"
+fi
+
+# ── case 25 ────────────────────────────────────────────────────────────────
+# The deprecation is asymmetric on purpose: below the floor you cannot INSTALL, but you can still
+# UNINSTALL. Removing the old versions from the supported list outright would have stranded every
+# install that already had one — including the real v0.5.0 and nested v0.2.0/v0.4.2 roots that
+# prompted this — and would have broken ga-roots.sh, whose output is the uninstall command for
+# exactly that residue.
+DEPRECATED_V=v0.4.2
+T="$(new_repo case25)"
+if install_as "$DEPRECATED_V" "$T"; then
+  fail "case 25: installed $DEPRECATED_V, which is below the floor"
+elif ! grep -q "deprecated and can no longer be installed" "$WORK/last.log"; then
+  fail "case 25: refused the deprecated install, but not with the deprecation diagnostic"
+elif [ -d "$T/.claude" ]; then
+  fail "case 25: refused but still wrote into the target"
+else
+  pass "a version below the install floor is refused, and nothing is written"
+fi
+
+# The other half: it must still come off. Install the current release, then relabel its manifest as
+# the deprecated version — the shape an existing old install has on disk — and remove it.
+T="$(new_repo case25b)"
+if install_into "$T"; then
+  mv "$T/.genericarch/manifest-$VERSION.json" "$T/.genericarch/manifest-$DEPRECATED_V.json"
+  sed -i '' "s/\"genericarch_version\": \"$VERSION\"/\"genericarch_version\": \"$DEPRECATED_V\"/" \
+    "$T/.genericarch/manifest-$DEPRECATED_V.json"
+  if ! uninstall_in "$T" "$DEPRECATED_V"; then
+    fail "case 25b: a deprecated version could not be uninstalled — that strands every old install"
+  elif ! grep -q "deprecated" "$WORK/last.log"; then
+    fail "case 25b: removed it without saying the version is deprecated"
+  elif [ -d "$T/.claude" ]; then
+    fail "case 25b: reported success but left .claude/ behind"
+  else
+    pass "a deprecated version is still fully removable, and says so while doing it"
+  fi
+else
+  fail "case 25b: install failed"
 fi
 
 echo

@@ -26,7 +26,7 @@ measured.
 ### Eager dependency construction is a launch cost — bound it
 
 Building the whole dependency graph before the first frame buys an immutable, lock-free container
-([DIKit.md](modules/DIKit.md)) and pays for it on every launch.
+(CLAUDE.md §2.6) and pays for it on every launch.
 
 **The rule:** a dependency may be constructed eagerly only if its `init` does no I/O, no disk read,
 no `URLSession` creation with a background configuration, and no work proportional to stored data.
@@ -53,7 +53,7 @@ comment.
 - Font registration is on it by necessity ([FONTS.md](../.claude/notes/FONTS.md)) — keep it to the
   files actually used.
 - No network call before first frame. A force-update check runs *after* first frame, gating the UI
-  it already drew ([AppShell.md](modules/AppShell.md)).
+  it already drew.
 - No `Bundle` resource enumeration, no JSON fixture loading, no keychain sweep.
 - Analytics and crash SDK init are the classic offenders — initialize the wrapper, defer the
   vendor's own start to after first frame.
@@ -120,7 +120,7 @@ The one legitimate use is a heterogeneous collection built at runtime — rare, 
   `List` recycles, a non-lazy `VStack` builds every row up front.
 - Fixed row heights where possible. Self-sizing rows force a second layout pass on every scroll.
 - **Images are the usual culprit**, not the list — decode off-main and size to the display size
-  ([ImageCache.md](modules/ImageCache.md)).
+  (the image-cache layer).
 - Never do async work in a row's `body`. Kick it off in `.task(id:)`, which cancels on recycle.
 
 ### Equatable views

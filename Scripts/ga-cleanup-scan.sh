@@ -2,13 +2,13 @@
 #@kind      tool
 #@platform  macos
 #@claude    call
-#@purpose   Gather every cleanup candidate this install carries — orphan module docs, skills that cannot fire, memory rules duplicated across levels, a missing or malformed FETCH-BASE stamp — each with the evidence and the reason it is a candidate. Decides nothing and deletes nothing.
+#@purpose   Gather every cleanup candidate this install carries — per-package docs left at the repo root, skills that cannot fire, memory rules duplicated across levels, a missing or malformed FETCH-BASE stamp — each with the evidence and the reason it is a candidate. Decides nothing and deletes nothing.
 #@usage     ga-cleanup-scan.sh [target-dir] [--memory|--docs|--skills|--index] [--tsv]
 #@in        target:dir(default .) --memory/--docs/--skills/--index:flag(one class only; default all) --tsv:flag(machine-readable, no colour)
 #@out       stdout:sections of CANDIDATE/KEEP/REFUSE rows as class,path,evidence,reason then a count; --tsv drops the prose
 #@exit      0=scan completed (candidates found or not) 1=not a GenericArch install 2=usage
 #@effects   read-only; offline; opens no network and writes nothing
-#@when      what can I clean up|cleanup candidates|which skills cannot fire|duplicate memory rule|orphan module docs|orphaned index row|before clean-up-genericarch-extra-memory|token cost of this install
+#@when      what can I clean up|cleanup candidates|which skills cannot fire|duplicate memory rule|stale package doc at the root|orphaned index row|before clean-up-genericarch-extra-memory|token cost of this install
 #
 # The half of /clean-up-genericarch-extra-memory that is deterministic. Finding a candidate is
 # evidence-gathering — greps and file tests — while DECIDING is judgement, and only the second half
@@ -77,19 +77,23 @@ MANIFEST=""; for m in $(ga_manifest_find "$TARGET"); do MANIFEST="$m"; done
   echo
 }
 
-# ── 1. module docs with no package behind them ─────────────────────────────
+# ── 1. per-package docs at the repo root ───────────────────────────────────
+# This base ships none: a root-level doc for a package a product may not have reads as current,
+# describes code that is not there, and the index routes to it forever. A package's doc belongs
+# beside its code as Packages/<Name>/<Name>.md. Any root-level one here came from an install
+# older than that decision, or was written by hand — either way it is a candidate.
 if want docs; then
-  hdr "── module docs ────────────────────────────────────────"
+  hdr "── per-package docs at the root ───────────────────────"
   if [ ! -d docs/modules ]; then
-    say "  none on disk — current installs fetch them on demand, which is correct"
+    say "  none — correct; a package's doc belongs beside its code"
   else
     for d in docs/modules/*.md; do
       [ -f "$d" ] || continue
       pkg="$(basename "$d" .md)"
-      if [ -d "Packages/$pkg" ] || [ -d "Packages/Features/$pkg" ]; then
-        refuse docs "$d" "Packages/$pkg exists" "the package it documents is here"
-      elif ga_tombstoned "$TARGET" "$d"; then
+      if ga_tombstoned "$TARGET" "$d"; then
         refuse docs "$d" "already tombstoned" "decided — a tombstone is not re-proposed"
+      elif [ -d "Packages/$pkg" ] || [ -d "Packages/Features/$pkg" ]; then
+        row docs "$d" "Packages/$pkg exists" "move it beside the code as Packages/$pkg/$pkg.md"
       else
         row docs "$d" "no Packages/$pkg" "documents a package that does not exist here"
       fi
@@ -143,8 +147,16 @@ if want index; then
     say "  no .claude/MAP.tsv here"
   elif awk -F'\t' '/^# FETCH-BASE:/{found=1} END{exit !found}' "$MAP"; then
     refuse index "$MAP" "stamp well-formed" "docs/ rows resolve; ga-init-scan.sh reports the counts"
-  elif grep -q 'FETCH-BASE' "$MAP"; then
+  elif grep -qE '^#[[:space:]]*FETCH-BASE' "$MAP"; then
+    # Anchored on purpose. An unanchored 'FETCH-BASE' also matches the map's own header prose, which
+    # explains the stamp to a reader — so the base repo reported its own documentation as a
+    # malformed stamp. This form matches an attempted stamp ('#<tab>FETCH-BASE:') and not a sentence
+    # mentioning one.
     row index "$MAP" "stamp present but MALFORMED" "must be '# FETCH-BASE:<tab><url>' as line 1 — every tool greps that exact form"
+  elif ga_is_source_checkout "$TARGET"; then
+    # The base has every docs/ file on disk, so there is nothing for a fetch base to resolve. Only
+    # an install needs the stamp; install.sh adds it.
+    refuse index "$MAP" "GenericArch source checkout" "no stamp needed — every docs/ row is local here"
   else
     row index "$MAP" "no stamp at all" "every docs/ row is unresolvable until one is added"
   fi

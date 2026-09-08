@@ -105,10 +105,10 @@ git diff --stat        # must be empty of your changes until Gate 2 passes
 ```
 
 ```
-Packages/Core/Package.swift
+Packages/<Name>/Package.swift
   -   platforms: [.iOS(.v17), .macOS("26.6")]
   +   platforms: [.iOS(.v17), .macOS("26.5")]
-Packages/DIKit/Package.swift
+Packages/<Other>/Package.swift
   -   platforms: [.iOS(.v17), .macOS("26.6")]
   +   platforms: [.iOS(.v17), .macOS("26.5")]
 ```
@@ -147,8 +147,8 @@ Skip, so it isn't re-raised next month.
   gate, not folded into gate 2.
 - **Never install or switch Xcode**, and never run `xcode-select`. If the fix is "install a newer
   Xcode", say so and stop; that is the user's machine.
-- **Never touch the extracted packages** (`GenericArch-NetworkKit`, `GenericArch-ImageCache`). They
-  are separate repositories — `/release-bump`.
+- **Never touch an extracted package** — whichever ones this product resolves by version
+  ([REPO.md](../../docs/REPO.md)). They are separate repositories — `/release-bump`.
 - **Never raise a deployment target because the SDK allows it.** SDK availability is not a reason;
   product reach is.
 - **Never batch an OPPORTUNITY in with a BLOCKING fix.** Approving "make it build" is not approving

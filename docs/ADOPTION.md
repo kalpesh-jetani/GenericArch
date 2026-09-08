@@ -83,7 +83,7 @@ clash — two skills triggering on the same phrases means neither fires predicta
 ## A5. Install additively, only what's missing and approved
 
 - **Create only what does not exist.** Never overwrite a file they wrote.
-- `docs/modules/*.md` for packages they actually have — not the full set. A doc for a package that
+- a module doc only for a package they actually have — never the full set. A doc for a package that
   doesn't exist is instant drift.
 - `.claude/notes/*` scaffolds are safe to add (they're new inventories) — but do **not** run
   `sync-app-notes` yet; that's Step S3, and only with approval.
@@ -99,5 +99,14 @@ One `/decide` row per resolution, in both directions:
 - Anything deferred → *Open*, with what it blocks.
 
 An override that isn't recorded gets re-litigated, which is worse than never having asked.
+
+**This is now enforced, not merely required.** `/project-init` S5 lists every conflict from
+`INIT-CONFLICTS.tsv` that has no row in `DECISIONS.md` and refuses to record the step until each
+one does. The failure it closes was observed on a real adoption: §2/§3 had been declined, the
+resolution lived only in that session's transcript, and the next run asked again — forever
+([DECISIONS.md](DECISIONS.md), *Recording a resolution*).
+
+**"Keep theirs" is a resolution.** It is the one most often left unrecorded, because nothing
+changed on disk — and it is exactly the one that gets re-litigated.
 
 ---

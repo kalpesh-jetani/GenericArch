@@ -125,8 +125,59 @@ for prompt, expected in CASES:
     elif winners and winners[0] != expected and expected != "AMBIGUOUS":
         problems.append(f"WRONG {prompt!r} → {winners[0]} (want {expected})")
 
+# ── The OpenSpec boundary ──────────────────────────────────────────────────
+# A product that installs OpenSpec gets a dozen openspec-* skills in .claude/skills/, so they enter
+# `descs` above on their own and compete with ours for the same phrasing (docs/OPENSPEC.md).
+#
+# Asserting WHICH of theirs should win would pin wording we do not control and cannot predict, and
+# it would go stale on their next release. So assert only the two things that are actually ours to
+# keep true, in both directions. Both hold whether or not OpenSpec is installed here: with none
+# present the winner lists are empty and every assertion passes trivially.
+HOUSE = {"debug", "new-feature"}
+
+# Spec-workflow language. None of ours may claim it — a scaffolding skill that fires on "propose a
+# change" produces a package nobody asked for and skips the spec that was the point.
+SPEC_WORKFLOW = [
+    "propose a change for magic-link login",
+    "archive the completed change",
+    "apply the tasks from the plan",
+    "write the delta spec for this capability",
+    "verify the change against its spec",
+    "explore options before we commit to a plan",
+]
+
+# Our language. None of theirs may claim it — these are Swift package and debugging jobs, and no
+# amount of spec workflow does them.
+HOUSE_WORK = [
+    "create a new settings screen",
+    "scaffold FeatureProfile",
+    "fix this crash on the profile screen",
+    "why is the screen blank",
+]
+
+
+def _winners(prompt: str) -> list:
+    s = {k: score(prompt, d, descs) for k, d in descs.items()}
+    top = max(s.values()) if s else 0
+    w = [k for k, v in s.items() if v >= 1.0 and top - v < 0.15]
+    return [k for k in w if not _weak_alone(prompt, descs[k])]
+
+
+for prompt in SPEC_WORKFLOW:
+    stolen = [k for k in _winners(prompt) if k in HOUSE]
+    if stolen:
+        problems.append(f"STOLEN {prompt!r} → {stolen} (a house skill claimed spec-workflow language)")
+
+for prompt in HOUSE_WORK:
+    stolen = [k for k in _winners(prompt) if k.startswith("openspec-")]
+    if stolen:
+        problems.append(f"STOLEN {prompt!r} → {stolen} (an OpenSpec skill claimed house work)")
+
 if problems:
     print("\n".join(problems))
     print(f"\n{len(problems)} trigger collision(s)")
     sys.exit(1)
-print(f"{len(CASES)} prompts route correctly across {len(descs)} skills")
+_total = len(CASES) + len(SPEC_WORKFLOW) + len(HOUSE_WORK)
+_os_n = sum(1 for k in descs if k.startswith("openspec-"))
+_os_note = f", {_os_n} of them OpenSpec's" if _os_n else " (OpenSpec not installed here)"
+print(f"{_total} prompts route correctly across {len(descs)} skills{_os_note}")

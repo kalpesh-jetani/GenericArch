@@ -309,7 +309,12 @@ md_sections() {
       sub(/[ \t]*#+[ \t]*$/, "", title)          # closed ATX: "## Title ##"
       slug = tolower(title)
       gsub(/[^a-z0-9 _-]/, "", slug)
-      gsub(/ +/, "-", slug)
+      # One hyphen per space, NOT per run. GitHub drops the punctuation first and then substitutes
+      # each remaining space, so "5. Upgrade & migrate" becomes "5-upgrade--migrate" — the dropped
+      # "&" leaves two spaces behind and therefore two hyphens. Collapsing runs produced
+      # "5-upgrade-migrate", which reported a correct anchor as broken and, worse, would have
+      # accepted the single-hyphen spelling that actually 404s on GitHub.
+      gsub(/ /, "-", slug)
       n++
       L[n] = lvl; S[n] = NR; T[n] = title; G[n] = slug
     }

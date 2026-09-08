@@ -14,7 +14,7 @@ promotes it. Until then it is reference: read it when the situation arises.
 
 # Dark / Light Mode
 
-Design rules live in [DesignSystem.md](../modules/DesignSystem.md). This is the
+Design rules live with the design-system layer. This is the
 implement-and-verify procedure.
 
 **The principle:** a view should never ask which appearance it is in. Tokens resolve; views

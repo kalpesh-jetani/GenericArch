@@ -24,7 +24,7 @@ The order the commands run in, what each one must leave behind, and what enforce
 | 4 | `sync-app-notes` | `/sync-app-notes` | Nine inventories in `.claude/notes/`, each with a `Last synced` line |
 | 5 | `ready` | recorded by step 4 | Nothing — it is the gate everything else waits on |
 
-After `ready`: `/find`, `/decide`, `/learn`, `/review`, `/verify`, `/build` and every skill run in
+After `ready`: `/find`, `/decide`, `/learn`, `/review`, `/verify`, `/build`, `/openspec-install` and every skill run in
 any order, as often as needed. They are not steps; they are the work.
 
 **An upgrade re-enters at step 1.** `install.sh` refuses over a different recorded version (exit 6),
@@ -73,9 +73,28 @@ These run whenever the situation calls for them, and gate on `install` only:
 |---|---|---|
 | Gather what `/project-init` can establish without asking | `Scripts/ga-init-scan.sh` | Preflight, not a step: read-only, records nothing, and `install.sh` runs it once the manifest lands. `project-init` is still the step, because the asking is the step |
 | Take a base update | `Scripts/adopt-review.sh` | Reacts to upstream moving, not to a phase |
+| Work out which of two install roots to keep | `Scripts/ga-roots.sh` | A consolidation decision. Both `install.sh` and `ga-sync-scan.sh` refuse while it is pending, so it precedes the sequence rather than sitting in it |
 | Decline a file (moves it to `safetodelete/`) | `Scripts/ga-remove.sh` | A decision, recordable at any point |
 | Re-seal after editing installed files | `Scripts/ga-reseal.sh` | Runs *after* any command that rewrote them |
 | Remove everything | `./uninstall.sh <version>` | Ends the lifecycle |
+
+## Never offer a command whose gate you have not satisfied
+
+A step command must not suggest running another command mid-run unless that command's `require`
+line would pass **at that moment**. It usually would not: a step records itself at its *end*, so
+anything gated on it is refused for the whole of its own run.
+
+That produced a real loop. `/project-init` S3 offered `/sync-app-notes`, whose gate needs
+`install`, `project-init` and `gaps` recorded — but `project-init` records at S5. The user accepted,
+the gate exited 5, the command's header said stop, and the next run offered it again. `--force` is
+never the way out; the offer was the bug.
+
+**So: describe what comes next, and run nothing.** Name the commands in order and let the user
+start them once this one has recorded. Checking is one line:
+
+```bash
+./Scripts/ga-step.sh next        # what the ledger says may run now
+```
 
 ## Adding a command
 
