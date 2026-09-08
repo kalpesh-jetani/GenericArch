@@ -72,6 +72,12 @@ install → /project-init → /gaps → /sync-app-notes → ready
 ./Scripts/ga-step.sh show
 ```
 
+Optional once `ready`, and idempotent — run it again any time to re-project or check:
+
+```
+/openspec-install
+```
+
 Then, on your own machine:
 
 ```bash
@@ -120,7 +126,7 @@ most likely have an old tag checked out — the error names the fix.
 
 | | What | Why |
 |---|---|---|
-| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · scan and lookup scripts · `ga-step`, `ga-remove`, `ga-reseal` · `ga-project-setup.sh` · `uninstall.sh` | They must be local to work |
+| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · scan and lookup scripts · `ga-step`, `ga-remove`, `ga-reseal`, `ga-roots` · `ga-project-setup.sh` · `openspec-sync.sh` · `uninstall.sh` | They must be local to work |
 | **Scaffolded empty** | `docs/DECISIONS.md` · `docs/GAPS.md` · `.claude/notes/` · `.claude/memory/` · `.claude/CANDIDATES.tsv` | The prose is ours, the answers are yours |
 | **Fetched on demand** | `docs/patterns/` · cross-cutting reference docs | A product should not carry docs it does not read |
 | **On consent** | `--with-architecture` → `new-feature`, `/review`, pattern rows | A surface that cannot fire is worse than a missing one |
@@ -312,9 +318,31 @@ version and exits `6`.
 ./uninstall.sh v0.6.1 --yes
 ```
 
-Supported: `v0.1.0` · `v0.2.0` · `v0.3.0` · `v0.4.0` · `v0.4.1` · `v0.4.2` · `v0.5.0` · `v0.6.0` ·
-`v0.6.1` (latest). At the end it asks what becomes of any files it could not remove: `--upgrade`
-leaves them for a re-install, `--final` retires them to `.genericarch/safetodelete/`.
+**Removable: every version this tool has ever shipped** — `v0.1.0` through `v0.6.2` — including the
+deprecated ones. Only *installing* is floored at `v0.6.0` ([version support](#1-install)), so an old
+install always has a way off. `uninstall.sh` prints `deprecated` in its header when the version is
+below the floor and removes it anyway.
+
+At the end it asks what becomes of any files it could not remove: `--upgrade` leaves them for a
+re-install, `--final` retires them to `.genericarch/safetodelete/`.
+
+**Two things block an upgrade, and both say so rather than failing vaguely.**
+
+*The version you have is deprecated.* `install.sh` exits `6` and names the fix — you almost
+certainly have an old tag checked out. Uninstall first, then install the current release:
+
+```bash
+(cd /path/to/YourApp && ./uninstall.sh v0.4.2) && ./install.sh /path/to/YourApp
+```
+
+*There are two install roots in the checkout.* Both `install.sh` and `ga-sync-scan.sh` refuse while
+that is true, because a sync would update one and leave the other shadowing it. This ranks them by
+how far each got through the sequence and prints the exact commands to retire the one you do not
+want — it removes nothing itself:
+
+```bash
+./Scripts/ga-roots.sh /path/to/YourApp
+```
 
 **Take upstream fixes into an adopted repo.** `install.sh` never overwrites, so this is the other
 half. Writes nothing.
