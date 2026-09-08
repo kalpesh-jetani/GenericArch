@@ -183,6 +183,11 @@ change.
 and tracked, so it survives a clone. Never write to a machine-local store. What may be written, and
 where **new** material belongs: [STRUCTURE.md](docs/STRUCTURE.md).
 
+**In a repo with `openspec/`, look it up here before exploring.** `/opsx:explore` and
+`/opsx:propose` answer from the four indexes above first — a spec written against something this
+repo already settled is worse than no spec. They are the only OpenSpec commands nothing can inject
+into, so this line is the whole mechanism → [OPENSPEC.md](docs/OPENSPEC.md).
+
 Both indexes are pruned per install, so **a row that is not here may still exist upstream** —
 declined, or a layer this product did not take. Check `.genericarch/TOMBSTONES.tsv` before
 concluding
