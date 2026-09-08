@@ -115,7 +115,7 @@ Full flag list and exit codes are in each script's own header — `install.sh`, 
 
 | | Which | What it means |
 |---|---|---|
-| **Supported** | `v0.6.x` | Install, upgrade and remove. `v0.6.1` is the current patch |
+| **Supported** | `v0.6.x` | Install, upgrade and remove. `v0.6.2` is the current patch |
 | **Deprecated** | below `v0.6.0` | **Removable, never installable.** `install.sh` refuses with exit 6; `uninstall.sh` still takes it off and says so |
 
 Deprecating a release must not strand the installs that already have it, so removal stays supported

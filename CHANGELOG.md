@@ -6,7 +6,7 @@ decorative.
 
 ---
 
-## Unreleased
+## v0.6.2
 
 The theme: **the base asserts no module it cannot show you.**
 
@@ -119,21 +119,24 @@ people, so a copy of any part of it is stale the moment they change it.
   house work — never which of theirs should win, because that would pin wording we do not control.
 - **`new-feature` step 2b** checks for an in-flight change before scaffolding, for the same reason
   step 2 checks whether the screen exists.
+- **`CLAUDE.md` §5 carries the routing line** that is the only path to `/opsx:explore`. It produces
+  no artifact, so nothing in `openspec/config.yaml` reaches it; a line in a file that loads every
+  session is the whole mechanism. 56 words, and §2's numbering is untouched.
 - Two gaps are stated rather than papered over: their explore and verify steps have **no injection
   point at all**. What reaches explore is an always-loaded rule and nothing stronger, and
   [docs/DONE.md](docs/DONE.md) stays the authority on done.
 
-**Release note — tag this `v0.6.2`.** `install.sh` derives the version from git tags, and
-`ga_known_paths` has a `v0.6.2` arm listing `Scripts/openspec-sync.sh` and `Scripts/ga-roots.sh`.
-Tagging it anything else leaves both unaccounted for in a fallback uninstall. The plugin path
-carries the **command only** — `build-plugin.sh` copies `.claude/skills` and `.claude/commands`, so
-a plugin-only consumer gets no script and no doc; the command detects that and says so.
+**Tagged `v0.6.2`.** `install.sh` derives the version from git tags, and `ga_known_paths` has a
+`v0.6.2` arm listing `Scripts/openspec-sync.sh` and `Scripts/ga-roots.sh` — under any other tag both
+would be unaccounted for in a fallback uninstall. The plugin path carries the **command only**:
+`build-plugin.sh` copies `.claude/skills` and `.claude/commands`, so a plugin-only consumer gets no
+script and no doc, and the command detects that and says so.
 
 ### v0.6 is the LTS line, and everything below it is deprecated
 
-`v0.6.0` opens the supported line and every `v0.6.x` belongs to it; `v0.6.1` is its current patch
-and this release lands as `v0.6.2`. Two constants say so rather than a convention:
-`GA_LTS_LINE="v0.6"` and `GA_LATEST_VERSION="v0.6.1"`.
+`v0.6.0` opens the supported line and every `v0.6.x` belongs to it, and this release is its
+current patch. Two constants say so rather than a convention: `GA_LTS_LINE="v0.6"` and
+`GA_LATEST_VERSION`, which this release moves to `v0.6.2`.
 
 **Versions are now two tiers, because installing an old release and removing one are different
 questions.**
