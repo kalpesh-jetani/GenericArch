@@ -136,6 +136,15 @@ ga_mtime_iso() {
 
 ga_now_iso() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 
+# Strict version less-than. Trailing zero segments are dropped first, because 26.5 and 26.5.0 name
+# the same OS and must not compare unequal — `sort -V` orders them, so a bare string `!=` guard
+# reads 26.5.0 as ABOVE an SDK reporting 26.5 and blocks a build that was never broken.
+ga_ver_norm() { printf '%s' "$1" | sed 's/\(\.0\)*$//'; }
+ga_ver_lt() {
+  _ga_a=$(ga_ver_norm "$1"); _ga_b=$(ga_ver_norm "$2")
+  [ "$_ga_a" != "$_ga_b" ] && [ "$(printf '%s\n%s\n' "$_ga_a" "$_ga_b" | sort -V | head -1)" = "$_ga_a" ]
+}
+
 # ── JSON, hand-rolled ──────────────────────────────────────────────────────
 # No jq on a stock macOS box, and adding a dependency to an installer is how an installer stops
 # being runnable. We are the only writer of this file, so the format is chosen to be BOTH valid

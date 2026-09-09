@@ -11,6 +11,7 @@
 #   ./install.sh --no-preflight       # skip the /project-init evidence scan at the end
 #   ./install.sh --in-place           # upgrade over an existing install instead of uninstalling first
 #   ./install.sh --with-claude-md     # take GenericArch's CLAUDE.md; yours is kept at CLAUDE-BK.md
+#   ./install.sh --ios 17 --macos 15  # state the deployment floors instead of being asked for them
 #
 # This script runs from a GenericArch CHECKOUT and touches the network never. To install straight
 # from GitHub, use bootstrap.sh, which clones a pinned tag and then calls this.
@@ -42,7 +43,7 @@ fi
 . "$SRC/Scripts/ga-lifecycle.sh"
 
 usage() {
-  sed -n '2,18p' "$0"
+  sed -n '2,19p' "$0"
   echo
   echo "Exit codes: 0 ok · 1 error · 2 usage · 3 incompatible target · 4 declined · 6 uninstall first"
   echo "            78 not macOS"
@@ -57,6 +58,12 @@ WITH_CLAUDE=0
 IN_PLACE=0     # upgrade over an older install instead of refusing until it is uninstalled
 PROJECT_SETUP=""   # "" ask when it applies · yes always · no never
 PREFLIGHT=1        # run the /project-init evidence scan once the install has landed
+# Deployment floors, forwarded to ga-project-setup.sh. Reachable here because the floor is the one
+# project answer a person may want to state up front: a freshly created Xcode target carries
+# whatever SDK it was made with, and without these flags the only way to say otherwise was to skip
+# this step and run ga-project-setup.sh by hand afterwards. Unset means "ask", as before.
+PS_IOS=""
+PS_MACOS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes)      GA_ASSUME_YES=1; shift ;;
@@ -69,6 +76,10 @@ while [ $# -gt 0 ]; do
     --project-setup)    PROJECT_SETUP="yes"; shift ;;
     --no-project-setup) PROJECT_SETUP="no"; shift ;;
     --no-preflight)     PREFLIGHT=0; shift ;;
+    --ios)         [ $# -ge 2 ] || ga_die "--ios needs a version (e.g. --ios 17)" "$GA_EX_USAGE"
+                   PS_IOS="$2"; shift 2 ;;
+    --macos)       [ $# -ge 2 ] || ga_die "--macos needs a version (e.g. --macos 15)" "$GA_EX_USAGE"
+                   PS_MACOS="$2"; shift 2 ;;
     --mode)        [ $# -ge 2 ] || ga_die "--mode needs existing or new" "$GA_EX_USAGE"
                    ga_die "--mode is gone: this base installs into a repo that already has its own
   structure, and there is nothing else to be. A repo with no shape yet gets its package layout from
@@ -484,9 +495,25 @@ if [ "$PROJECT_SETUP" != "no" ] && [ -x "$SRC/Scripts/ga-project-setup.sh" ]; th
     PS_HAS_TTY=1
     { exec 3<>/dev/tty; } 2>/dev/null && exec 3>&- || PS_HAS_TTY=0
 
+    # One argument string, built once and used by both the dry-run line and the real call, so what
+    # the preview advertises cannot drift from what runs. Bare version numbers, so there is no word
+    # splitting to guard against; a string rather than an array because POSIX sh has neither and
+    # this runs before anything GenericArch installs.
+    PS_FLOORS="${PS_IOS:+--ios $PS_IOS}${PS_MACOS:+${PS_IOS:+ }--macos $PS_MACOS}"
+    PS_ARGS="--apply"
+    # --yes has to be handed over explicitly. GA_ASSUME_YES is a plain shell variable here, never
+    # exported, and ga-project-setup.sh runs as its own process — so an unattended
+    # `install.sh --yes --project-setup` printed the whole plan and then declined its own write,
+    # leaving the install to continue with no .xcconfig files and a warning nobody was there to
+    # read. Only the child's final write confirmation is answered: its questions come from ask(),
+    # which GA_ASSUME_YES does not touch, so a person at a terminal is still asked for the bundle
+    # ID and anything else not supplied by flag.
+    [ "$GA_ASSUME_YES" = "1" ] && PS_ARGS="$PS_ARGS --yes"
+    [ -n "$PS_FLOORS" ] && PS_ARGS="$PS_ARGS $PS_FLOORS"
+
     if [ "$DRY_RUN" -eq 1 ]; then
       ga_dim "  dry run — skipped. It would run:"
-      ga_dim "    ./Scripts/ga-project-setup.sh \"$TARGET\" --apply"
+      ga_dim "    ./Scripts/ga-project-setup.sh \"$TARGET\" $PS_ARGS"
     elif [ "$PS_HAS_TTY" -eq 0 ] && [ "$PROJECT_SETUP" != "yes" ]; then
       ga_warn "no terminal to ask on — project setup skipped, the install continues.
   It needs a bundle ID, a Team ID and a deployment floor, none of which may be defaulted
@@ -495,8 +522,10 @@ if [ "$PROJECT_SETUP" != "no" ] && [ -x "$SRC/Scripts/ga-project-setup.sh" ]; th
         --targets ios,macos --ios 17 --macos 26.5 --apply --yes"
     elif [ "$PROJECT_SETUP" = "yes" ] || ga_confirm "Set up the Xcode project inputs first?"; then
       # Run it directly rather than reimplementing the gate: one source of truth for what a usable
-      # Apple toolchain is, and it prompts for its own answers.
-      "$SRC/Scripts/ga-project-setup.sh" "$TARGET" --apply
+      # Apple toolchain is, and it prompts for its own answers. A floor passed here skips its
+      # prompt; omitted, it asks with the project's own value prefilled.
+      # shellcheck disable=SC2086
+      "$SRC/Scripts/ga-project-setup.sh" "$TARGET" $PS_ARGS
       _ps=$?
       case "$_ps" in
         0) PROJECT_SETUP_DONE=1 ;;
