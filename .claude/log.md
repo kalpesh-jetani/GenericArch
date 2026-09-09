@@ -102,3 +102,18 @@ Meta-commentary belongs here and nowhere else — not in a skill, a command, a s
   **Why:** Three framings — house style, imperative, and cost-of-improvising — all landed inside the noise band: held-out recall 0, 12 and 0 percent, train never past 15/24, precision 100 throughout. The model declines ordinary scaffolding requests however the description is written
   **How:** Recorded all three with their numbers in the evals README and left the question it raises open: a skill that cannot fire is arguably a command, which is a section 0 decision and touches CLAUDE.md 2.13
   *(2026-09-09T16:17:40Z)*
+
+- **Decided:** adopt.sh scaffolds .claude/tools instead of copying it, and blanks the generated tool rows in MAP.tsv, INDEX.md and the registry note
+  **Why:** Adding .claude/tools to BASE leaked this repo's own figma profile into every adopting product — the profile, the ledger row marked active and verified, and rows in all four index surfaces. A consumer would have held a verified profile no session of theirs ever observed, which is the failure rule 3 exists to prevent and a new instance of the still-open DECISIONS question about the nine notes shipping with this base's example rows
+  **How:** Reused the .claude/notes scaffolding path rather than inventing a second mechanism: component doc verbatim, header-only ledger, no profile; spans blanked between the generator's own markers so hand-written rows survive
+  *(2026-09-09T16:37:14Z)*
+
+- **Decided:** docs/TOOL-PROFILES.md is REFERENCED, Scripts/Generated is EXCLUDED
+  **Why:** adopt.sh exited 1 on every adoption because both were in none of its three lists — the accountability gate is designed to fail loudly rather than skip silently, and it did. TOOL-PROFILES.md is prose a human wrote, so it belongs with STRUCTURE.md and CONVENTIONS.md as fetched-on-demand; generated recipe scripts describe platforms the target never reached
+  **How:** One entry into each list that matches what the thing is; verified by running adopt.sh against a temp target, which now exits 0
+  *(2026-09-09T16:37:14Z)*
+
+- **Decided:** ga-tool-note.sh gained --revive, and the tombstone gate now checks both paths
+  **Why:** Executing the revive branch for the first time exposed it: retire tombstones the profile and the recipe, but the gate only checked the profile and the docs said revive takes one path. Reviving only the profile let generate re-create a recipe that was still tombstoned — a file on disk the install machinery believed was declined
+  **How:** The gate loops over both paths; --revive delegates to ga-remove.sh for each tombstoned one, then re-syncs and re-registers. Verified in a disposable copy: 2 tombstones to 0, both files back, four surfaces re-indexed
+  *(2026-09-09T16:39:46Z)*

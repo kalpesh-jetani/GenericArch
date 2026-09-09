@@ -3,12 +3,12 @@
 #@platform  macos
 #@claude    call
 #@purpose   Find an external platform's attribute profile, or scaffold, extend, unregister and retire one.
-#@usage     ga-tool-note.sh --find <tool> | <tool> [--extend] [--observe "a|unit|acc|method|scope"]... [--apply] | <tool> --fail --cause T | <tool> --unregister|--retire --reason T | --list | --sync
-#@in        tool:slug --observe:string(repeatable, 5 pipe-separated fields; "not observed" is valid) --platform:string --via:string --wired:enum(connector reference-only) --apply:flag(without it, dry run) --find:slug --extend:flag --fail:flag --cause:string --unregister:flag --retire:flag --reason:string(required to retire) --list:flag --sync:flag
+#@usage     ga-tool-note.sh --find <tool> | <tool> [--extend] [--observe "a|unit|acc|method|scope"]... [--apply] | <tool> --fail --cause T | <tool> --unregister|--retire --reason T | <tool> --revive [--apply] | --list | --sync
+#@in        tool:slug --observe:string(repeatable, 5 pipe-separated fields; "not observed" is valid) --platform:string --via:string --wired:enum(connector reference-only) --apply:flag(without it, dry run) --find:slug --extend:flag --fail:flag --cause:string --unregister:flag --retire:flag --revive:flag(restores both tombstoned paths) --reason:string(required to retire) --list:flag --sync:flag
 #@out       stdout:the profile and recipe paths on a hit; the rows it would write on a miss; the ledger for --list
 #@exit      0=ok 1=no profile for this tool|stale|retired|nothing observed 2=usage 4=declined at the prompt
 #@effects   with --apply: writes .claude/tools/<tool>.md, Scripts/Generated/<tool>.sh, LEDGER.tsv and the four index rows; --retire delegates to ga-remove.sh
-#@when      profile for this tool|external platform attributes|is this connector recorded|which tools are profiled|connector not configured|retire a tool profile|what does this tool expose
+#@when      profile for this tool|external platform attributes|is this connector recorded|which tools are profiled|connector not configured|retire a tool profile|revive a retired profile|what does this tool expose
 
 set -o pipefail
 
@@ -37,6 +37,7 @@ while [ $# -gt 0 ]; do
     --fail)       MODE="fail"; shift ;;
     --unregister) MODE="unregister"; shift ;;
     --retire)     MODE="retire"; shift ;;
+    --revive)     MODE="revive"; shift ;;
     --observe)    printf '%s\n' "${2:-}" >> "$OBS_FILE"; OBS_N=$((OBS_N + 1)); shift 2 ;;
     --platform)   PLATFORM="${2:-}"; shift 2 ;;
     --via)        VIA="${2:-}"; shift 2 ;;
@@ -231,13 +232,44 @@ if [ "$MODE" = "retire" ]; then
   exit "$GA_EX_OK"
 fi
 
-# ── generate | extend ─────────────────────────────────────────────────────
-if ga_tombstoned "$TARGET" "$PROFILE" 2>/dev/null; then
-  printf '%s was RETIRED and is tombstoned — nothing written.\n' "$TOOL" >&2
-  printf 'reason: %s\n' "$(ga_tombstone_reason "$TARGET" "$PROFILE" 2>/dev/null)" >&2
-  printf 'reversing that is a decision: ./Scripts/ga-remove.sh --revive %s\n' "$PROFILE" >&2
-  exit "$GA_EX_ERR"
+# ── revive ────────────────────────────────────────────────────────────────
+# Symmetric with --retire: it tombstoned two paths, so this restores two.
+if [ "$MODE" = "revive" ]; then
+  if [ "$APPLY" -eq 0 ]; then
+    printf 'would restore both paths and re-index %s:\n' "$TOOL"
+    for _t in "$PROFILE" "$RECIPE"; do
+      ga_tombstoned "$TARGET" "$_t" 2>/dev/null \
+        && printf '  %s  (tombstoned: %s)\n' "$_t" "$(ga_tombstone_reason "$TARGET" "$_t" 2>/dev/null)" \
+        || printf '  %s  (not tombstoned — nothing to do)\n' "$_t"
+    done
+    printf 're-run with --apply\n'
+    exit "$GA_EX_OK"
+  fi
+  _did=0
+  for _t in "$PROFILE" "$RECIPE"; do
+    ga_tombstoned "$TARGET" "$_t" 2>/dev/null || continue
+    "$HERE/ga-remove.sh" --revive "$_t" --apply || exit $?
+    _did=$((_did + 1))
+  done
+  [ "$_did" -eq 0 ] && { printf 'nothing tombstoned for %s\n' "$TOOL" >&2; exit "$GA_EX_ERR"; }
+  [ -n "$ROW" ] && set_field "$TOOL" 8 active
+  do_sync >/dev/null
+  "$HERE/claude-utils/register-scripts.sh" >/dev/null 2>&1 || true
+  printf 'revived\t%s\t%s path(s) restored, rows re-indexed\n' "$TOOL" "$_did"
+  exit "$GA_EX_OK"
 fi
+
+# ── generate | extend ─────────────────────────────────────────────────────
+# --retire tombstones the profile AND the recipe, so the gate has to ask about both. Checking only
+# the profile let a half-revive re-create a recipe that was still tombstoned.
+for _t in "$PROFILE" "$RECIPE"; do
+  ga_tombstoned "$TARGET" "$_t" 2>/dev/null || continue
+  printf '%s was RETIRED — %s is tombstoned, so nothing was written.\n' "$TOOL" "$_t" >&2
+  printf 'reason: %s\n' "$(ga_tombstone_reason "$TARGET" "$_t" 2>/dev/null)" >&2
+  printf 'reversing that is a decision, and it takes both paths:\n' >&2
+  printf '  ./Scripts/ga-tool-note.sh %s --revive --apply\n' "$TOOL" >&2
+  exit "$GA_EX_ERR"
+done
 
 if [ "$MODE" = "extend" ] && [ -z "$ROW" ]; then
   ga_die "no profile for '$TOOL' to extend — generate it first" "$GA_EX_ERR"

@@ -103,8 +103,9 @@ means proposing retirement.
 ./Scripts/ga-tool-note.sh <tool> --retire --reason "<why>"
 ```
 
-Never `rm`. This moves the file to `.genericarch/safetodelete/` and tombstones it so no later
-run re-creates it (CLAUDE.md §2.15).
+Never `rm`. This moves the profile **and** its recipe to `.genericarch/safetodelete/` and
+tombstones both, so no later run re-creates either (CLAUDE.md §2.15). `--revive --apply` restores
+both — reviving one leaves the other tombstoned while `generate` re-creates it.
 
 ## Before finishing
 

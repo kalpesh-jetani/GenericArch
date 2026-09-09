@@ -47,7 +47,7 @@ rather than being patched in place.
 | **fail** | `<tool> --fail --cause "…"` | Increment `failures`, move `status`, file a report via `ga-handoff.sh` |
 | **unregister** | `<tool> --unregister [--apply]` | Drop the index rows, keep the files — dormant, not gone |
 | **retire** | `<tool> --retire --reason "…"` | Delegates to `ga-remove.sh --untracked --apply` |
-| **revive** | `ga-remove.sh --revive <path>`, then `--sync` | Files return byte-identical; the ledger row flips back |
+| **revive** | `<tool> --revive [--apply]` | Restores **both** tombstoned paths, drops both tombstones, re-indexes. Retire covers two paths, so revive must too |
 | **list** | `--list` | The ledger, with failure counts |
 | **sync** | `--sync` | Regenerate the registry note, and the managed index spans, from the ledger |
 
@@ -185,10 +185,12 @@ Read the failure report, never the script body (CLAUDE.md §5).
 `--retire --reason "<why>"` delegates to `./Scripts/ga-remove.sh`, which owns the rule: the file
 **moves** to `.genericarch/safetodelete/`, gains a `.genericarch/TOMBSTONES.tsv` row, loses its
 index rows, and gets a `docs/DECISIONS.md` *Do not re-propose* row. Nothing is deleted, and
-`ga-remove.sh --revive <path>` reverses it.
+`--revive --apply` reverses it, and it is deliberately symmetric: retirement tombstones the profile
+*and* the recipe, so a revive that restored only the profile left the recipe tombstoned while
+`generate` re-created it — a file on disk that the install machinery believed was declined.
 
-The tombstone is what makes retirement stick: `generate` checks it before writing and refuses a
-retired platform. Without that check every deliberate removal is undone by the next run
+The tombstone is what makes retirement stick: `generate` checks **both** paths before writing and
+refuses a retired platform. Without that check every deliberate removal is undone by the next run
 ([INSTALL-MANIFEST.md](INSTALL-MANIFEST.md)).
 
 Any run that rewrote installed files closes with `./Scripts/ga-reseal.sh --apply` (CLAUDE.md

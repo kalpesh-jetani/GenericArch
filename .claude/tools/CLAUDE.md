@@ -37,7 +37,8 @@ script, and re-run `./Scripts/claude-utils/register-scripts.sh` (CLAUDE.md §5).
 it, so no later run re-creates it (CLAUDE.md §2.15):
 
 ```bash
-./Scripts/ga-tool-note.sh <tool> --retire --reason "<why>"
+./Scripts/ga-tool-note.sh <tool> --retire --reason "<why>"   # tombstones the profile AND the recipe
+./Scripts/ga-tool-note.sh <tool> --revive --apply            # restores both — never just one
 ```
 
 **5. No meta-commentary in this directory.** A profile records observations and gotchas, not the

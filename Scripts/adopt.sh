@@ -69,7 +69,6 @@ BASE="
 .claude/INDEX.md
 .claude/MAP.tsv
 .claude/SCRIPTS.tsv
-.claude/tools
 Scripts/check.sh
 Scripts/check-skill-triggers.py
 Scripts/detect-toolchain.sh
@@ -167,6 +166,7 @@ install.sh|installing again means fetching again — ./bootstrap.sh does that fr
 bootstrap.sh|the entry point lives upstream, not in every consumer (curl one-liner in the README)
 Scripts/ga-roundtrip.sh|tests install.sh, which does not travel — it belongs where the base is authored
 OPERATORS-GUIDE.md|maps THIS repo's files, most of which do not travel; a target gets genericarch.installation.md
+Scripts/Generated|recipe scripts are generated per product by ga-tool-note.sh — ours describe platforms the target never reached
 CHANGELOG.md|our release history, not the target's — the manifest records which version it has
 "
 
@@ -176,14 +176,14 @@ CHANGELOG.md|our release history, not the target's — the manifest records whic
 # .claude/CANDIDATES.tsv is scaffolded for the same reason as .claude/memory: the recurrence
 # history is THIS repo's, and a target that inherits our candidate rows would see promotions it
 # never earned. The target gets the header and an empty ledger.
-SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/memory .claude/CANDIDATES.tsv"
+SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/memory .claude/CANDIDATES.tsv .claude/tools"
 # Reference material — listed in genericarch.installation.md and fetched when actually read.
 # Not copied: reference docs a consumer may never open, that go stale the moment upstream moves.
 # No count here on purpose — a literal number in a comment is what rotted last time.
 REFERENCED="docs/STRUCTURE.md docs/CONVENTIONS.md docs/DONE.md docs/REPO.md docs/DELIVERY.md
 docs/patterns docs/PERFORMANCE.md docs/ADOPTION.md docs/SHARING.md docs/PATTERN-SEARCH.md
 docs/SCAN-TRAPS.md docs/CLAUDE-TASKS.md docs/INSTALL-MANIFEST.md
-docs/SEQUENCE.md docs/BUILD-PROCESS.md docs/DEPLOYMENT-PROCESS.md docs/PROJECT-SETTINGS.md
+docs/TOOL-PROFILES.md docs/SEQUENCE.md docs/BUILD-PROCESS.md docs/DEPLOYMENT-PROCESS.md docs/PROJECT-SETTINGS.md
 docs/OPENSPEC.md"
 # BASE is newline-separated and EXCLUDED is "path|reason" — flatten both to a space-delimited
 # list of bare paths before matching, or every entry looks unaccounted for.
@@ -485,7 +485,8 @@ scaffolded=0
 for pair in "docs/DECISIONS.md|the target records its own decisions here — /decide" \
             "docs/GAPS.md|the target triages its own gaps here — /gaps" \
             ".claude/notes|every inventory, prose kept and data rows blanked" \
-            ".claude/memory|Claude's in-repo memory — the index only; our memories are ours"; do
+            ".claude/memory|Claude's in-repo memory — the index only; our memories are ours" \
+            ".claude/tools|the rules and an empty ledger — a profile is per-product, and observed or nothing"; do
   f="${pair%%|*}"; why="${pair#*|}"
   if [ -e "$TARGET/$f" ]; then
     printf '  %scollision%s  %s %s(exists — kept)%s\n' "$YEL" "$OFF" "$f" "$DIM" "$OFF"
@@ -526,6 +527,49 @@ for i, line in enumerate(lines):
 p.write_text("\n".join(out) + "\n")
 PY
   done
+fi
+
+# .claude/tools carries observations, and an observation this repo made is not the target's. The
+# component doc travels verbatim (§2.16 requires it to exist); the ledger arrives with its header
+# and no data row, and no profile travels at all. A profile marked verified in a repo that never
+# observed it is what docs/TOOL-PROFILES.md forbids.
+if [ "$APPLY" -eq 1 ] && [ ! -e "$TARGET/.claude/tools" ]; then
+  mkdir -p "$TARGET/.claude/tools"
+  cp "$SRC/.claude/tools/CLAUDE.md" "$TARGET/.claude/tools/CLAUDE.md"
+  sed -n '/^#\t/p' "$SRC/.claude/tools/LEDGER.tsv" > "$TARGET/.claude/tools/LEDGER.tsv"
+fi
+
+# The generated spans inside MAP.tsv, INDEX.md and the registry note hold OUR rows. The generator
+# rewrites between the markers, so blanking between them is the same contract, not a new one — the
+# markers and every hand-written row outside them stay put.
+blank_span() {   # file, opening marker, closing marker, optional placeholder row
+  [ -f "$1" ] || return 0
+  python3 - "$1" "$2" "$3" "${4:-}" <<'PYSPAN'
+import sys, pathlib
+f, opener, closer, placeholder = sys.argv[1:5]
+out, inside = [], False
+for line in pathlib.Path(f).read_text().splitlines():
+    if opener in line:
+        out.append(line)
+        if placeholder.strip():
+            out.append(placeholder)
+        inside = True
+    elif closer in line:
+        inside = False
+        out.append(line)
+    elif not inside:
+        out.append(line)
+pathlib.Path(f).write_text("\n".join(out) + "\n")
+PYSPAN
+}
+
+if [ "$APPLY" -eq 1 ]; then
+  blank_span "$TARGET/.claude/MAP.tsv"  'GA:TOOLS —' 'GA:TOOLS-END'
+  blank_span "$TARGET/.claude/INDEX.md" 'GA:TOOLS —' 'GA:TOOLS-END' '| — | — | — | — |'
+  blank_span "$TARGET/.claude/skills/tool-profile/references/generated-skills-note.md" \
+             'GA:ROWS —' 'GA:ROWS-END' '| — | — | — | — | — | — |'
+  printf '  %s~%s generated tool rows %s— ours blanked; nothing is listed in advance%s\n' \
+    "$YEL" "$OFF" "$DIM" "$OFF"
 fi
 
 # Scaffolded, not copied — docs/SHARING.md §3: "our memories are ours". The contract prose (the
