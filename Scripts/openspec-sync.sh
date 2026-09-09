@@ -302,18 +302,35 @@ reverse_pass() {
 
   # Their JSON shape is theirs to change. A shape we cannot read is reported, never guessed at — a
   # wrong FEATURES.md row is worse than a missing one, because it looks current.
-  names="$(printf '%s' "$changes" | node_pick '
-    (Array.isArray(d) ? d : d.changes || d.items || [])
-      .map(c => typeof c === "string" ? c : (c.id || c.name || ""))
-      .filter(Boolean).join("\n")
-  ')" || names=""
-  if [ -z "$names" ] && [ "$(printf '%s' "$changes" | tr -d '[:space:]')" != "[]" ]; then
+  #
+  # "Did we find the list?" and "how many entries were in it?" are two questions, and conflating
+  # them was a bug: emptiness was decided by comparing the RAW text against "[]", so
+  # {"changes":[],"root":{…}} — precisely what the CLI returns for a project with no changes yet —
+  # read as an unrecognised shape. Every freshly initialised repo therefore reported a defect in
+  # this script on its first run, and the report named the wrong culprit: the parser reads
+  # d.changes correctly, and an empty array is truthy in JS, so `arr` was always right.
+  #
+  # So the extractor answers the container question itself. "OK" as the first line means the list
+  # was found; the entries follow it, and none is the legitimate "no active changes" case.
+  parsed="$(printf '%s' "$changes" | node_pick '
+    (() => {
+      const arr = Array.isArray(d) ? d : (d && (d.changes || d.items));
+      if (!Array.isArray(arr)) return "NO-CONTAINER";
+      return ["OK"].concat(
+        arr.map(c => typeof c === "string" ? c : ((c && (c.id || c.name)) || "")).filter(Boolean)
+      ).join("\n");
+    })()
+  ')" || parsed=""
+  # Empty also covers node_pick exiting 3 on JSON it could not parse, which is equally a shape we
+  # cannot read.
+  if [ -z "$parsed" ] || [ "$parsed" = "NO-CONTAINER" ]; then
     say "  ${GA_YEL}SHAPE-UNRECOGNISED${GA_OFF} — 'openspec list --json' returned a shape this script"
     say "  ${GA_DIM}does not know. Re-check the CLI reference: $UPSTREAM${GA_OFF}"
     row SHAPE-UNRECOGNISED "openspec list --json" "unrecognised keys"
     file_it "unrecognised shape from 'openspec list --json'" "openspec list --json"
     return 0
   fi
+  names="$(printf '%s\n' "$parsed" | sed '1d')"
 
   if [ -z "$names" ]; then
     say "  ${GA_DIM}no active changes${GA_OFF}"

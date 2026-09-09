@@ -54,12 +54,19 @@ USAGE
 
 # The install step is not recorded by a command — the manifest IS the record. Deriving it here
 # keeps a repo installed before this script existed from looking like it never ran install.
+#
+# Every ga_step_record below is create-only, guarded on ga_step_done. These are INFERENCES, and an
+# inference must never overwrite what a real install recorded. The guards were unnecessary while
+# ga_step_record silently ignored an already-recorded step; now that it updates the note, an
+# unguarded call replaces a precise record — "v0.6.2 from <sha>", written by install.sh — with the
+# weaker derived string, on every single invocation of this script.
 derive_steps() {
   # The authoring checkout is never "installed" into itself. Without this, every command is blocked
   # in the repo that defines them — ga_is_source_checkout is what tells that checkout apart from a
   # template copy of it, which carries the same files.
   if ga_is_source_checkout "$TARGET"; then
-    ga_step_record "$TARGET" install "GenericArch source repo — nothing to install"
+    ga_step_done "$TARGET" install \
+      || ga_step_record "$TARGET" install "GenericArch source repo — nothing to install"
     return 0
   fi
   # A copy of the base is a PRODUCT that starts with the base already in its tree, so install has
@@ -72,11 +79,15 @@ derive_steps() {
   Usable — but it is a fork: clear the inherited decisions, gaps, notes, memory and floors
   (docs/SHARING.md). The package layout a copy never carried lives in
   https://github.com/kalpesh-jetani/GenericXCodeSetup"
-    ga_step_record "$TARGET" install "copy of GenericArch, not an install — the base is already in the tree"
+    ga_step_done "$TARGET" install \
+      || ga_step_record "$TARGET" install "copy of GenericArch, not an install — the base is already in the tree"
     return 0
   fi
   for _m in $(ga_manifest_find "$TARGET"); do
-    [ -n "$_m" ] && { ga_step_record "$TARGET" install "derived from ${_m#"$TARGET"/}"; return 0; }
+    [ -n "$_m" ] || continue
+    ga_step_done "$TARGET" install \
+      || ga_step_record "$TARGET" install "derived from ${_m#"$TARGET"/}"
+    return 0
   done
   return 1
 }
@@ -158,7 +169,13 @@ case "$ACTION" in
       ga_die "cannot record $STEP — $MISSING have not run. Record those first, or pass --force." "$GA_EX_SEQ"
     fi
     ga_step_record "$TARGET" "$STEP" "$NOTE"
-    ga_ok "recorded: $STEP${NOTE:+ — $NOTE}"
+    # Report what the ledger actually did. The default covers ga-roundtrip.sh, which stubs
+    # ga_step_record out entirely and so never sets this.
+    case "${GA_STEP_RECORD_ACTION:-created}" in
+      updated)   ga_ok "note updated: $STEP${NOTE:+ — $NOTE}" ;;
+      unchanged) ga_ok "already recorded, note identical: $STEP" ;;
+      *)         ga_ok "recorded: $STEP${NOTE:+ — $NOTE}" ;;
+    esac
     printf '  next: %s\n' "$(ga_step_next "$TARGET")"
     ;;
 
