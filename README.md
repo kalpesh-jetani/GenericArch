@@ -115,7 +115,7 @@ Full flag list and exit codes are in each script's own header — `install.sh`, 
 
 | | Which | What it means |
 |---|---|---|
-| **Supported** | `v0.6.x` | Install, upgrade and remove. `v0.6.2` is the current patch |
+| **Supported** | `v0.6.x` | Install, upgrade and remove. `v0.6.3` is the current patch |
 | **Deprecated** | below `v0.6.0` | **Removable, never installable.** `install.sh` refuses with exit 6; `uninstall.sh` still takes it off and says so |
 
 Deprecating a release must not strand the installs that already have it, so removal stays supported
@@ -318,7 +318,7 @@ version and exits `6`.
 ./uninstall.sh v0.6.1 --yes
 ```
 
-**Removable: every version this tool has ever shipped** — `v0.1.0` through `v0.6.2` — including the
+**Removable: every version this tool has ever shipped** — `v0.1.0` through `v0.6.3` — including the
 deprecated ones. Only *installing* is floored at `v0.6.0` ([version support](#1-install)), so an old
 install always has a way off. `uninstall.sh` prints `deprecated` in its header when the version is
 below the floor and removes it anyway.

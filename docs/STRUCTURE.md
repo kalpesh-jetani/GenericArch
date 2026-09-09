@@ -52,9 +52,11 @@ takes a paragraph, the paragraph goes in the module doc and the rule gets a link
 | `<component>/CLAUDE.md` | rules that bind only inside one component (§2.16) | **only when that directory is touched** |
 | `docs/` | hand-written reasoning: module design, cross-cutting reference | no |
 | `.claude/notes/` | inventories generated from the code | no |
-| `.claude/skills/` | procedures Claude should recognise and apply on its own | descriptions only |
+| `.claude/skills/` | procedures Claude should recognise and apply on its own, plus each skill's own `references/` and `evals/` | descriptions only |
 | `.claude/commands/` | things the user triggers explicitly | no |
 | `.claude/memory/` | what earlier sessions learned about *this* repo | index only |
+| `.claude/tools/` | what one external platform exposes, as observed | no |
+| `.claude/log.md` | why a decision was taken — for the reader, never for Claude | no |
 
 **`openspec/` is not a seventh home.** It belongs to another tool, and the rules it carries are a
 *projection* of the six above — generated from `CLAUDE.md` §2 and [DECISIONS.md](DECISIONS.md) by
@@ -72,9 +74,27 @@ Deciding where something goes:
 - Something the user runs → a command. **No CLAUDE.md edit.**
 - Prose a human wrote → `docs/`. Something a script could produce → `.claude/notes/`.
 - A rule that applies everywhere and shapes every response → CLAUDE.md, **and only with approval**.
+- What an external platform exposes → `.claude/tools/<tool>.md`, generated on first
+  successful use. *Why* the platform was adopted → `docs/resources/`, via `/learn`. The two
+  answer different questions and must not be merged.
+- A sentence explaining *why* something was done, *what* was considered, or *how* it was
+  decided → `.claude/log.md`. **Never into a reusable file.**
+
+**Meta-commentary has one home, and it is not the file being changed.** A skill, command,
+script, doc or `#` comment carries the rule; the reasoning behind it goes to `.claude/log.md`,
+appended by `./Scripts/ga-log.sh` and read by nobody but the user. §10 sends narration to the
+commit message, but §2.11 forbids committing — so without this home the reasoning either
+lands in a reusable file where it rots, or is lost. **The log is never read to decide
+anything**; that is [DECISIONS.md](DECISIONS.md), which is normative. One records the
+decision, the other the story of reaching it.
 
 **Skill vs command:** a skill fires when the model recognises the situation; a command only runs when
 typed. If it must never trigger by inference, it is a command.
+
+**A skill's own directory is where its material goes** — `references/` for what should load only
+when the skill fires, `evals/` for the queries that prove it fires at all. A bare `.md` at the
+`.claude/skills/` root is found by nothing: the loader, `check-skill-triggers.py` and
+`build-plugin.sh` all glob `skills/*/SKILL.md`.
 
 **A skill that fires wrongly is a description bug.** CLAUDE.md §2.13 requires naming the skill
 before starting, so a mis-fire is visible in the first line rather than after an audit. When one

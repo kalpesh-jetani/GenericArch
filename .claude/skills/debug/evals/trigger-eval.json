@@ -1,0 +1,23 @@
+[
+  {"query": "app dies the moment i open the profile tab. Fatal error: Unexpectedly found nil while unwrapping an Optional value, AvatarView.swift line 44", "should_trigger": true},
+  {"query": "the feed screen just shows white. no error, no spinner, viewDidLoad definitely runs because my print fires", "should_trigger": true},
+  {"query": "my labels are showing settings.profile.title instead of the actual english text on device but theyre fine in the preview", "should_trigger": true},
+  {"query": "works perfectly in the dev scheme, but in the testflight build the paywall never appears. same account", "should_trigger": true},
+  {"query": "tapping Save does absolutely nothing. no network call, no error, no state change. it just sits there", "should_trigger": true},
+  {"query": "we ship SF Pro Rounded but everything renders in the system font on a real iPhone. fine in the simulator", "should_trigger": true},
+  {"query": "the list duplicates the first page of results every time i scroll to the bottom, so i get rows 1-20 twice", "should_trigger": true},
+  {"query": "ui freezes for about 4 seconds when i open search. main thread checker isnt complaining though", "should_trigger": true},
+  {"query": "push notifications arrive on my phone in debug but never in the prod build, and the token registers fine in both", "should_trigger": true},
+  {"query": "memory climbs about 40mb every time i push and pop the detail screen and never comes back down", "should_trigger": true},
+
+  {"query": "create a new settings screen with the usual loading empty and error states", "should_trigger": false},
+  {"query": "scaffold a feature package for onboarding, three screens and a router", "should_trigger": false},
+  {"query": "i just connected this ticket tracker, what does it actually expose", "should_trigger": false},
+  {"query": "propose a change for the magic-link login flow and write the delta spec", "should_trigger": false},
+  {"query": "read through this vendor's docs and note what we take from it and what we reject", "should_trigger": false},
+  {"query": "i added three new colour tokens for the dark theme, update the style guide note", "should_trigger": false},
+  {"query": "bump NetworkKit to 2.4.0 and update the app to consume it", "should_trigger": false},
+  {"query": "add an email field to the signup request and update the api map note", "should_trigger": false},
+  {"query": "were adding the sentry sdk, set up the wrapper target so no feature imports it directly", "should_trigger": false},
+  {"query": "review my diff against the architecture rules before i push it", "should_trigger": false}
+]
