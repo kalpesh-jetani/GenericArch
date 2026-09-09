@@ -2,13 +2,13 @@
 #@kind      tool
 #@platform  macos
 #@claude    call
-#@purpose   Enforce the CLAUDE.md section 2 rules a linter cannot express, plus the iOS floor and doc currency.
+#@purpose   Enforce the CLAUDE.md section 2 rules a linter cannot express, plus the project's own iOS floor and doc currency.
 #@usage     check.sh
 #@in        none
 #@out       stdout:pass/fail report per rule
 #@exit      0=clean 1=violations
-#@effects   read-only, BUT COMPILES the iOS floor — slow. Validating a change is what it is for (CLAUDE.md 2.12); running or testing the app still needs consent
-# Enforces the CLAUDE.md §2 rules a linter can't express, plus the iOS 17 floor and doc currency.
+#@effects   read-only, BUT COMPILES at the project's iOS floor — slow. Validating a change is what it is for (CLAUDE.md 2.12); running or testing the app still needs consent
+# Enforces the CLAUDE.md §2 rules a linter can't express, plus the iOS floor this repo states and doc currency.
 # Run before a PR; run in CI as a required check (docs/DELIVERY.md).
 #
 #   ./Scripts/check.sh
@@ -93,7 +93,19 @@ else
   printf '  %sno Packages/Features yet%s\n' "$DIM" "$OFF"
 fi
 
-echo "── iOS 17 floor (§1.1) ────────────────────────────────────"
+# The floor is whatever THIS repo states, read through detect-toolchain.sh so this gate and every
+# other reader agree. It used to be the literal ios17.0 below, which validated each consuming repo
+# against a number it may never have chosen: a project whose floor is 18 was typechecked at 17 and
+# failed on APIs its own floor permits, and one still on 16 was typechecked at 17 and passed code
+# its floor forbids. Only a `project` row counts — a `machine` row is an installed SDK, which is a
+# ceiling, not a deployment decision.
+FLOOR_IOS=""
+if [ -x Scripts/detect-toolchain.sh ]; then
+  FLOOR_IOS=$(NO_COLOR=1 ./Scripts/detect-toolchain.sh --markdown 2>/dev/null \
+    | awk -F'|' '/Minimum iOS/ && $4 ~ /project/ {gsub(/[^0-9.]/,"",$3); print $3; exit}')
+fi
+
+echo "── iOS ${FLOOR_IOS:-?} floor (§1.1) ────────────────────────────────────"
 # `swift build` on a Mac compiles only the macOS slice, so a macOS-26-only API in shared code
 # passes it silently and only fails later in the app build. Typecheck against the iOS SDK here.
 #
@@ -104,6 +116,12 @@ echo "── iOS 17 floor (§1.1) ───────────────�
 IOS_SDK=$(xcrun --sdk iphonesimulator --show-sdk-path 2>/dev/null)
 if [ -z "$IOS_SDK" ]; then
   printf '%s⚠ no iOS simulator SDK — floor NOT checked%s\n' "$YEL" "$OFF"; warns=$((warns + 1))
+elif [ -z "$FLOOR_IOS" ]; then
+  # §0: a floor is never defaulted. Picking one here would report a pass against a number nobody
+  # chose, which is worse than saying the check could not run.
+  printf '%s⚠ this repo states no iOS floor — floor NOT checked%s\n' "$YEL" "$OFF"
+  printf '  %sSet IPHONEOS_DEPLOYMENT_TARGET in an .xcconfig, or platforms: in Package.swift.%s\n' "$DIM" "$OFF"
+  warns=$((warns + 1))
 else
   checked=0
   for pkg in Packages/*/ Packages/Features/*/; do
@@ -115,16 +133,16 @@ else
     [ -z "$srcs" ] && continue
     checked=$((checked + 1))
     OLDIFS="$IFS"; IFS=$'\n'
-    out=$(xcrun swiftc -sdk "$IOS_SDK" -target arm64-apple-ios17.0-simulator \
+    out=$(xcrun swiftc -sdk "$IOS_SDK" -target "arm64-apple-ios$FLOOR_IOS-simulator" \
             -swift-version 6 -typecheck $srcs 2>&1 | grep -E 'only available in iOS|error:' | head -5)
     IFS="$OLDIFS"
     if [ -n "$out" ]; then
-      printf '%s✗ %s does not compile at the iOS 17 floor%s\n' "$RED" "$name" "$OFF"
+      printf '%s✗ %s does not compile at the iOS %s floor%s\n' "$RED" "$name" "$FLOOR_IOS" "$OFF"
       printf '  %sGate with #if os(macOS) or if #available, inside DesignSystem (§1.1).%s\n' "$DIM" "$OFF"
       printf '%s\n' "$out" | sed 's/^/    /'; fails=$((fails + 1))
     fi
   done
-  printf '  %s%d package(s) typechecked at iOS 17%s\n' "$DIM" "$checked" "$OFF"
+  printf '  %s%d package(s) typechecked at iOS %s%s\n' "$DIM" "$checked" "$FLOOR_IOS" "$OFF"
 fi
 
 echo "── Toolchain (§1) ─────────────────────────────────────────"

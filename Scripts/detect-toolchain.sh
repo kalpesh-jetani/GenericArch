@@ -58,6 +58,16 @@ MACOS_SDK=$(xcrun --sdk macosx --show-sdk-version 2>/dev/null)
 IOS_SDK=$(xcrun --sdk iphoneos --show-sdk-version 2>/dev/null)
 : "${SWIFT:=not found}" "${XCODE:=not found}"
 
+# Strict version less-than, used by both --mismatches and the human report. Kept here rather than
+# sourced from ga-lifecycle.sh because this tool stays standalone (#@claude call). Trailing zero
+# segments are dropped first: 26.5 and 26.5.0 name the same OS, and `sort -V` orders them, so a bare
+# string `!=` guard reads a 26.5.0 floor as ABOVE an SDK reporting 26.5 and blocks a working build.
+ver_norm() { printf '%s' "$1" | sed 's/\(\.0\)*$//'; }
+ver_lt() {
+  _a=$(ver_norm "$1"); _b=$(ver_norm "$2")
+  [ "$_a" != "$_b" ] && [ "$(printf '%s\n%s\n' "$_a" "$_b" | sort -V | head -1)" = "$_a" ]
+}
+
 # Every Xcode present, not just the selected one — a team often has several.
 XCODES=$(ls -d /Applications/Xcode*.app 2>/dev/null | while read -r a; do
   v=$(defaults read "$a/Contents/Info" CFBundleShortVersionString 2>/dev/null)
@@ -206,18 +216,16 @@ fi
 #               product decision that drops users. Never applied without asking.
 #   DRIFT       docs disagree with reality — doc-only fix
 if [ "$MODE" = mismatches ]; then
-  vlt() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ] && [ "$1" != "$2" ]; }
-
-  [ -n "$MACOS_SDK" ] && [ -n "$SRC_MACOS" ] && vlt "$MACOS_SDK" "$SRC_MACOS" && \
+  [ -n "$MACOS_SDK" ] && [ -n "$SRC_MACOS" ] && ver_lt "$MACOS_SDK" "$SRC_MACOS" && \
     echo "BLOCKING|macos-target-above-sdk|min macOS exceeds the installed SDK|$SRC_MACOS|SDK $MACOS_SDK|lower the target to $MACOS_SDK, or install an Xcode whose SDK is >= $SRC_MACOS"
-  [ -n "$IOS_SDK" ] && [ -n "$SRC_IOS" ] && vlt "$IOS_SDK" "$SRC_IOS" && \
+  [ -n "$IOS_SDK" ] && [ -n "$SRC_IOS" ] && ver_lt "$IOS_SDK" "$SRC_IOS" && \
     echo "BLOCKING|ios-target-above-sdk|min iOS exceeds the installed SDK|$SRC_IOS|SDK $IOS_SDK|lower the target to $IOS_SDK, or install a newer Xcode"
 
   # Language mode below the newest the compiler accepts.
   PROJ_MODE=""
   grep -rq 'swiftLanguageMode(.v6)\|swift-version 6' Packages/*/Package.swift Package.swift 2>/dev/null && PROJ_MODE=6
   grep -rq 'swiftLanguageMode(.v5)\|swift-version 5' Packages/*/Package.swift Package.swift 2>/dev/null && PROJ_MODE=5
-  [ -n "$PROJ_MODE" ] && [ -n "$LATEST_MODE" ] && vlt "$PROJ_MODE" "$LATEST_MODE" && \
+  [ -n "$PROJ_MODE" ] && [ -n "$LATEST_MODE" ] && ver_lt "$PROJ_MODE" "$LATEST_MODE" && \
     echo "OPPORTUNITY|swift-language-mode|Swift language mode is behind the compiler|$PROJ_MODE|$LATEST_MODE|migrate to mode $LATEST_MODE — expect new concurrency diagnostics; do it package by package"
 
   # The recorded stack disagreeing with the machine is a doc problem, not a build problem.
@@ -282,14 +290,12 @@ printf '  %-24s %s%s%s\n' "read from"   "$DIM" "$ORIGIN" "$OFF"
 echo
 
 warn=0
-verlt() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ] && [ "$1" != "$2" ]; }
-
-if [ -n "$MACOS_SDK" ] && [ -n "$SRC_MACOS" ] && verlt "$MACOS_SDK" "$SRC_MACOS"; then
+if [ -n "$MACOS_SDK" ] && [ -n "$SRC_MACOS" ] && ver_lt "$MACOS_SDK" "$SRC_MACOS"; then
   echo "${RED}✗ min macOS $SRC_MACOS is ABOVE the installed macOS SDK $MACOS_SDK${OFF}"
   echo "  ${DIM}An app target will refuse this. Install a newer Xcode or lower the target.${OFF}"
   warn=$((warn + 1))
 fi
-if [ -n "$IOS_SDK" ] && [ -n "$SRC_IOS" ] && verlt "$IOS_SDK" "$SRC_IOS"; then
+if [ -n "$IOS_SDK" ] && [ -n "$SRC_IOS" ] && ver_lt "$IOS_SDK" "$SRC_IOS"; then
   echo "${RED}✗ min iOS $SRC_IOS is above the installed iOS SDK $IOS_SDK${OFF}"; warn=$((warn + 1))
 fi
 

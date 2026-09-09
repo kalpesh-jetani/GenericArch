@@ -18,6 +18,8 @@
 #   --root-ok · --force · --with-architecture · --with-claude-md · --in-place ·
 #   --project-setup · --no-project-setup · --no-preflight
 #                            install.sh's own flags, forwarded verbatim
+#   --ios <v> · --macos <v>  the deployment floors, forwarded to the project setup step. Omit them
+#                            and it asks, prefilled with whatever the project already states
 #
 # This is the ONLY script in the lifecycle that touches the network, and all it does is fetch.
 # Every decision about what lands in your repo — the compatibility gate, the plan, the manifest,
@@ -36,12 +38,18 @@ while [ $# -gt 0 ]; do
     --apply) APPLY=1; shift ;;
     --yes|-y) PASS_THROUGH="$PASS_THROUGH --yes"; shift ;;
     --ref)   GA_REF="$2"; shift 2 || { echo "--ref needs a tag" >&2; exit 2; } ;;
-    --help|-h) sed -n '2,24p' "$0" 2>/dev/null || echo "see the header of bootstrap.sh"; exit 0 ;;
+    --help|-h) sed -n '2,26p' "$0" 2>/dev/null || echo "see the header of bootstrap.sh"; exit 0 ;;
     # install.sh's own flags, forwarded verbatim. Rejecting them made its advice unreachable: its
     # multi-root refusal says "re-run with --root-ok", and through here that was an unknown argument.
     --root-ok|--with-architecture|--with-claude-md|--in-place|--project-setup| \
     --no-project-setup|--no-preflight|--force|-f)
              PASS_THROUGH="$PASS_THROUGH $1"; shift ;;
+    # These two carry a value, so they consume two arguments rather than one. Forwarded because the
+    # deployment floor is the one answer worth stating before the install starts asking: a target
+    # Xcode created moments ago names whatever SDK it shipped with, and that is not a decision.
+    --ios|--macos)
+             [ $# -ge 2 ] || { echo "$1 needs a version (e.g. $1 17)" >&2; exit 2; }
+             PASS_THROUGH="$PASS_THROUGH $1 $2"; shift 2 ;;
     # A trailing `# comment` pasted from the README arrives as arguments in zsh, whose
     # interactive_comments is off by default. Say that, rather than reporting `#` as a typo.
     '#') echo "${YEL}⚠${OFF} a '#' comment reached this script as an argument — your shell did not" >&2
@@ -52,7 +60,7 @@ while [ $# -gt 0 ]; do
        echo "  bootstrap flags: --apply --yes --ref <tag> --help" >&2
        echo "  forwarded to install.sh: --root-ok --with-architecture --with-claude-md" >&2
        echo "                           --in-place --project-setup --no-project-setup" >&2
-       echo "                           --no-preflight --force" >&2
+       echo "                           --no-preflight --force --ios <v> --macos <v>" >&2
        exit 2 ;;
   esac
 done
