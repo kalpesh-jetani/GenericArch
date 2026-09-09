@@ -330,17 +330,30 @@ if [ "$APPLY" -eq 1 ] && [ -f "$TARGET/.claude/MAP.tsv" ]; then
       print
     }
   ' "$TARGET/.claude/MAP.tsv" > "$tmp" && mv "$tmp" "$TARGET/.claude/MAP.tsv"
-  # Without the architecture layer, the module and pattern rows are dead: nothing in the target can
-  # ever satisfy them, and a :remote mark only converts a dead lookup into a network fetch for a doc
-  # describing a layer that will not exist. Drop them. --with-architecture (or /learn) brings the
-  # rows back with the layer they describe. `module` stays in the pattern below as a guard: this
-  # base ships no such rows any more, and one arriving from a stale index should still be dropped.
-  if [ "$WITH_ARCH" -eq 0 ]; then
-    tmp="$TARGET/.claude/MAP.tsv.tmp"
-    awk -F'\t' '/^#/ || NF < 2 {print; next} $2 !~ /^(module|pattern)/ {print}' \
-      "$TARGET/.claude/MAP.tsv" > "$tmp" && mv "$tmp" "$TARGET/.claude/MAP.tsv"
-    printf '  %s~%s .claude/MAP.tsv %s— pattern rows dropped (no architecture layer here)%s\n' \
-      "$YEL" "$OFF" "$DIM" "$OFF"
+  # `module` rows go unconditionally: this base ships none, so one can only have arrived from a
+  # stale index, and nothing here will ever satisfy it.
+  #
+  # `pattern` rows STAY, marked :remote by the pass above. They used to be dropped whenever the
+  # architecture layer was absent, on the grounds that a :remote mark turns a dead lookup into a
+  # fetch for a doc describing a layer that will not exist — with the promise that
+  # --with-architecture would bring them back. That promise could not be kept, for two independent
+  # reasons. Nothing restores a dropped row: this function rewrites MAP.tsv at install (the
+  # FETCH-BASE stamp, the :remote suffixes, the drop itself), so the target's copy differs from the
+  # base from that moment on, and every later install therefore preserves it as theirs — install.sh
+  # emits `keep`, and the staged copy carrying the rows is discarded. And the layer never carried
+  # the docs regardless: OPTIONAL_ARCH is the new-feature skill and /review, nothing under
+  # docs/patterns/. So these rows are fetch-only in every configuration, which is exactly what
+  # :remote means and what /project-init S2b says to leave in place — a row naming a surface that
+  # exists upstream and this product did not take is how Claude learns it exists without paying to
+  # carry it. Dropping them left `/learn <name>`'s own "already indexed?" grep finding nothing, and
+  # the seven patterns invisible to the only index that routes to them.
+  tmp="$TARGET/.claude/MAP.tsv.tmp"
+  _stale_modules=$(awk -F'\t' '$2 ~ /^module/' "$TARGET/.claude/MAP.tsv" | grep -c . || true)
+  awk -F'\t' '/^#/ || NF < 2 {print; next} $2 !~ /^module/ {print}' \
+    "$TARGET/.claude/MAP.tsv" > "$tmp" && mv "$tmp" "$TARGET/.claude/MAP.tsv"
+  if [ "${_stale_modules:-0}" -gt 0 ]; then
+    printf '  %s~%s .claude/MAP.tsv %s— %s stale module row(s) dropped%s\n' \
+      "$YEL" "$OFF" "$DIM" "$_stale_modules" "$OFF"
   fi
   remote=$(awk -F'\t' '$2 ~ /:remote$/' "$TARGET/.claude/MAP.tsv" | grep -c . || true)
   [ "$remote" -gt 0 ] && printf '  %s~%s .claude/MAP.tsv %s— %s row(s) marked :remote (fetch, not on disk)%s\n' \

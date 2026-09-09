@@ -858,8 +858,20 @@ ga_step_done() {
 }
 
 # ga_step_record <target> <step> [note]
+#
+# Sets GA_STEP_RECORD_ACTION to created | updated | unchanged, so the caller reports what happened
+# instead of assuming. It used to `return 0` before the append whenever the step was already
+# recorded — correct in refusing to duplicate the row, wrong in returning success silently: the
+# caller then printed "✓ recorded: <the new note>" while the ledger still held the old one, which is
+# the one thing a ledger must not do. Re-recording now REPLACES the note and keeps the original
+# timestamp: the note is that step's current summary, the timestamp is the historical fact of when
+# it first ran, and a step correcting its own note is ordinary (a run that finishes work it had only
+# decided on).
 ga_step_record() {
   _ga_lf="$(ga_step_path "$1")"
+  # Tabs and newlines are the ledger's field and record separators, so a note carrying either would
+  # corrupt rows the in-place rewrite below has to parse back.
+  _ga_note="$(printf '%s' "${3:-}" | tr '\t\n' '  ')"
   if [ ! -f "$_ga_lf" ]; then
     mkdir -p "$(dirname "$_ga_lf")"
     {
@@ -868,8 +880,23 @@ ga_step_record() {
       printf '#\tstep\tat\tnote\n'
     } > "$_ga_lf"
   fi
-  ga_step_done "$1" "$2" && return 0
-  printf '%s\t%s\t%s\n' "$2" "$(ga_now_iso)" "${3:-}" >> "$_ga_lf"
+  if ga_step_done "$1" "$2"; then
+    _ga_prev="$(awk -F'\t' -v s="$2" '$1!~/^#/ && $1==s {print $3; exit}' "$_ga_lf")"
+    if [ "$_ga_prev" = "$_ga_note" ]; then
+      GA_STEP_RECORD_ACTION=unchanged
+      return 0
+    fi
+    # Rewrite through a temp file rather than appending: a second row for the same step would leave
+    # `show` and ga_step_next reading whichever came first, which is not a state worth having.
+    # awk rebuilds $0 only on the row it assigns to, so the comment header survives byte-for-byte.
+    _ga_tmp="$_ga_lf.tmp"
+    awk -F'\t' -v OFS='\t' -v s="$2" -v n="$_ga_note" \
+      '$1!~/^#/ && $1==s {$3=n} {print}' "$_ga_lf" > "$_ga_tmp" && mv "$_ga_tmp" "$_ga_lf"
+    GA_STEP_RECORD_ACTION=updated
+    return 0
+  fi
+  printf '%s\t%s\t%s\n' "$2" "$(ga_now_iso)" "$_ga_note" >> "$_ga_lf"
+  GA_STEP_RECORD_ACTION=created
 }
 
 # The first step in GA_STEPS that has not been recorded — what to run next.

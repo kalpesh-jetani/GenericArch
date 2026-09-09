@@ -4,7 +4,7 @@
 #@claude    call
 #@purpose   Report which .claude/notes/ inventories are older than the code they describe.
 #@usage     notes-staleness.sh [source-root] | notes-staleness.sh --stamp [source-root]
-#@in        source-root:dir(default .) --stamp:flag(write each note's content hash into it)
+#@in        source-root:dir(default .) --stamp:flag(write the content hash into each note that has been synced — a note with no `Last synced:` line is left alone)
 #@out       stdout:per-note staleness, verified by content hash where the note carries one
 #@exit      0=fresh 1=stale notes found
 #@effects   read-only, except --stamp which rewrites the header line of each note
@@ -87,6 +87,7 @@ stamped_hash() {   # stamped_hash <note-file>
 # ── --stamp ────────────────────────────────────────────────────────────────
 if [ "$STAMP" -eq 1 ]; then
   n=0
+  unsynced=0
   for f in .claude/notes/*.md; do
     [ -f "$f" ] || continue
     name=$(basename "$f" .md)
@@ -96,13 +97,27 @@ if [ "$STAMP" -eq 1 ]; then
       printf '  %-16s no source files map to this note — not stamped\n' "$name"
       continue
     fi
+    # A stamp asserts "this note describes the tree at this hash", and only a sync can make that
+    # true. `- **Last synced:**` is what a sync writes (/sync-app-notes S5.3), so its absence means
+    # the note has never been synced and a hash here fabricates a baseline — the next run reads a
+    # matching hash as "verified — trust it as written" and skips the note entirely.
+    #
+    # This used to fall through to inserting a hash after line 1 for exactly these notes, which is
+    # the opposite of what the check above is for. That skip catches a note whose SOURCES are
+    # missing; this one catches a note whose sources exist but which was never populated. FEATURES
+    # hit it: it maps to *.swift, so one template view qualified it while the note still carried its
+    # "Empty until …" scaffold marker and not a single row.
+    if ! grep -q -- '- \*\*Last synced:\*\*' "$f"; then
+      printf '  %-16s never synced — not stamped (no `Last synced:` line)\n' "$name"
+      unsynced=$((unsynced + 1))
+      continue
+    fi
     tmp="$f.tmp"
     if grep -q -- '- \*\*Tree hash:\*\*' "$f"; then
       sed "s|^- \*\*Tree hash:\*\*.*|- **Tree hash:** \`$h\`|" "$f" > "$tmp"
-    elif grep -q -- '- \*\*Last synced:\*\*' "$f"; then
-      awk -v h="$h" '{print} /- \*\*Last synced:\*\*/ && !done {print "- **Tree hash:** `" h "`"; done=1}' "$f" > "$tmp"
     else
-      awk -v h="$h" 'NR==1 {print; print ""; print "- **Tree hash:** `" h "`"; next} {print}' "$f" > "$tmp"
+      # `Last synced:` is guaranteed present by the guard above, so this is the only insert path.
+      awk -v h="$h" '{print} /- \*\*Last synced:\*\*/ && !done {print "- **Tree hash:** `" h "`"; done=1}' "$f" > "$tmp"
     fi
     mv "$tmp" "$f"
     printf '  stamped %-16s %s\n' "$name" "$h"
@@ -111,6 +126,12 @@ if [ "$STAMP" -eq 1 ]; then
   echo
   echo "$n note(s) stamped. A later run reports 'verified' while the hash still matches, so nothing"
   echo "re-reads a note to find out whether it is current."
+  if [ "$unsynced" -gt 0 ]; then
+    echo
+    echo "$unsynced note(s) have sources but no \`Last synced:\` line, so they were left unstamped."
+    echo "That line is what a sync writes. Sync the note to earn its baseline; stamping one that was"
+    echo "never populated would make the next run skip it as verified."
+  fi
   exit 0
 fi
 
