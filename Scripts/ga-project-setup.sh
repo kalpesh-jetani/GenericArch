@@ -3,8 +3,8 @@
 #@platform  macos
 #@claude    needs-approval
 #@purpose   Write the five .xcconfig files an EXISTING Xcode project should reference, and the checklist for pointing it at them.
-#@usage     ga-project-setup.sh <target-dir> [--apply] [--yes] [--product NAME] [--bundle-id ID] [--team-id ID] [--org NAME] [--targets ios,macos] [--ios N] [--macos V]
-#@in        target:dir --apply:flag(without it, dry run) --yes:flag(skip the prompt; same as GA_ASSUME_YES=1) --product:string(product name, default the target's basename) --bundle-id:string(base reverse-DNS id, no stage suffix) --team-id:string(10-char Apple Team ID; never invented, omit if unknown) --org:string(organization name for file headers) --targets:csv(ios,macos) --ios:int(iOS deployment floor) --macos:string(macOS deployment floor)
+#@usage     ga-project-setup.sh <target-dir> [--apply] [--yes] [--product NAME] [--bundle-id ID] [--team-id ID] [--org NAME] [--targets ios,macos] [--ios V] [--macos V]
+#@in        target:dir --apply:flag(without it, dry run) --yes:flag(skip the prompt; same as GA_ASSUME_YES=1) --product:string(product name, default the target's basename) --bundle-id:string(base reverse-DNS id, no stage suffix) --team-id:string(10-char Apple Team ID; never invented, omit if unknown) --org:string(organization name for file headers) --targets:csv(ios,macos) --ios:string(iOS deployment floor, e.g. 17 or 26.5; asked with the project's own value prefilled when omitted) --macos:string(macOS deployment floor; asked with the project's own value prefilled when omitted)
 #@out       stdout:the toolchain verdict, the answers, and the plan; with --apply the Configurations/ files and XCODE-SETUP.md exist
 #@exit      0=ok 2=usage 3=no Xcode toolchain, or no project here — nothing written 4=declined at the prompt 1=other error
 #@effects   with --apply: writes Configurations/{Base,DEV,TEST,BETA,PROD}.xcconfig and XCODE-SETUP.md under the TARGET. NEVER creates, opens or edits an .xcodeproj
@@ -142,6 +142,37 @@ need() {   # need <value> <flag-name>
   [ -n "$1" ] || MISSING="$MISSING $2"
 }
 
+# A deployment floor is the one answer here that decides which devices the app abandons, so it is
+# always SHOWN, never merely taken. The project's own floor is the prefill — Enter accepts it, so
+# adopting a repo that already states one still costs a keystroke and nothing is overwritten — and
+# a typed value replaces it. Callers that cannot be asked (no tty) get the prefill, which keeps
+# automation and unattended adoption working.
+#
+# Validated rather than trusted: this used to be a value no one could type, and an unparseable
+# floor reaches Xcode as a build setting that fails far from here. Returns empty when there is
+# nothing to prefill and no one to ask; the caller's need() turns that into the usage error.
+# One definition of what a version is, shared by the prompt and the --ios/--macos flags. Empty is
+# not a version; nor is a value with a non-digit, or a leading, trailing or doubled dot.
+is_version() { case "${1:-}" in '' | *[!0-9.]* | .* | *. | *..*) return 1 ;; *) return 0 ;; esac; }
+
+ask_floor() {   # ask_floor <label> <project-value> <sdk>  → echoes the floor
+  _lab="$1"; _proj="$2"; _sdk="$3"; _hint=""
+  if [ -n "$_proj" ]; then
+    _hint=" — this project says $_proj${FLOOR_ORIGIN:+, from $FLOOR_ORIGIN}"
+  elif [ -n "$_sdk" ]; then
+    _hint=" — installed SDK is $_sdk, which is the ceiling, not an answer"
+  fi
+  # Re-ask only where there is someone to re-ask. With no tty the prefill is all there is, so
+  # looping would spin on the same value forever; that case falls through to the check below, which
+  # reports it once and stops.
+  while :; do
+    _v="$(ask "Minimum $_lab?$_hint" "$_proj")"
+    { [ -z "$_v" ] || is_version "$_v"; } && { printf '%s' "$_v"; return 0; }
+    have_tty || { printf '%s' "$_v"; return 0; }
+    ga_warn "'$_v' is not a version number — expected something like 17, or 26.5"
+  done
+}
+
 [ -n "$PRODUCT" ] || PRODUCT="$(ask 'Product name?' "$(basename "$TARGET")")"
 
 if [ -z "$BUNDLE_ID" ]; then
@@ -205,26 +236,26 @@ if [ -x "$SRC/Scripts/detect-toolchain.sh" ]; then
   _dt="$(NO_COLOR=1 "$SRC/Scripts/detect-toolchain.sh" 2>/dev/null || true)"
   SDK_IOS="$(printf '%s\n' "$_dt" | awk '/^ *iOS [0-9]/ {print $2; exit}')"
   SDK_MACOS="$(printf '%s\n' "$_dt" | awk '/^ *macOS [0-9]/ {print $2; exit}')"
+  # Which file the floor was read from, so the prompt can name it. A floor offered without its
+  # source is indistinguishable from one this script picked.
+  FLOOR_ORIGIN="$(printf '%s\n' "$_dt" | sed -n 's/^ *read from  *//p' | head -1)"
 fi
 
-# A floor the project already states is not a question. Adopting an existing project is exactly
-# where this matters: its .xcodeproj and manifests are the contract, and this script is only writing
-# the .xcconfig files that should agree with them.
-if [ "$WANT_IOS" -eq 1 ] && [ -z "$IOS" ] && [ -n "$PROJ_IOS" ]; then
-  IOS="$PROJ_IOS"; ga_ok "min iOS $IOS — from this repo's own manifests, not asked"
-fi
-if [ "$WANT_MACOS" -eq 1 ] && [ -z "$MACOS" ] && [ -n "$PROJ_MACOS" ]; then
-  MACOS="$PROJ_MACOS"; ga_ok "min macOS $MACOS — from this repo's own manifests, not asked"
-fi
-
-# Whatever is left the project does not answer, so it is asked. The SDK is offered as the ceiling;
-# §0 forbids defaulting to it.
+# The floor is asked once per platform, whether or not the project already states one. A project
+# that states one is still RESPECTED — that value is the prefill, so Enter adopts it and nothing is
+# overwritten — but it is no longer adopted in silence, and --ios/--macos override it outright.
+#
+# Silence was the bug. A project created minutes ago states whatever SDK the installed Xcode shipped
+# with, because that is what Xcode writes into a new target; treating that as "the shipped contract"
+# baked iOS 26.5 into four .xcconfig files and dropped every older device, with no one having chosen
+# it and nothing on screen to disagree with. The precedence in the comment above is unchanged; what
+# changed is that the number is now visible at the moment it is decided.
 if [ "$WANT_IOS" -eq 1 ] && [ -z "$IOS" ]; then
-  IOS="$(ask "Minimum iOS? (major only${SDK_IOS:+ — installed SDK is $SDK_IOS})" '')"
+  IOS="$(ask_floor 'iOS' "$PROJ_IOS" "$SDK_IOS")"
   need "$IOS" "--ios"
 fi
 if [ "$WANT_MACOS" -eq 1 ] && [ -z "$MACOS" ]; then
-  MACOS="$(ask "Minimum macOS?${SDK_MACOS:+ (installed SDK is $SDK_MACOS)}" '')"
+  MACOS="$(ask_floor 'macOS' "$PROJ_MACOS" "$SDK_MACOS")"
   need "$MACOS" "--macos"
 fi
 if [ -n "$MISSING" ]; then
@@ -235,13 +266,23 @@ if [ -n "$MISSING" ]; then
       $(basename "$0") \"$TARGET\" --targets $TARGETS${IOS:+ --ios $IOS}${MACOS:+ --macos $MACOS} --apply --yes" "$GA_EX_USAGE"
 fi
 
+# Whatever the floor came from — a flag, the prompt, or the project's own settings — it has to BE a
+# version before anything compares it to one. Missing this let `--ios seventeen` through to the
+# ceiling check below, which answered "min iOS seventeen is above the installed iOS SDK 26.5": a
+# version comparison run on a string that is not a version, reported as a toolchain problem.
+[ -z "$IOS" ]   || is_version "$IOS" \
+  || ga_die "min iOS '$IOS' is not a version number — expected something like 17, or 26.5.
+  Nothing was written." "$GA_EX_USAGE"
+[ -z "$MACOS" ] || is_version "$MACOS" \
+  || ga_die "min macOS '$MACOS' is not a version number — expected something like 15, or 26.5.
+  Nothing was written." "$GA_EX_USAGE"
+
 # A floor above the SDK cannot build. detect-toolchain.sh reports it too, but that runs after the
 # install and this is the moment the number is chosen.
-vlt() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$1" ] && [ "$1" != "$2" ]; }
-[ -n "$IOS" ]   && [ -n "$SDK_IOS" ]   && vlt "$SDK_IOS" "$IOS" \
+[ -n "$IOS" ]   && [ -n "$SDK_IOS" ]   && ga_ver_lt "$SDK_IOS" "$IOS" \
   && ga_die "min iOS $IOS is above the installed iOS SDK $SDK_IOS — an app target refuses that.
   Lower the floor, or install an Xcode whose SDK is >= $IOS. Nothing was written." "$GA_EX_COMPAT"
-[ -n "$MACOS" ] && [ -n "$SDK_MACOS" ] && vlt "$SDK_MACOS" "$MACOS" \
+[ -n "$MACOS" ] && [ -n "$SDK_MACOS" ] && ga_ver_lt "$SDK_MACOS" "$MACOS" \
   && ga_die "min macOS $MACOS is above the installed macOS SDK $SDK_MACOS — an app target refuses that.
   Lower the floor, or install an Xcode whose SDK is >= $MACOS. Nothing was written." "$GA_EX_COMPAT"
 
@@ -302,7 +343,7 @@ if [ ! -e "$CFGDIR/Base.xcconfig" ]; then
     [ -n "$TEAM_ID" ] && printf 'DEVELOPMENT_TEAM = %s\n' "$TEAM_ID" \
                       || printf '// DEVELOPMENT_TEAM = <your 10-char Team ID>   // unset on purpose — never invented\n'
     printf '\n'
-    [ -n "$IOS" ]   && printf 'IPHONEOS_DEPLOYMENT_TARGET = %s.0\n' "$IOS"
+    [ -n "$IOS" ]   && printf 'IPHONEOS_DEPLOYMENT_TARGET = %s\n' "$IOS"
     [ -n "$MACOS" ] && printf 'MACOSX_DEPLOYMENT_TARGET = %s\n' "$MACOS"
     # Acquired, never quoted from memory (CLAUDE.md §1): the language mode the project states, or
     # the newest this compiler accepts. Written as <mode>.0, which is the form Xcode expects. If the
