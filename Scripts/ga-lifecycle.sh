@@ -479,12 +479,12 @@ ga_is_version_stamp() {
 # existing install below the floor with no way out, which is the opposite of what deprecating them
 # is for — and it would have broken ga-roots.sh, whose whole output is the uninstall command for
 # the older residue it found.
-GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v0.6.1 v0.6.2"
+GA_SUPPORTED_VERSIONS="v0.1.0 v0.2.0 v0.3.0 v0.4.0 v0.4.1 v0.4.2 v0.5.0 v0.6.0 v0.6.1 v0.6.2 v0.6.3"
 
 # The LTS line. v0.6.0 opens it and every v0.6.x is part of it; GA_LATEST_VERSION is its current
 # patch, which is what a usage message should name.
 GA_LTS_LINE="v0.6"
-GA_LATEST_VERSION="v0.6.2"
+GA_LATEST_VERSION="v0.6.3"
 
 # No NEW install below this. Everything under it is deprecated: still removable, never installable.
 GA_INSTALL_FLOOR="v0.6.0"
@@ -583,6 +583,39 @@ ga_known_paths() {
         Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
         Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         Scaffold \
+        docs/DECISIONS.md docs/GAPS.md docs/resources \
+        uninstall.sh genericarch.installation.md \
+        .genericarch-version
+      ;;
+    v0.6.3)
+      # v0.6.2 plus the external-platform profile ecosystem: .claude/tools (the profiles and their
+      # ledger), ga-tool-note.sh (the whole find/generate/retire lifecycle) and ga-log.sh (the
+      # decision log's only writer). All three are COPIED, so a hash can prove ownership.
+      # .claude/skills already covers skills/tool-profile/ and its references/ — it is a directory
+      # entry, so a new skill never needs a new path here.
+      #
+      # NOT listed, each for its own reason:
+      #   docs/TOOL-PROFILES.md   REFERENCED, fetched when read — same as docs/OPENSPEC.md
+      #   Scripts/Generated/      per-product recipe scripts, generated; no shipped blob to hash
+      #   .claude/log.md          written by the first ga-log.sh append, never copied
+      # Listing a generated path would send a fallback uninstall hunting for a file this release
+      # never wrote, which is the one thing this list must not do.
+      printf '%s\n' \
+        .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
+        .claude/CANDIDATES.tsv .claude/notes .claude/memory .claude/tools \
+        .swiftlint.yml .swiftformat \
+        Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
+        Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
+        Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
+        Scripts/scan-unused-assets.py Scripts/scan-api-map.py Scripts/check-note-links.py \
+        Scripts/detect-capabilities.sh Scripts/claude-workflows Scripts/claude-utils \
+        Scripts/memory-add.py Scripts/verify-memory.sh Scripts/find-script.sh \
+        Scripts/session-script.sh Scripts/ga-lifecycle.sh \
+        Scripts/ga-step.sh Scripts/ga-remove.sh Scripts/ga-reseal.sh \
+        Scripts/ga-project-setup.sh Scripts/ga-init-scan.sh \
+        Scripts/ga-cleanup-scan.sh Scripts/ga-sync-scan.sh Scripts/ga-roots.sh \
+        Scripts/openspec-sync.sh Scripts/ga-tool-note.sh Scripts/ga-log.sh \
+        Scripts/sync-notes.sh Scripts/ga-handoff.sh \
         docs/DECISIONS.md docs/GAPS.md docs/resources \
         uninstall.sh genericarch.installation.md \
         .genericarch-version

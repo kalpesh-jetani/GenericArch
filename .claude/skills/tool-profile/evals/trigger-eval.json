@@ -1,0 +1,23 @@
+[
+  {"query": "ok so i finally got the figma mcp thing connected in this repo. before i start pulling frames for the settings screen, is there anything we already wrote down about what it can actually give us?", "should_trigger": true},
+  {"query": "we dont have the jira integration set up here. im just gonna paste the ticket url - https://smartsense.atlassian.net/browse/SSS-412 - what can you actually get out of that vs what do you need me to copy paste", "should_trigger": true},
+  {"query": "just pointed this at our github actions setup for the first time. can you note down what the workflow run api gives us, statuses durations whatever, so the next person doesnt have to figure it out again", "should_trigger": true},
+  {"query": "what attributes does the notion connector expose, and in what units? i need created/edited timestamps and i cant tell if theyre ISO or epoch", "should_trigger": true},
+  {"query": "before i wire up the datadog connector for the crash dashboards, do we have anything recorded about which metrics it exposes and at what granularity", "should_trigger": true},
+  {"query": "heres the mockup our designer sent, its a figma link. we have no figma access on this machine. work out what you can actually determine from the url itself and tell me what youll need me to screenshot", "should_trigger": true},
+  {"query": "do we have a profile for linear yet or is this the first time anyone here has touched it", "should_trigger": true},
+  {"query": "I have just completed the first successful call against the Atlassian connector. Please record what it exposes - field names, value types, scope - before we build anything on top of it.", "should_trigger": true},
+  {"query": "im about to hit the slack connector again for the release notes. is there a recorded recipe for it or do i work it out from scratch", "should_trigger": true},
+  {"query": "the aspect ratio thing we wrote down for figma turned out wrong, its per file not per node. how do i get that corrected", "should_trigger": true},
+
+  {"query": "read through this vendor's docs at https://developer.apple.com/documentation/storekit and write up what were taking from it and what were deliberately not, for the purchases work", "should_trigger": false},
+  {"query": "the figma import screen renders blank after i tap a frame, nothing in the console. its fine in dev but blank in testflight", "should_trigger": false},
+  {"query": "scaffold a new feature package for the jira ticket browser screen, with the content states and a mock", "should_trigger": false},
+  {"query": "were adding the sentry sdk to the app. set up the wrapper target so no feature imports it directly", "should_trigger": false},
+  {"query": "add an email field to the signup request and update the api map note", "should_trigger": false},
+  {"query": "i added three new colour tokens for the dark theme, update the style guide note", "should_trigger": false},
+  {"query": "propose a change for the magic-link login flow and write the delta spec for it", "should_trigger": false},
+  {"query": "where should the api key for the staging environment live, keychain or the xcconfig?", "should_trigger": false},
+  {"query": "record what our screens actually call so the api map is accurate again, i think it drifted when we added the paywall", "should_trigger": false},
+  {"query": "the github connector keeps asking me to reauthorise every morning. can you work out whats dropping the token", "should_trigger": false}
+]

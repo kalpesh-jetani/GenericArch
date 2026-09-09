@@ -70,7 +70,8 @@ OPTIONAL="when"
 
 # Every executable-ish thing under Scripts/, in a stable order so the registry
 # diff is meaningful rather than filesystem-ordered.
-SCRIPTS=$(ls Scripts/*.sh Scripts/*.py Scripts/claude-workflows/*.sh Scripts/claude-utils/*.sh 2>/dev/null | sort)
+SCRIPTS=$(ls Scripts/*.sh Scripts/*.py Scripts/claude-workflows/*.sh Scripts/claude-utils/*.sh \
+              Scripts/Generated/*.sh 2>/dev/null | sort)
 [ -n "$SCRIPTS" ] || die "no scripts found under Scripts/" "$EX_ERR"
 
 {

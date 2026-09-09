@@ -69,6 +69,7 @@ BASE="
 .claude/INDEX.md
 .claude/MAP.tsv
 .claude/SCRIPTS.tsv
+.claude/tools
 Scripts/check.sh
 Scripts/check-skill-triggers.py
 Scripts/detect-toolchain.sh
@@ -93,6 +94,8 @@ Scripts/adopt-review.sh
 Scripts/ga-lifecycle.sh
 Scripts/ga-project-setup.sh
 Scripts/ga-step.sh
+Scripts/ga-tool-note.sh
+Scripts/ga-log.sh
 Scripts/ga-remove.sh
 Scripts/ga-reseal.sh
 Scripts/ga-init-scan.sh
