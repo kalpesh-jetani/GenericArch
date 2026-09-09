@@ -492,7 +492,13 @@ say "|---|---|---|"
 ENT="/Library/Application Support/ClaudeCode/managed-settings.json"
 say "| Enterprise | every repo, every user | $([ -f "$ENT" ] && echo 'yes — **read-only, never touch it**' || echo no) |"
 _user="$(ls "$HOME/.claude/CLAUDE.md" 2>/dev/null | wc -l | tr -d ' ')"
-_mem="$(ls "$HOME"/.claude/projects/*/memory/*.md 2>/dev/null | wc -l | tr -d ' ')"
+# Claude Code names a project's state directory after its path, with both `/` and `.` becoming `-`.
+# This glob was `"$HOME"/.claude/projects/*/memory/*.md`, whose `*` matched every project on the
+# machine: a repo with no memories of its own reported 13, borrowed from four unrelated checkouts.
+# S0 then reads that number as this repo's and says to flag the memory copy as duplicating a rule
+# here — a removal aimed at another project's files.
+_mem_dir="$HOME/.claude/projects/$(printf '%s' "$TARGET" | tr './' '-')/memory"
+_mem="$(ls "$_mem_dir"/*.md 2>/dev/null | wc -l | tr -d ' ')"
 say "| User | this user | CLAUDE.md: $([ "$_user" -gt 0 ] && echo yes || echo no) · project-scoped memories: $_mem |"
 say "| Project | everyone who clones | $(printf '%s' "$CMDS" | grep -c . | tr -d ' ') CLAUDE.md file(s) |"
 say "| Plugin | every repo that installs it | $([ -d "$TARGET/.claude-plugin" ] && echo yes || echo no) |"
