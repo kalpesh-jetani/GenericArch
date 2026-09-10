@@ -117,3 +117,10 @@ Meta-commentary belongs here and nowhere else — not in a skill, a command, a s
   **Why:** Executing the revive branch for the first time exposed it: retire tombstones the profile and the recipe, but the gate only checked the profile and the docs said revive takes one path. Reviving only the profile let generate re-create a recipe that was still tombstoned — a file on disk the install machinery believed was declined
   **How:** The gate loops over both paths; --revive delegates to ga-remove.sh for each tombstoned one, then re-syncs and re-registers. Verified in a disposable copy: 2 tombstones to 0, both files back, four surfaces re-indexed
   *(2026-09-09T16:39:46Z)*
+
+## 2026-09-10
+
+- **Decided:** Scripts/Generated stays EXCLUDED from adopt.sh; only its reason line changed
+  **Why:** The line read as disowning the recipes — it was taken as a proposal to stop keeping or generating them. EXCLUDED only ever meant 'not copied into a target': the files stay here, ga-tool-note.sh keeps writing them, and .claude/tools/<tool>.md keeps referencing ./Scripts/Generated/<tool>.sh. Shipping them instead would hand a target a recipe with no profile and no ledger row, since .claude/tools is scaffolded
+  **How:** Reason reworded to say the directory and its recipes stay here and stay in use. No list moved, no DECISIONS row touched
+  *(2026-09-10T04:22:46Z)*

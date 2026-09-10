@@ -166,7 +166,7 @@ install.sh|installing again means fetching again — ./bootstrap.sh does that fr
 bootstrap.sh|the entry point lives upstream, not in every consumer (curl one-liner in the README)
 Scripts/ga-roundtrip.sh|tests install.sh, which does not travel — it belongs where the base is authored
 OPERATORS-GUIDE.md|maps THIS repo's files, most of which do not travel; a target gets genericarch.installation.md
-Scripts/Generated|recipe scripts are generated per product by ga-tool-note.sh — ours describe platforms the target never reached
+Scripts/Generated|generated per product by ga-tool-note.sh — ours describe platforms the target never reached; the directory and its recipes stay here and stay in use
 CHANGELOG.md|our release history, not the target's — the manifest records which version it has
 "
 
