@@ -6,6 +6,57 @@ decorative.
 
 ---
 
+## v0.6.3
+
+The theme: **the base records what an external platform exposes, once.**
+
+### External-platform profiles
+
+Everything Claude learned about a connector, a design reference, a ticket tracker or a CI system
+used to live in one session's transcript. The next session reached the platform again to
+rediscover it. This release adds one capability with a full lifecycle — **find → generate →
+register → extend → fail → generate → unregister → retire → revive** — and a failure loops back to
+`generate` on fresh observation rather than getting a repair path of its own.
+
+- **[`.claude/tools/<tool>.md`](.claude/tools/CLAUDE.md)** holds one platform's attributes: name,
+  unit, reachability, extraction method, scope, plus connectivity prose for the wired and the
+  **unwired** case — no connector configured, a reference pasted instead. `.claude/tools/LEDGER.tsv`
+  is the source of truth for status and failure counts; the registry note is generated from it, the
+  way `SCRIPTS.tsv` is generated from `#@` headers.
+- **Observation only, and `not observed` is a required entry.** Every cell comes from a real
+  response. `Scripts/ga-tool-note.sh --apply` **refuses** a profile with no observed row, so a
+  platform that was never successfully reached produces no file at all. A wrong unit is worse than
+  a missing one because it is trusted.
+- **One skill, not one per platform.** `.claude/skills/tool-profile/` is the only always-on
+  description; the per-platform files are the variant layer, so a new platform adds a file and
+  never a trigger surface. Its registry lives in the skill's `references/`, which is where a
+  Claude skill keeps material loaded on demand.
+- **Retirement goes through `ga-remove.sh`** — moved to `.genericarch/safetodelete/`, tombstoned,
+  index rows pruned, a *Do not re-propose* row recorded. `generate` checks the tombstone first, so
+  a retired profile does not come back on the next run.
+- **`Scripts/Generated/<tool>.sh`** prints the recorded recipe, read-only. It earns its place in
+  the unwired case: it says what a pasted reference still reaches and what it does not, instead of
+  attempting a connector call that will fail. `register-scripts.sh` now enumerates
+  `Scripts/Generated/*.sh`, so a generated script gets a registry row — and because that script
+  refuses an incomplete `#@` header, the header contract is self-enforcing rather than advisory.
+
+### Meta-commentary has a home
+
+`.claude/log.md`, appended only by **`Scripts/ga-log.sh`**. §10 sent narration to the commit
+message and §2.11 forbids committing, so the reasoning behind a change either landed in a reusable
+file where it rots, or was lost. The log is **never read to decide anything** — that stays
+[DECISIONS.md](docs/DECISIONS.md). One records the decision, the other the story of reaching it.
+
+**Tagged `v0.6.3`.** `ga_known_paths` gains a `v0.6.3` arm adding exactly three paths —
+`.claude/tools`, `Scripts/ga-tool-note.sh`, `Scripts/ga-log.sh`. `.claude/skills` is already a
+directory entry, so the new skill needed no path. Three things are deliberately **absent**:
+`docs/TOOL-PROFILES.md` is REFERENCED and fetched when read, `Scripts/Generated/` is generated per
+product, and `.claude/log.md` is written by its first append — no shipped blob can prove ownership
+of a generated file, and listing one would send a fallback uninstall hunting for a file this
+release never wrote.
+
+---
+
 ## v0.6.2
 
 The theme: **the base asserts no module it cannot show you.**

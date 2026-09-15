@@ -17,7 +17,7 @@
 # going unowned forever.
 #
 # The version argument is REQUIRED. Every release this tool has ever shipped stays REMOVABLE:
-# v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.4.1, v0.4.2, v0.5.0, v0.6.0, v0.6.1, v0.6.2.
+# v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.4.1, v0.4.2, v0.5.0, v0.6.0, v0.6.1, v0.6.2, v0.6.3.
 #
 # Anything below v0.6.0 is deprecated — install.sh refuses to put it on a repo, and this script
 # still takes it off one. That asymmetry is the point: deprecating a release must not strand the

@@ -63,6 +63,14 @@ CASES = [
     ("fix the layout on this card", None),
     ("add a protocol and a mock for this service", None),
     ("handle one more content state here", None),
+    # tool-profile: capturing what an external platform exposes. No vendor is named — a fixture
+    # naming one asserts the project uses it, and pins phrasing nobody types once it does not.
+    ("i just connected this ticket tracker", "tool-profile"),
+    ("first time using this connector", "tool-profile"),
+    ("do we have a profile for this tool yet", "tool-profile"),
+    ("this connector is not configured, here is the reference", "tool-profile"),
+    # /learn's territory: what we take from a vendor, not how to drive a platform.
+    ("note what we take from this vendor and what we reject", None),
 ]
 
 # Stopwords carry no trigger signal. Counting them produced false collisions — the metric was
@@ -133,7 +141,7 @@ for prompt, expected in CASES:
 # it would go stale on their next release. So assert only the two things that are actually ours to
 # keep true, in both directions. Both hold whether or not OpenSpec is installed here: with none
 # present the winner lists are empty and every assertion passes trivially.
-HOUSE = {"debug", "new-feature"}
+HOUSE = {"debug", "new-feature", "tool-profile"}
 
 # Spec-workflow language. None of ours may claim it — a scaffolding skill that fires on "propose a
 # change" produces a package nobody asked for and skips the spec that was the point.

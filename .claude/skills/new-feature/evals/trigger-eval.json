@@ -1,0 +1,23 @@
+[
+  {"query": "i need to build the settings screen from scratch, it should have a list of toggles and handle loading and error", "should_trigger": true},
+  {"query": "scaffold FeatureProfile please, with the router case and a mock service", "should_trigger": true},
+  {"query": "start the notifications module, nothing exists for it yet", "should_trigger": true},
+  {"query": "we're adding a paywall. no code for it at all yet, needs its own package i think", "should_trigger": true},
+  {"query": "spin up a new package for the search experience, it needs paging", "should_trigger": true},
+  {"query": "add a whole new tab to the app for activity history, from nothing", "should_trigger": true},
+  {"query": "create the profile edit flow, three screens, and wire it into the composition root", "should_trigger": true},
+  {"query": "we need an onboarding carousel that doesnt exist yet. where does it go and what does it need to expose", "should_trigger": true},
+  {"query": "build out the favourites feature, empty state included, its greenfield", "should_trigger": true},
+  {"query": "i want to add a brand new module for offline downloads, what shape should it take", "should_trigger": true},
+
+  {"query": "app dies opening the profile tab, Fatal error: Unexpectedly found nil, AvatarView.swift line 44", "should_trigger": false},
+  {"query": "the feed screen just shows white, no error and no spinner", "should_trigger": false},
+  {"query": "rename UserSession to AccountSession across the project", "should_trigger": false},
+  {"query": "add one more toggle to the existing settings screen, it already has four", "should_trigger": false},
+  {"query": "add an email field to the signup request and update the api map note", "should_trigger": false},
+  {"query": "i just connected this ticket tracker, what does it actually expose", "should_trigger": false},
+  {"query": "propose a change for the magic-link login flow and write the delta spec", "should_trigger": false},
+  {"query": "i added three new colour tokens for the dark theme, update the style guide note", "should_trigger": false},
+  {"query": "bump ImageCache after the cache fix and update the app", "should_trigger": false},
+  {"query": "review my diff against the architecture rules before i push it", "should_trigger": false}
+]
