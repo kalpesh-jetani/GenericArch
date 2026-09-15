@@ -124,3 +124,10 @@ Meta-commentary belongs here and nowhere else — not in a skill, a command, a s
   **Why:** The line read as disowning the recipes — it was taken as a proposal to stop keeping or generating them. EXCLUDED only ever meant 'not copied into a target': the files stay here, ga-tool-note.sh keeps writing them, and .claude/tools/<tool>.md keeps referencing ./Scripts/Generated/<tool>.sh. Shipping them instead would hand a target a recipe with no profile and no ledger row, since .claude/tools is scaffolded
   **How:** Reason reworded to say the directory and its recipes stay here and stay in use. No list moved, no DECISIONS row touched
   *(2026-09-10T04:22:46Z)*
+
+## 2026-09-11
+
+- **Decided:** ga_need_val goes in ga-lifecycle.sh, and guards every value-taking flag in ga-tool-note.sh and ga-log.sh
+  **Why:** The lifecycle walk found that a trailing --flag with no value HANGS the script forever, it does not report usage. These scripts run 'set -o pipefail' without -e, so 'shift 2' with one argument left fails silently, $1 keeps its value, and 'while [ $# -gt 0 ]' spins. Verified: ga-tool-note.sh --find, ga-log.sh --decided, ga-remove.sh --reason and ga-reseal.sh --target all hung; ga-step.sh happened not to. Rejected fixing it per-script inline, because nine ga-* scripts share the pattern across 34 shift-2 sites and a ninth copy of the same two-line guard is what goes stale.
+  **How:** One helper beside ga_die, used at 8 sites in ga-tool-note.sh and 5 in ga-log.sh — the two scripts this change owns. GA_LIB_VERSION bumped 2 to 3 per the library's own rule for an added function, and the #@out function list updated. The six pre-existing ga-* scripts are reported as a follow-up, not silently refactored.
+  *(2026-09-11T09:34:23Z)*

@@ -23,11 +23,11 @@ DECIDED=""; WHY=""; HOW=""; LIST=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --decided) DECIDED="${2:-}"; shift 2 ;;
-    --why)     WHY="${2:-}"; shift 2 ;;
-    --how)     HOW="${2:-}"; shift 2 ;;
-    --session) SESSION="${2:-}"; shift 2 ;;
-    --target)  TARGET="${2:-}"; shift 2 ;;
+    --decided) ga_need_val "$@"; DECIDED="$2"; shift 2 ;;
+    --why)     ga_need_val "$@"; WHY="$2"; shift 2 ;;
+    --how)     ga_need_val "$@"; HOW="$2"; shift 2 ;;
+    --session) ga_need_val "$@"; SESSION="$2"; shift 2 ;;
+    --target)  ga_need_val "$@"; TARGET="$2"; shift 2 ;;
     --list)    LIST=1; shift ;;
     -h|--help) sed -n '2,11p' "$0"; exit "$GA_EX_USAGE" ;;
     *) ga_die "unknown argument: $1" "$GA_EX_USAGE" ;;

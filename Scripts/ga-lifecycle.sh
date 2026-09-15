@@ -5,7 +5,7 @@
 #@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, the macOS/Swift compatibility gate. Sourced, never executed.
 #@usage     . Scripts/ga-lifecycle.sh
 #@in        n/a (sourced). Honours GA_ASSUME_YES=1, GA_DRY_RUN=1, NO_COLOR
-#@out       functions: ga_die ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_footprint_at ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_is_deprecated_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
+#@out       functions: ga_die ga_need_val ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_footprint_at ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_is_deprecated_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
 #@exit      0=sourced ok 2=executed directly instead of sourced
 #@effects   none on its own; every write is performed by the caller through these helpers
 #@when      installer helper|manifest format|install exit codes|hashing a manifest|uninstall helper
@@ -59,7 +59,7 @@ GA_MANIFEST_SCHEMA=2
 # Callers must not test this constant alone: an old library does not define it at all. Test the
 # functions with `command -v`, which needs nothing from the library, and use this only to say which
 # version was found.
-GA_LIB_VERSION=2
+GA_LIB_VERSION=3
 
 # Everything GenericArch owns lives under this one directory, so a reader can see the whole
 # footprint of the install state in one place.
@@ -89,6 +89,14 @@ ga_die() {
   _gc="${2:-$GA_EX_ERR}"
   case "$_gc" in ''|*[!0-9]*|0) _gc="$GA_EX_ERR" ;; esac
   exit "$_gc"
+}
+
+# Guards a value-taking flag in an argument loop: `ga_need_val "$@"` before `shift 2`.
+# These scripts run under `set -o pipefail` without `-e`, so a `shift 2` with only one argument
+# left FAILS SILENTLY, `$1` keeps its value, and `while [ $# -gt 0 ]` spins forever. A trailing
+# `--flag` with no value hung the script instead of reporting usage.
+ga_need_val() {
+  [ $# -ge 2 ] || ga_die "$1 needs a value" "$GA_EX_USAGE"
 }
 
 # ── Confirmation ───────────────────────────────────────────────────────────

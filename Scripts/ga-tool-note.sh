@@ -30,7 +30,7 @@ trap 'rm -f "$OBS_FILE" "$OBS_FILE".rows "$OBS_FILE".map "$OBS_FILE".idx' EXIT
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --find)       MODE="find"; TOOL="${2:-}"; shift 2 ;;
+    --find)       ga_need_val "$@"; MODE="find"; TOOL="$2"; shift 2 ;;
     --list)       MODE="list"; shift ;;
     --sync)       MODE="sync"; shift ;;
     --extend)     MODE="extend"; shift ;;
@@ -38,14 +38,14 @@ while [ $# -gt 0 ]; do
     --unregister) MODE="unregister"; shift ;;
     --retire)     MODE="retire"; shift ;;
     --revive)     MODE="revive"; shift ;;
-    --observe)    printf '%s\n' "${2:-}" >> "$OBS_FILE"; OBS_N=$((OBS_N + 1)); shift 2 ;;
-    --platform)   PLATFORM="${2:-}"; shift 2 ;;
-    --via)        VIA="${2:-}"; shift 2 ;;
-    --wired)      WIRED="${2:-}"; shift 2 ;;
-    --cause)      CAUSE="${2:-}"; shift 2 ;;
-    --reason)     REASON="${2:-}"; shift 2 ;;
+    --observe)    ga_need_val "$@"; printf '%s\n' "$2" >> "$OBS_FILE"; OBS_N=$((OBS_N + 1)); shift 2 ;;
+    --platform)   ga_need_val "$@"; PLATFORM="$2"; shift 2 ;;
+    --via)        ga_need_val "$@"; VIA="$2"; shift 2 ;;
+    --wired)      ga_need_val "$@"; WIRED="$2"; shift 2 ;;
+    --cause)      ga_need_val "$@"; CAUSE="$2"; shift 2 ;;
+    --reason)     ga_need_val "$@"; REASON="$2"; shift 2 ;;
     --apply)      APPLY=1; shift ;;
-    --target)     TARGET="${2:-}"; shift 2 ;;
+    --target)     ga_need_val "$@"; TARGET="$2"; shift 2 ;;
     -h|--help)    sed -n '2,12p' "$0"; exit "$GA_EX_USAGE" ;;
     -*)           ga_die "unknown argument: $1" "$GA_EX_USAGE" ;;
     *)            [ -z "$TOOL" ] || ga_die "one tool at a time (got '$TOOL' and '$1')" "$GA_EX_USAGE"
