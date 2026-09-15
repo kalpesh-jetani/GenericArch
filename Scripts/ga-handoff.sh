@@ -22,14 +22,21 @@ SCRIPT="${1:-}"; CODE="${2:-}"
 [ -n "$SCRIPT" ] && [ -n "$CODE" ] || { echo "usage: ga-handoff.sh <script> <exit-code> [--cause T] [--file P] [--line N] [--got T] [--want T]" >&2; exit 2; }
 shift 2
 
+# Sources nothing on purpose — this is what runs when other scripts are broken — so it carries its
+# own copy of the guard ga-lifecycle.sh exports as ga_need_val. Without it a trailing `--flag` with
+# no value spins: `shift 2` fails, `$1` never changes, and the loop below never ends.
+need_val() {
+  [ $# -ge 2 ] || { echo "ga-handoff.sh: $1 needs a value" >&2; exit 2; }
+}
+
 CAUSE=""; FILE=""; LINE=""; GOT=""; WANT=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --cause) CAUSE="${2:-}"; shift 2 || true ;;
-    --file)  FILE="${2:-}";  shift 2 || true ;;
-    --line)  LINE="${2:-}";  shift 2 || true ;;
-    --got)   GOT="${2:-}";   shift 2 || true ;;
-    --want)  WANT="${2:-}";  shift 2 || true ;;
+    --cause) need_val "$@"; CAUSE="$2"; shift 2 ;;
+    --file)  need_val "$@"; FILE="$2";  shift 2 ;;
+    --line)  need_val "$@"; LINE="$2";  shift 2 ;;
+    --got)   need_val "$@"; GOT="$2";   shift 2 ;;
+    --want)  need_val "$@"; WANT="$2";  shift 2 ;;
     *) shift ;;
   esac
 done

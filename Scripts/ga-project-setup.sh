@@ -34,13 +34,13 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --apply)     APPLY=1; shift ;;
     --yes)       GA_ASSUME_YES=1; export GA_ASSUME_YES; shift ;;
-    --product)   PRODUCT="${2:-}"; shift 2 || true ;;
-    --bundle-id) BUNDLE_ID="${2:-}"; shift 2 || true ;;
-    --team-id)   TEAM_ID="${2:-}"; shift 2 || true ;;
-    --org)       ORG="${2:-}"; shift 2 || true ;;
-    --targets)   TARGETS="${2:-}"; shift 2 || true ;;
-    --ios)       IOS="${2:-}"; shift 2 || true ;;
-    --macos)     MACOS="${2:-}"; shift 2 || true ;;
+    --product)   ga_need_val "$@"; PRODUCT="$2"; shift 2 ;;
+    --bundle-id) ga_need_val "$@"; BUNDLE_ID="$2"; shift 2 ;;
+    --team-id)   ga_need_val "$@"; TEAM_ID="$2"; shift 2 ;;
+    --org)       ga_need_val "$@"; ORG="$2"; shift 2 ;;
+    --targets)   ga_need_val "$@"; TARGETS="$2"; shift 2 ;;
+    --ios)       ga_need_val "$@"; IOS="$2"; shift 2 ;;
+    --macos)     ga_need_val "$@"; MACOS="$2"; shift 2 ;;
     -h|--help)   sed -n '5,8p' "$0"; exit "$GA_EX_USAGE" ;;
     -*)          ga_die "unknown flag: $1" "$GA_EX_USAGE" ;;
     *)           [ -z "$TARGET" ] || ga_die "one target only" "$GA_EX_USAGE"; TARGET="$1"; shift ;;
