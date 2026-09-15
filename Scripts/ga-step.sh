@@ -32,7 +32,7 @@ STEP=""
 NOTE=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --target) TARGET="$(cd "$2" 2>/dev/null && pwd)" || ga_die "no such directory: $2" "$GA_EX_USAGE"; shift 2 ;;
+    --target) ga_need_val "$@"; TARGET="$(cd "$2" 2>/dev/null && pwd)" || ga_die "no such directory: $2" "$GA_EX_USAGE"; shift 2 ;;
     --force)  FORCE=1; shift ;;
     *)        if [ -z "$STEP" ]; then STEP="$1"; else NOTE="${NOTE:+$NOTE }$1"; fi; shift ;;
   esac

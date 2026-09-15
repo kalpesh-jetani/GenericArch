@@ -28,7 +28,7 @@ APPLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --apply)  APPLY=1; shift ;;
-    --target) TARGET="$(cd "${2:-}" 2>/dev/null && pwd)" || ga_die "no such directory: ${2:-}" "$GA_EX_USAGE"; shift 2 ;;
+    --target) ga_need_val "$@"; TARGET="$(cd "$2" 2>/dev/null && pwd)" || ga_die "no such directory: $2" "$GA_EX_USAGE"; shift 2 ;;
     *)        ga_die "usage: ga-reseal.sh [--apply] [--target DIR]" "$GA_EX_USAGE" ;;
   esac
 done

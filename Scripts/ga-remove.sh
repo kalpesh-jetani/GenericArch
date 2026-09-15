@@ -43,9 +43,9 @@ while [ $# -gt 0 ]; do
     --apply)     APPLY=1; shift ;;
     --untracked) UNTRACKED=1; shift ;;
     --list)      LIST=1; shift ;;
-    --reason)    REASON="${2:-}"; shift 2 || true ;;
-    --revive)    REVIVE="${2:-}"; shift 2 || true ;;
-    --target)    TARGET="$(cd "${2:-}" 2>/dev/null && pwd)" || ga_die "no such directory: ${2:-}" "$GA_EX_USAGE"; shift 2 ;;
+    --reason)    ga_need_val "$@"; REASON="$2"; shift 2 ;;
+    --revive)    ga_need_val "$@"; REVIVE="$2"; shift 2 ;;
+    --target)    ga_need_val "$@"; TARGET="$(cd "$2" 2>/dev/null && pwd)" || ga_die "no such directory: $2" "$GA_EX_USAGE"; shift 2 ;;
     -h|--help)   sed -n '2,12p' "$0"; exit "$GA_EX_USAGE" ;;
     -*)          ga_die "unknown flag: $1" "$GA_EX_USAGE" ;;
     *)           PATHS="$PATHS $1"; shift ;;

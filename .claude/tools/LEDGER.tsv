@@ -1,0 +1,5 @@
+#	GenericArch external-platform ledger — the source of truth for .claude/tools/.
+#	The registry note is regenerated from this file: ga-tool-note.sh --sync
+#	status: active | suspect | stale | retired
+#	tool	profile	script	wired	created	last_verified	failures	status
+figma	.claude/tools/figma.md	Scripts/Generated/figma.sh	connector	2026-09-09	2026-09-09	0	active
