@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Generate the publishable Claude Code plugin from .claude/skills and .claude/commands.
 #@usage     build-plugin.sh [version]
@@ -17,9 +17,9 @@
 # single source of truth — a hand-copied plugin drifts, and a doc that drifts is worse than none.
 #
 # Its NAME and DESCRIPTION come from .claude-plugin/plugin.json for the same reason. A second copy
-# lived here and drifted: it still advertised a Swift version this repo refuses to state from memory
-# (CLAUDE.md §1), and listed dark-mode, RTL and release skills that only ever existed as patterns
-# under docs/patterns/. Whoever browsed the marketplace read that copy, not the accurate one.
+# lived here and drifted: it still advertised a stack version this repo refuses to state from memory
+# (CLAUDE.md §1), and listed skills that no longer ship. Whoever browsed the marketplace read that
+# copy, not the accurate one.
 #
 # Ships only the tooling layer. CLAUDE.md and docs/ deliberately stay out: those are a product's
 # rules, and a plugin that overwrote them would stop each product setting its own (docs/SHARING.md).
@@ -55,16 +55,15 @@ cat > "$OUT/.claude-plugin/marketplace.json" <<JSON
     {
       "name": "genericarch",
       "source": "./",
-      "description": "Apple-platform app architecture skills and commands."
+      "description": "Development-layer skills and commands (stack-agnostic)."
     }
   ]
 }
 JSON
 
-# The two tables listed skills and commands by hand, and both were wrong: three patterns from
-# docs/patterns/ were advertised as skills, `debug` was missing, five of the twelve commands were
-# absent, and /sync-app-notes claimed seven inventories where there are nine. This is the public
-# face of the plugin, so it is generated from the same frontmatter the tool itself reads.
+# The two tables listed skills and commands by hand, and drifted: skills that did not ship were
+# advertised, commands were missing, and note counts went stale. This is the public face of the
+# plugin, so it is generated from the same frontmatter the tool itself reads.
 python3 - "$OUT" > "$OUT/README.md" <<'PY'
 import glob, os, sys
 
@@ -84,7 +83,7 @@ cmds   = sorted(glob.glob(f'{out}/commands/*.md'))
 
 print("""# GenericArch — Claude Code plugin
 
-Skills and commands from the GenericArch Apple-platform architecture. **Generated** by
+Skills and commands from the GenericArch development layer (stack-agnostic). **Generated** by
 `Scripts/build-plugin.sh` — edit the sources in `.claude/` of the GenericArch repo, not here.
 
 ## What it adds
@@ -100,14 +99,14 @@ for f in cmds:
 print("""
 ## What it does NOT add
 
-`CLAUDE.md`, `docs/`, `.claude/notes/`, or any Swift code. Those are a product's own rules, design
+`CLAUDE.md`, `docs/`, `.claude/notes/`, or any product source code. Those are a product's own rules, design
 notes, and state. Get them by installing GenericArch into the repo — `install.sh` or `bootstrap.sh`,
 which record a manifest so the install stays reversible. Copying the tree instead (a fork, or the
 template the repo no longer offers) skips that record and there is nothing for `uninstall.sh` to
 prove ownership against.
 
 Because of that split, the commands reference `docs/…` paths that only exist once the docs are
-adopted. The skills work standalone; `/verify`, `/decide`, and `/gaps` need their target files.""")
+adopted. The skills work standalone; `/verify` and `/decide` need their target files.""")
 PY
 
 echo "${GRN}built${OFF} $OUT ${DIM}(version $VERSION)${OFF}"

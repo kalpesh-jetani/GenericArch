@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      util
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Generate .claude/SCRIPTS.tsv from the #@ metadata header of every script; fail on any script missing one.
 #@usage     register-scripts.sh [--check]
@@ -26,7 +26,7 @@
 #
 # Required — a script missing any of these is not registrable:
 #   kind      workflow | util | tool | lib
-#   platform  macos
+#   platform  any | linux | darwin (the OS this script can run on; "any" means all)
 #   claude    call | emit-only | needs-approval | never:<reason>
 #   purpose   one line, what it does
 #   usage     the invocation, with every flag

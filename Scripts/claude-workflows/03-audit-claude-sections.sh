@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      workflow
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   PHASE 3 audit: inventory sections, symbols, links; detect duplicate headings and anchors.
 #@usage     03-audit-claude-sections.sh <project> <task-id> [--verbose]
@@ -90,22 +90,13 @@ awk -F'\t' '
     # Concurrency vocabulary is scanned everywhere, fences INCLUDED — the code
     # block is precisely where a document demonstrates its concurrency model, so
     # skipping fences here would report a doc full of actors as having none.
-    # The last group is what CLAUDE.md §1 forbids in new code; a doc that still
-    # teaches it is the doc drifting behind the rules, which is worth a row.
-    if (line ~ /(^|[^A-Za-z])async let([^A-Za-z]|$)/) emit("async", "async let")
-    else if (line ~ /(^|[^A-Za-z])async([^A-Za-z]|$)/) emit("async", "async")
+    # Only spellings that mean the same thing on every stack are matched. What a
+    # particular stack calls its primitives, and which of them it discourages, is
+    # the active profile's to state — not this engine's.
+    if (line ~ /(^|[^A-Za-z])async([^A-Za-z]|$)/)      emit("async", "async")
     if (line ~ /(^|[^A-Za-z])await([^A-Za-z]|$)/)      emit("async", "await")
-    if (line ~ /TaskGroup/)                            emit("async", "TaskGroup")
-    if (line ~ /Task[ \t]*\{/)                         emit("async", "Task {")
-    if (line ~ /@MainActor/)                           emit("async", "@MainActor")
     # "actors" and "actor" both count — a rule stated in prose is usually plural.
     if (line ~ /(^|[^A-Za-z])actors?([^A-Za-z]|$)/)    emit("async", "actor")
-    if (line ~ /Sendable/)                             emit("async", "Sendable")
-    if (line ~ /AsyncStream|AsyncSequence/)            emit("async", "AsyncStream")
-    if (line ~ /DispatchQueue/)                        emit("legacy-async", "DispatchQueue")
-    if (line ~ /completion[ \t]*:/)                    emit("legacy-async", "completion:")
-    if (line ~ /(^|[^A-Za-z])Combine([^A-Za-z]|$)/)    emit("legacy-async", "Combine")
-    if (line ~ /AnyPublisher|PassthroughSubject/)      emit("legacy-async", "Combine publisher")
 
     # Links, split by kind — phase 6 resolves them, this only counts them.
     if (!fence) {
@@ -132,7 +123,6 @@ count_kind() { awk -F'\t' -v k="$1" '$1==k' "$SYMBOLS" | wc -l | tr -d ' '; }
 N_API=$(count_kind api)
 N_COMPONENT=$(count_kind component)
 N_ASYNC=$(count_kind async)
-N_LEGACY=$(count_kind legacy-async)
 N_CODE=$(count_kind code)
 N_LINK_EXT=$(count_kind link-external)
 N_LINK_INT=$(count_kind link-internal)
@@ -179,7 +169,6 @@ kv_set "$ENV" MAX_DEPTH     "$MAX_DEPTH"
 kv_set "$ENV" API_REFS      "$N_API"
 kv_set "$ENV" COMPONENTS    "$N_COMPONENT"
 kv_set "$ENV" ASYNC_REFS    "$N_ASYNC"
-kv_set "$ENV" LEGACY_ASYNC  "$N_LEGACY"
 kv_set "$ENV" CODE_BLOCKS   "$N_CODE"
 kv_set "$ENV" LINKS_EXT     "$N_LINK_EXT"
 kv_set "$ENV" LINKS_INT     "$N_LINK_INT"
@@ -193,7 +182,7 @@ hdr "Phase 3 · audit — $(basename "$TARGET")"
 info "sections     $N_SECTIONS (max depth h$MAX_DEPTH)"
 info "code blocks  $N_CODE"
 info "symbols      $N_API api · $N_COMPONENT components"
-info "concurrency  $N_ASYNC modern$([ "$N_LEGACY" -gt 0 ] && printf ' · %s LEGACY (DispatchQueue/completion/Combine)' "$N_LEGACY")"
+info "concurrency  $N_ASYNC reference(s)"
 info "links        $N_LINK_INT internal · $N_LINK_ANC anchor · $N_LINK_EXT external"
 
 if [ "$N_ISSUES" -gt 0 ]; then
@@ -207,10 +196,6 @@ if [ "$VERBOSE" -eq 1 ]; then
   awk -F'\t' -v d="$DIM" -v o="$OFF" \
     '!/^#/ {printf "  %*s%s %s(%s-%s, #%s)%s\n", ($1-1)*2, "", $5, d, $2, $3, $4, o}' "$SECTIONS"
 fi
-
-[ "$N_LEGACY" -gt 0 ] && warn "$N_LEGACY legacy-concurrency reference(s) — CLAUDE.md §1 forbids these in new
-    code. If the doc still teaches them, the doc is behind the rules:
-      grep '^legacy-async' $SYMBOLS"
 
 ok "wrote 03-sections.tsv · 03-symbols.tsv · 03-issues.tsv · 03-audit.env"
 dim "next: run-task.sh $PROJECT $TASK_ID 4"

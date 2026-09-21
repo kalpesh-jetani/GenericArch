@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      workflow
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   PHASE 2 locate: resolve the target document, verify access, record git state.
 #@usage     02-find-claude-file.sh <project> <task-id> [--path PATH] [--allow-missing]

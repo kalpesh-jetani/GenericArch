@@ -126,49 +126,31 @@ retired there.
 
 # B. Skill matching
 
-## B1. What ships un-promoted, and why
+## B1. What a recurring pattern earns
 
-`docs/patterns/` holds patterns that **cannot fire in an empty repo**, so they ship as reference
-rather than as skills — a skill costs its description in every session, and one that fires on nothing
-costs it for nothing.
+There is no pre-shipped pattern catalogue. A pattern that recurs in THIS repo's code — needed more
+than once, governing code that exists — can graduate into a skill; a skill costs its description in
+every session, so one that fires on nothing costs it for nothing.
 
-`/learn <pattern>` does the promoting and owns the three-part earned-it test. **This command's job is
-narrower: work out which patterns the code now justifies, and hand each one over.** Do not
+`/learn <name>` does the promoting and owns the three-part earned-it test. **This command's job is
+narrower: surface which recurring patterns the code now justifies, and hand each over.** Do not
 reimplement the test, and do not write a `SKILL.md` here.
 
 ```bash
-ls .claude/skills/                                        # already promoted
-awk -F'\t' '$2=="pattern"{print $1}' .claude/MAP.tsv      # available, un-promoted
+ls .claude/skills/                                        # already skills
+awk -F'\t' '$2=="pattern"{print $1}' .claude/MAP.tsv      # any pattern rows recorded for this repo
 ```
 
 ## B2. Derive each candidate from the code
 
-**`./Scripts/ga-sync-scan.sh --patterns` computes every row below.** Run it instead of running the
-signals by hand; it prints `PROMOTE`, `NOT-YET` or `REFUSE` per pattern with the count that decided
-it, and falls back to the known upstream set on a lean install whose `MAP.tsv` carries no pattern
-rows — which is most of them.
-
-The table is the contract it implements, kept here so a wrong verdict can be argued with. Evidence,
-not intent: a pattern with no signal is not a candidate, and "not yet" is a result worth printing.
-**Quote the globs** if you do run one by hand — an unquoted `--include=*.swift` is expanded by the
-shell before grep sees it and the command *fails* rather than returning zero, which reads as "no
-signal":
-
-| Pattern | Promote when | Signal |
-|---|---|---|
-| `dark-light-mode` | dark variants actually exist | `grep -rl '"dark"' --include='Contents.json' .` · `grep -rl colorScheme --include='*.swift' .` · rows in `.claude/notes/ASSETS-COLORS.md` |
-| `rtl-support` | an RTL language ships | `find . -name '*.lproj' \| grep -cE '/(ar\|he\|fa\|ur)\.lproj'` · RTL locales in an `.xcstrings` |
-| `style-guide` | tokens exist to use instead of literals | `grep -c '^\| `' .claude/notes/STYLE-GUIDE.md` |
-| `feature-complete` | features ship often enough to have a close-out | rows in `.claude/notes/FEATURES.md` · `ls Packages/Features` |
-| `change` | there is code to change | any Swift outside a scaffold |
-| `release-bump` | this repo publishes versioned releases | `git tag \| tail -3` · a CI config · **skip unless the product IS a distributed package** — for an app it is a release-workflow tool, not code generation |
-
-**`wrapper` is not promotable.** It is the reference behind CLAUDE.md §7, cited by the module docs.
-Leave it as a pattern.
+A candidate is evidence, not intent: a pattern with no recurring signal in the code is not a
+candidate, and "not yet" is a result worth stating. Which signals matter is the active profile's to
+say — a stack knows what a repeated shape looks like in its own sources. Surface only the candidates
+the code justifies; a pattern with no signal is not one.
 
 ## B3. Hand over one at a time
 
-For each candidate, say what fired it — the actual signal, with counts — then run `/learn <pattern>`
+For each candidate, say what fired it — the actual signal, with counts — then run `/learn <name>`
 and let it apply its own test and its own approval gate. **One at a time.** Promoting three skills in
 one pass changes behaviour in every future session with no way to attribute a regression.
 

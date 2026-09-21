@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Print the recorded access recipe for Figma — design files, variables and screenshots, reached through the Figma MCP connector, wired and unwired.
 #@usage     figma.sh [--unwired] [--attributes]

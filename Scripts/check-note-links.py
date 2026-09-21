@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Verify every path referenced by a note exists on disk.
 #@usage     python3 Scripts/check-note-links.py

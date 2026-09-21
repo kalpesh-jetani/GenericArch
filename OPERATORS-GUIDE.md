@@ -12,7 +12,7 @@ different document.
 
 ## 1. The eight rules that matter most
 
-1. **Commands run in a fixed order.** `install → /project-init → /gaps → /sync-app-notes → ready`.
+1. **Commands run in a fixed order.** `install → /declare-profile → /project-init → /sync-app-notes → ready`.
    Run `./Scripts/ga-step.sh show` any time
    to see where you are. Out of order, a command refuses with exit 5 and writes nothing — because the
    failure it prevents is the silent one: it would otherwise succeed against the wrong input.
@@ -28,15 +28,15 @@ different document.
    run, say so explicitly.
 5. **`CLAUDE.md` is session material only, and never edited without your yes** — including by
    you-via-Claude. It is the one file loaded on every session, so every line in it is a permanent
-   cost: setup, build, ship, settings and package rules live in their own files, because they are
-   not needed in a session where someone is writing code. Anything Claude might need is *linked*
+   cost: setup, build, ship, settings and the stack's own rules live in their own files, because they
+   are not needed in a session where someone is writing code. Anything Claude might need is *linked*
    from there — a file nothing links to is one it never learns exists.
 6. **Nothing under `docs/` or `.claude/notes/` is in Claude's context automatically.** It gets
    looked up. That is the whole design: cheap by default, detailed on demand.
 7. **A decision is only recorded when it is in two places** — the thing that enforces it, and
    `docs/DECISIONS.md` so nobody re-proposes it.
-8. **Scripts do the work; Claude reviews.** Seven of the nine inventories are generated offline.
-   When a script cannot handle your repo it writes a short diagnosis, not a guess.
+8. **Scripts do the work; Claude reviews.** The inventories a profile can derive are generated
+   offline. When a script cannot handle your repo it writes a short diagnosis, not a guess.
 
 ---
 
@@ -62,7 +62,7 @@ that write anything need `--apply` or a confirmation.
 
 | Run this | Answers |
 |---|---|
-| `./Scripts/find.sh <name>` | Where is this screen, route, endpoint, asset, colour, font, target? |
+| `./Scripts/find.sh <name>` | Where is this screen, route, endpoint, asset or token? |
 | `./Scripts/find-script.sh "<what you want>"` | Which script already does this? |
 | `grep -i <topic> .claude/MAP.tsv` | Which doc, note or skill covers this topic |
 | `grep -i <topic> .claude/SCRIPTS.tsv` | A script's full contract: inputs, outputs, exit codes, effects |
@@ -71,81 +71,53 @@ that write anything need `--apply` or a confirmation.
 
 | Run this | Answers |
 |---|---|
-| `./Scripts/detect-toolchain.sh` | The real stack — min iOS/macOS, Xcode, Swift. Never trust a version quoted from a doc |
-| `./Scripts/detect-capabilities.sh` | Which capabilities and entitlements the project declares |
+| `./Scripts/detect-toolchain.sh` | The stack the active profile declares. Never trust a version quoted from a doc — this reads the profile, and a profile may wire a machine probe on top |
 | `./Scripts/notes-staleness.sh` | Which inventories are out of date. `--stamp` records a content hash so the next check is instant |
-| `./Scripts/sync-notes.sh` | **Rebuild seven of the nine notes without Claude.** `--check` for CI (exit 1 on drift), `--apply` to write them, `--evidence` for the remainder. Offline, no model, no network. Four of the seven are *partial*: the script writes the provable rows and says in the note what it could not establish |
-| `./Scripts/ga-init-scan.sh` | **The offline half of `/project-init`.** Mode, toolchain mismatches, rule-conflict evidence for every `docs/ADOPTION.md` §A2 row, name collisions, whether every `MAP.tsv` row resolves, and which module docs have no package. `install.sh` runs it for you and writes `.claude/notes/.evidence/INIT-SCAN.md`; `--check` is the CI gate. Read-only — it decides nothing, writes no rule, and records no step |
+| `./Scripts/sync-notes.sh` | **Rebuild the profile's mechanical notes without Claude.** `--check` for CI (exit 1 on drift), `--apply` to write them, `--evidence` for the remainder. Offline, no model, no network. A partial note writes the provable rows and says in the note what it could not establish. With no profile declared there is nothing to rebuild |
+| `./Scripts/ga-init-scan.sh` | **The offline half of `/project-init`.** Mode, rule-conflict evidence for every `docs/ADOPTION.md` §A2 row, name collisions, whether every `MAP.tsv` row resolves, and which module docs have no code. `install.sh` runs it for you and writes `.claude/notes/.evidence/INIT-SCAN.md`; `--check` is the CI gate. Read-only — it decides nothing, writes no rule, and records no step |
 | `./Scripts/ga-handoff.sh` | Not run by hand — a failing script calls it and writes a short diagnosis to `.genericarch/failures/`. Hand *that file* to Claude, not the script |
-| `./Scripts/check.sh` | The full rule check. **Compiles code**, so Claude will never run it — this one is yours |
-| `./Scripts/claude-utils/survey-repo.sh <repo>` | How far an existing repo already matches this architecture |
-| `./Scripts/claude-utils/audit-feature.sh <pkg>` | Audit one feature package against the rules |
+| `./Scripts/check.sh` | The full rule check — the profile-agnostic gate plus whatever the active profile declares. It may compile, and compiling is how a change is validated (§2.8), so this one is `call`: Claude may run it too |
 | `./Scripts/build-plugin.sh` | Package the skills and commands as a distributable Claude Code plugin |
 
 ### Slash commands (typed to Claude, not in a terminal)
 
 | Command | Does | Position |
 |---|---|---|
-| `/project-init` | Reconciles your rules with this architecture, asks per conflict | step 2 |
-| `/gaps` | Triages what this architecture should cover for your product | step 3 |
-| `/sync-app-notes` | Rebuilds the nine inventories from a filesystem scan | step 4 |
-| `/find <name>` | Same as `find.sh`, from the chat | any time after step 4 |
+| `/project-init` | Reconciles your rules with the layer and declares the stack profile, asks per conflict | step 2 |
+| `/sync-app-notes` | Rebuilds the inventories the active profile declares from a filesystem scan | step 3 |
+| `/find <name>` | Same as `find.sh`, from the chat | any time after step 3 |
 | `/decide <what>` | Records a settled decision in `docs/DECISIONS.md` | any time |
-| `/learn <thing>` | Turns a resource, a shipped feature or a repeated manual step into repo knowledge | after step 4 |
+| `/learn <thing>` | Turns a resource, a shipped feature or a repeated manual step into repo knowledge | after step 3 |
 | `/review [PR]` | Reviews someone else's diff against the rules. Reports, never edits | after step 2 |
-| `/verify` | Walks the Definition of Done against your current changes | after step 2 |
-| `/build [stage]` | The one sanctioned way to build or test | any time |
-| `/upgrade-stack` | Reconciles project settings with your machine. Asks twice before changing anything | after step 2 |
+| `/verify` | Walks the active profile's Definition of Done against your current changes | after step 2 |
+| `/build [stage]` | The one sanctioned way to build or test, through the profile's declared commands | any time |
+| `/upgrade-stack` | Reconciles the declared stack with your machine. Asks twice before changing anything | after step 2 |
 
 ---
 
 ## 2b. What the install adds
 
 You get the tooling and the lookup layer: skills, commands, the indexes, the scan and lifecycle
-scripts, `ga-project-setup.sh`, `uninstall.sh`. You do **not** get `Packages/` or any Swift —
-your structure is yours, and a doc for a layer you do not have is a dead lookup.
+scripts, `uninstall.sh`, and the `profiles/` mechanism. You do **not** get a stack — no source tree,
+no language, no build files. Your structure is yours, and a doc for a layer you do not have is a dead
+lookup.
 
-The **architecture layer** — `new-feature` and `/review` — waits for a yes: `/project-init` offers it
-after the conflict table, or `--with-architecture` takes it up front. In a repo with no `Packages/`,
-`new-feature` would scaffold a package the app cannot consume and `/review` would report violations
-of rules the product declined. A command that cannot fire is worse than a missing one — it still gets
-grepped, offered and believed.
+**The stack is a profile you author, not something the layer ships.** No profile ships by default
+([profiles/](profiles/CLAUDE.md)) — the layer is deliberately tech-stack-agnostic. `/project-init` is
+where you declare one: it asks, records the answers under `profiles/<name>/`, and until then every
+stack-specific script no-ops rather than guessing. A command that fires against a stack the project
+never declared is worse than a missing one — it still gets grepped, offered and believed.
 
-**A repo with no project yet is refused**, with a pointer to [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup): that is where
-the project checklist and the package layout live. This base has nothing to reconcile against an
-empty directory, and no manifest to make reversible.
+**No version number is ever written for you.** Stack versions are the profile's to state and
+`.claude/notes/PROJECT.md`'s to record; nothing here quotes one from memory. With no tty an
+interactive step is skipped and the install continues. From CI or a pipe pass `--yes`, or set
+`GA_ASSUME_YES=1`, which every tool here honours.
 
-The install offers **project setup** before writing anything: the Xcode toolchain check, then the
-five `.xcconfig` files and an `XCODE-SETUP.md` checklist for pointing your project at them. It never
-generates, opens or edits the `.xcodeproj`.
-
-```bash
-./Scripts/ga-project-setup.sh .                          # dry run — the plan
-./Scripts/ga-project-setup.sh . --product MyApp --bundle-id com.acme.myapp \
-    --targets ios,macos --ios 17 --macos 26.5 --apply
-./install.sh . --no-project-setup                        # skip the offer entirely
-```
-
-Nothing is defaulted: bundle ID, Team ID and both deployment floors are asked, and an unknown Team ID
-stays blank rather than invented. With no tty the step is skipped and the install continues. `--apply`
-confirms before writing; from CI or a pipe pass `--yes`, or set `GA_ASSUME_YES=1`, which every tool
-here honours.
-
-**No version number is ever written for you.** Floors come from `detect-toolchain.sh` reading your
-own
-manifests, or from `--ios`/`--macos`. With neither, the manifests carry a comment instead of a
-`platforms:` line, and `Packages/FLOORS.md` explains how to choose. A floor a tool picked reads, six
-months on, as a decision somebody made.
-
-**The exception is a repo *copied* from this one rather than installed into** — the GitHub template
-path, now withdrawn ([docs/SHARING.md](docs/SHARING.md)), or any fork made by hand. There the seed
-manifests arrive already carrying *this* repo's floors, so `detect-toolchain.sh` finds them and
-reports them as the *project's* answer. Check before anything else, and reset them along with the decisions, gaps, notes and memory:
-
-```bash
-./Scripts/detect-toolchain.sh --mismatches   # BLOCKING|macos-target-above-sdk means it cannot build
-grep -rn 'platforms:' Packages/*/Package.swift
-```
+**A repo *copied* from this one rather than installed into** inherits this repo's own decisions,
+notes and memory in its tree — the withdrawn GitHub-template path ([docs/SHARING.md](docs/SHARING.md)),
+or any fork made by hand. Nothing was reconciled against your project and there is no manifest to make
+it reversible, so clear the inherited decisions, notes and memory before treating them as the new
+project's answers.
 
 ## 3. Files you own and edit
 
@@ -154,10 +126,9 @@ These are yours. Claude asks before touching any of them.
 | File | What it holds | Who writes it |
 |---|---|---|
 | `CLAUDE.md` | The rules. Loaded on every session, so keep it short and make every line a rule, not a description | You, deliberately, with approval |
+| `profiles/<name>/` | Your stack profile — language, build system, test framework, the stack's own rules and its definition of done | You, via `/project-init` |
 | `docs/DECISIONS.md` | Settled decisions, open questions, and *Do not re-propose* | `/decide`, and `ga-remove.sh` for declines |
-| `docs/GAPS.md` | What this architecture deliberately does not cover yet, and the status of each item | `/gaps` |
 | `.claude/settings.json` | Which commands Claude may run without asking. Per-machine consent — never copied between repos | You |
-| `.swiftlint.yml`, `.swiftformat` | Lint and format rules. **Optional** — only installed with `adopt.sh --with-lint`, because they enforce conventions a product may have declined | You |
 | `.gitignore` | Standard, plus one delimited managed block the installer adds and the uninstaller removes | Both |
 
 ---
@@ -169,8 +140,8 @@ fact in the wrong one is either invisible or paid for forever.
 
 | Store | Loaded | Holds | Cost |
 |---|---|---|---|
-| `CLAUDE.md` | **every session, in full** | rules that bind while writing code | ~3,700 tokens — the reason it is kept lean |
-| `Packages/CLAUDE.md` | when working in a package | the scoped detail behind §4, §7, §9 | nothing until you go there |
+| `CLAUDE.md` | **every session, in full** | rules that bind while writing code | small — the reason it is kept lean |
+| `profiles/<name>/` | when a task is stack-specific | the declared stack and its own rules | one lookup, when the stack matters |
 | `docs/`, `.claude/notes/` | **never automatically** | reference, and the code's own inventory | one lookup, when a task needs it |
 | `.claude/memory/` | read at the start of work | what earlier sessions learned about *this repo* | one index line per fact |
 
@@ -178,9 +149,8 @@ Claude also keeps a **machine-local** store outside this repo for facts about *y
 how you like decisions made. Those are per-person, so they are never committed here, and this repo's
 `.claude/memory/` explicitly refuses that type.
 
-**The routing rule:** changes behaviour every session → `CLAUDE.md` · only inside packages →
-`Packages/CLAUDE.md` · a fact about this repo learned the hard way → `.claude/memory/` · an
-inventory
+**The routing rule:** changes behaviour every session → `CLAUDE.md` · specific to the declared stack →
+`profiles/<name>/` · a fact about this repo learned the hard way → `.claude/memory/` · an inventory
 of the code → `.claude/notes/`, generated · everything else → a doc, with a `MAP.tsv` row.
 
 Why it is worth caring: a note in `.claude/memory/` caught a real regression this repo made — 21
@@ -205,14 +175,7 @@ Nothing here is loaded automatically. Open one when the situation calls for it �
 | Doc | Read it when |
 |---|---|
 | `docs/STRUCTURE.md` | You are about to write a new doc, skill or command and need to know where it belongs |
-| `docs/CONVENTIONS.md` | Naming, file layout, access control, doc comments |
-| `docs/DONE.md` | Before calling anything finished. `/verify` walks it for you |
-| `docs/REPO.md` | Adding a package, or overriding an extracted one locally |
-| `docs/BUILD-PROCESS.md` | You are about to build, test or archive — or a build failed |
-| `docs/DEPLOYMENT-PROCESS.md` | Shipping: tag, soak, submit, roll back. Who owns each gate |
-| `docs/PROJECT-SETTINGS.md` | A capability, entitlement, deployment floor, secret or privacy setting |
-| `docs/DELIVERY.md` | CI, signing, versioning, releasing, rolling back — the reference behind the two process docs above |
-| `docs/PERFORMANCE.md` | A launch budget, a redraw problem, a hitch to diagnose |
+| `profiles/<name>/` | The declared stack's rules, conventions, build and ship steps, and definition of done — whatever the active profile states |
 | `docs/PATTERN-SEARCH.md` | Before grepping the codebase for an existing pattern |
 
 ### Reference — the machinery
@@ -224,25 +187,13 @@ Nothing here is loaded automatically. Open one when the situation calls for it �
 | `docs/SCAN-TRAPS.md` | A scan result surprised you, or you are changing a scan script |
 | `docs/CLAUDE-TASKS.md` | Editing a `CLAUDE.md` through the recorded nine-phase pipeline |
 
-### One doc per pattern
-
-- **`docs/REPO.md`** — the layer shape and what each layer owns. It describes the shape a product
-  *may* take, never an inventory of the one you are in: a product has whatever subset it needs,
-  under whatever names it chose. **There are no per-package docs here.** One for a package a
-  product may not have reads as current and describes code that is not there, which sent every
-  session looking for it — a package's doc belongs beside its code, as
-  `Packages/<Name>/<Name>.md`.
-- **`docs/patterns/*.md`** — six recurring jobs that are documented but not yet skills:
-  `change`, `style-guide`, `dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`.
-  `/learn <name>` promotes one to a skill once the code it describes exists.
-
 ---
 
 ## 5. Files you look at, but never edit by hand
 
 | File | What it is | Why not by hand |
 |---|---|---|
-| `.claude/notes/*.md` | Nine inventories: features, navigation, API map, images, colours, fonts, style tokens, schemes, project. **Seven come from `sync-notes.sh`** — three outright, four partially, each partial one stating in the note what its scan did *not* establish | Rows between the `GA:ROWS` markers are regenerated; everything outside them, including your prose, is never touched. Hand-edit a row only in the same change as the code it describes |
+| `.claude/notes/*.md` | The inventories the active profile declares, generated from the project. The mechanical ones come from `sync-notes.sh`; a partial one states in the note what its scan did *not* establish | Rows between the `GA:ROWS` markers are regenerated; everything outside them, including your prose, is never touched. Hand-edit a row only in the same change as the code it describes |
 | `.claude/notes/.evidence/*.tsv` | Candidates for the parts no scan can settle — unused assets, which screen calls an endpoint | Regenerable and gitignored. Review them; do not treat a candidate as a row |
 | `.claude/MAP.tsv` | Topic → which doc covers it. A kind marked `:remote` means "not on disk here, fetch it" | Add a row when you add a doc; otherwise leave it |
 | `.claude/SCRIPTS.tsv` | Every script's contract, generated from the `#@` header inside each script | Change the header in the script, then run `register-scripts.sh` |
@@ -260,12 +211,11 @@ Not secret — just not useful to a human, and not worth reading to understand t
 
 | Path | What it is |
 |---|---|
-| `.claude/skills/*/SKILL.md` | Procedures Claude follows. `debug` and `new-feature` in this repo |
-| `Packages/CLAUDE.md` | Scoped rules for package work — worth one read if you write packages, ignorable otherwise |
+| `.claude/skills/*/SKILL.md` | Procedures Claude follows. `tool-profile` in this repo |
 | `.claude/commands/*.md` | The slash-command definitions from §2 |
 | `Scripts/ga-lifecycle.sh`, `Scripts/claude-utils/_common.sh` | Shared libraries. Sourced by other scripts, never run directly |
 | `Scripts/claude-workflows/01…09*.sh`, `run-task.sh` | The nine-phase pipeline for editing `CLAUDE.md` files under a record. **Optional** — only installed with `adopt.sh --with-meta` |
-| `Scripts/scan-*.py`, `Scripts/check-*.py` | Scanners and checkers that `/sync-app-notes` and `check.sh` drive |
+| `Scripts/*.py`, `Scripts/check-*.py` | Scanners and checkers that `/sync-app-notes` and `check.sh` drive |
 | `Scripts/claude-utils/*.sh` | Cross-phase helpers: linting, link validation, registry generation, rollback |
 | `Scripts/session-script.sh` | Stages a throwaway script for one session; promotes it only if a second session needs it |
 | `Scripts/adopt.sh` | The copy engine. `install.sh` drives it — call it directly only to see what travels |
@@ -281,14 +231,12 @@ repo, it does not guess and it does not half-finish: it writes a bounded report 
 `.genericarch/failures/<script>-N.md` naming what it expected, what it found instead, and your
 machine's versions.
 
-Give **that file** to Claude. It is about 45 lines; the script it describes is 175. Claude fixes the
-script so the next run is mechanical again, and deletes the report in the same change.
+Give **that file** to Claude. It is about 45 lines; the script it describes is far longer. Claude
+fixes the script so the next run is mechanical again, and deletes the report in the same change.
 
-A real example from this session: `scan-api-map.py` looks for one router enum whose `path` property
-switches over its cases. TalentSure has ~20 files each with their own `path` property, so the
-scanner
-found zero endpoints — and said exactly that, with both numbers, instead of writing an empty table
-that would have looked complete.
+The shape of it: a scanner that expects one router enum whose `path` property switches over its cases
+will find nothing in a project that registers its routes some other way — and it says exactly that,
+with the numbers, instead of writing an empty table that would have looked complete.
 
 ## 7. Recipes
 
@@ -299,7 +247,7 @@ that would have looked complete.
 ./install.sh /path/to/YourApp
 ```
 
-Then, in that repo, type `/project-init` → `/gaps` → `/sync-app-notes` to Claude, in that order.
+Then, in that repo, type `/project-init` → `/sync-app-notes` to Claude, in that order.
 
 **A command said "cannot run yet"**
 
@@ -311,13 +259,13 @@ Run the missing step. If it genuinely does not apply to your product, record tha
 reason, so the next person knows why it was skipped:
 
 ```bash
-./Scripts/ga-step.sh record gaps "not applicable: docs-only adoption"
+./Scripts/ga-step.sh record sync-app-notes "not applicable: no code to inventory yet"
 ```
 
 **Get rid of a file this thing installed**
 
 ```bash
-./Scripts/ga-remove.sh docs/PERFORMANCE.md --reason "no perf budget here yet" --apply
+./Scripts/ga-remove.sh docs/OPENSPEC.md --reason "not using OpenSpec here" --apply
 ./Scripts/ga-remove.sh --list          # what is declined
 ```
 
@@ -328,7 +276,7 @@ sentence should go, change, or point somewhere else.
 **Changed your mind**
 
 ```bash
-./Scripts/ga-remove.sh --revive docs/PERFORMANCE.md --apply
+./Scripts/ga-remove.sh --revive docs/OPENSPEC.md --apply
 ```
 
 The file comes back byte-identical from `.genericarch/safetodelete/`. Two things it leaves to you:
@@ -358,8 +306,8 @@ them by hand.
 **Rebuild the notes without spending a session**
 
 ```bash
-./Scripts/sync-notes.sh --apply       # fonts, colours, resolved stack — written outright
-./Scripts/sync-notes.sh --evidence    # candidates for the six that need a human or Claude
+./Scripts/sync-notes.sh --apply       # the profile's mechanical inventories — written outright
+./Scripts/sync-notes.sh --evidence    # candidates for the ones that need a human or Claude
 ./Scripts/sync-notes.sh --check       # CI: exit 1 if a mechanical note drifted from the code
 ```
 
@@ -387,18 +335,18 @@ Worth knowing, because it drives most of the design decisions above.
 
 | Loaded every session | Loaded only when used | Never loaded unless read |
 |---|---|---|
-| `CLAUDE.md` — ~3,700 tokens | A skill or command body, when it fires | Every `.sh` and `.py` file — 413 KB of them |
-| Skill and command descriptions — ~450 | A doc or note, when looked up | `docs/`, `.claude/notes/`, `Packages/` source |
-| | A `MAP.tsv` / `SCRIPTS.tsv` row, when grepped | `Packages/CLAUDE.md`, until you work there |
+| `CLAUDE.md` | A skill or command body, when it fires | Every `.sh` and `.py` file |
+| Skill and command descriptions | A doc or note, when looked up | `docs/`, `.claude/notes/`, `profiles/` and the source tree |
+| | A `MAP.tsv` / `SCRIPTS.tsv` row, when grepped | the active profile, until a task is stack-specific |
 
-So: 413 KB of scripts costs nothing until something reads them, while one paragraph added to
-`CLAUDE.md` is paid for on every single session. **Deleting a doc saves nothing** — it was never
-loaded. What actually helps, in order:
+So: the scripts cost nothing until something reads them, while one paragraph added to `CLAUDE.md` is
+paid for on every single session. **Deleting a doc saves nothing** — it was never loaded. What
+actually helps, in order:
 
 1. **Shrink your own `CLAUDE.md`** if it duplicates what the notes now own — endpoint tables, env
    tables, folder trees. On a real app that was ~4,000 tokens per session.
 2. **Route per task, not per session.** A grep of `MAP.tsv` when you build costs less than a routing
    table every session that does not.
-3. **Move work into scripts.** Not standing cost at all — it is what a `/sync-app-notes` run stops
-   spending. Seven of nine notes now cost nothing.
+3. **Move work into scripts.** Not a standing cost at all — it is what a `/sync-app-notes` run stops
+   spending. The profile's mechanical notes then cost nothing.
 4. **Leave the docs alone.** They are the cheap half of the design.

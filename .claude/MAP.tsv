@@ -10,23 +10,14 @@
 #	onto itself, keeping the same relative location so links between docs still resolve.
 #	Fetch only what the task needs.
 docs/DECISIONS.md	cross	decision record settled choice rationale	Before any §0 question, and before re-proposing anything
-docs/DONE.md	cross	definition of done checklist finish complete ship	Before calling any change finished
-docs/CONVENTIONS.md	cross	naming file layout access control doc comment style	Naming a type or file, or setting access control
 docs/STRUCTURE.md	cross	where guidance belongs doc placement approval gate skill trigger component claude.md boundary scoped rules per-component	Writing a new doc, skill, or command — and before editing CLAUDE.md
-Packages/CLAUDE.md	cross	package manifest extraction wrapper vendor testing standalone swift test mock contract snapshot boundaries scoped rules	Working inside Packages/ — the scoped detail behind root §4, §7 and §9
-docs/REPO.md	cross	layout structure directory tree shape layer module what each layer owns package version local override spm dependency add package resolved	The directory layout and what each layer owns — and adding or overriding a package
+profiles/CLAUDE.md	cross	stack profile platform language build system design pattern detect marker declare extract scoped rules boundary active projection	Working inside profiles/ — how a project's stack profile is defined and selected
 docs/SHARING.md	cross	publish share template plugin installer distribute uninstall flags exitcodes manifest preserved updating adoptreview	Publishing this base for someone else, and the installer reference — flags, exit codes, preserved files, updating an install
 OPERATORS-GUIDE.md	cross	operator human what every file does run own read recipes token cost where knowledge lives	A person asks what a file is for, what to run, or where knowledge lives
-docs/SEQUENCE.md	cross	sequence order step ledger prerequisite out of order cannot run yet project-init gaps sync ready	A command refused as out of order, adopting into an existing repo, or adding a command
+docs/SEQUENCE.md	cross	sequence order step ledger prerequisite out of order cannot run yet install declare-profile project-init sync ready	A command refused as out of order, adopting into an existing repo, or adding a command
 docs/INSTALL-MANIFEST.md	cross	install uninstall manifest sha256 ownership backup restore lifecycle removal plan	Inspecting what an install did, or changing install.sh / uninstall.sh
 docs/ADOPTION.md	cross	adopt existing repo conflict migration brownfield	Adopting this into a repo that already has its own rules
 .genericarch/failures/	cross	script failed error handoff diagnosis fix the script adapt machine broke	A script failed — read its report there, never the script's source
-docs/BUILD-PROCESS.md	cross	build test archive stage dev test beta prod scheme who runs it warnings signing local	About to build, test or archive — or a build failed and you need the next step
-docs/DEPLOYMENT-PROCESS.md	cross	deploy ship release tag testflight soak submit rollback dsym gates who owns	Shipping: a release tag, a soak, a submission, or a rollback
-docs/PROJECT-SETTINGS.md	cross	setting configuration capability entitlement signing floor platforms ats pinning privacyinfo keychain secret localization	Adding a capability, wiring an environment, setting a floor, or a privacy/security question
-docs/DELIVERY.md	cross	ci signing version bump release rollback testflight archive	CI, code signing, versioning, releasing, or rolling back
-docs/PERFORMANCE.md	cross	launch budget hitch rendering profile instruments memory	A launch budget, a SwiftUI redraw problem, or diagnosing a hitch
-docs/GAPS.md	cross	gap missing not covered scope backlog	Deciding what this architecture should cover for your product
 docs/PATTERN-SEARCH.md	cross	search grep find token efficiency lookup	Before grepping the codebase for an existing pattern
 docs/SCAN-TRAPS.md	cross	scan trap false positive evidence why recipe regex portability	Before changing a scan script or when a scan result surprises you
 .claude/notes/FEATURES.md	note	feature screen package route state inventory	Checking whether a feature exists, or where a screen belongs
@@ -36,37 +27,26 @@ docs/SCAN-TRAPS.md	cross	scan trap false positive evidence why recipe regex port
 .claude/notes/ASSETS-COLORS.md	note	color colorset hex appearance dark light inventory	Looking for an existing colour before adding one
 .claude/notes/FONTS.md	note	font typeface weight registration UIAppFonts inventory	Adding or debugging a custom font
 .claude/notes/STYLE-GUIDE.md	note	token spacing radius elevation component style inventory	Applying an existing design token instead of a raw value
-.claude/notes/SCHEMES.md	note	scheme DEV TEST BETA PROD configuration build stage environment	Choosing a build stage, or debugging stage-specific behaviour
-.claude/notes/PROJECT.md	note	project target bundle id capability entitlement info.plist resolved stack toolchain	Anything target-, capability- or toolchain-version dependent
+.claude/notes/SCHEMES.md	note	build stage environment configuration development qa prerelease production deployment	Choosing a build stage, or debugging stage-specific behaviour
+.claude/notes/PROJECT.md	note	project target packaging manifest capability resolved stack toolchain	Anything target-, capability- or toolchain-version dependent
 .claude/memory/INDEX.md	memory	memory remembered fact preference context history	Starting work — what earlier sessions learned about this repo
-docs/patterns/wrapper.md	pattern	wrapper vendor third-party sdk swap boundary noop spy interface split remove dependency	Adding, replacing or removing a third-party dependency (CLAUDE.md §7)
-docs/patterns/change.md	pattern	edit modify existing extend refactor	Changing something that already exists (not yet a skill)
-docs/patterns/style-guide.md	pattern	token spacing radius design system value	Applying or adding a design token (not yet a skill)
-docs/patterns/dark-light-mode.md	pattern	dark light appearance colorscheme contrast	Light/dark appearance work (not yet a skill)
-docs/patterns/rtl-support.md	pattern	rtl ltr mirror layoutdirection arabic hebrew locale	Mirroring or adding a right-to-left locale (not yet a skill)
-docs/patterns/release-bump.md	pattern	release tag semver version bump extracted package	Tagging an extracted package (not yet a skill)
-docs/patterns/feature-complete.md	pattern	close out finish feature retrospective derive skill	Closing out a finished feature (not yet a skill)
-.claude/skills/new-feature/SKILL.md	skill	scaffold new feature package screen module create	Scaffolding a feature or screen from nothing (fires on its own)
-.claude/skills/debug/SKILL.md	skill	debug crash broken blank silent wrong symptom stacktrace	Diagnosing broken or unexpected behaviour (fires on its own)
+.claude/commands/declare-profile.md	command	/declare-profile stack profile tech-stack architecture dependency manager build system declare extract	Declaring the project's stack — the step between install and /project-init
 .claude/commands/project-init.md	command	/project-init init adopt bootstrap setup onboard	Initializing a fresh repo, or adopting this into an existing one
 .claude/commands/clean-up-genericarch-extra-memory.md	command	clean up remove retire declined tombstone duplicate memory token cost prune index	Retiring a declined file or a duplicated memory rule — /project-init only reports them
 .claude/commands/sync-with-genericarch.md	command	sync upgrade base drift stale promote pattern skill adopt-review behind upstream	The install is behind upstream, or the code has grown enough to justify a pattern as a skill
 .claude/commands/learn.md	command	/learn resource figma sample repo docs url promote skill	Turning a resource or finished work into a note, or promoting a pattern
 .claude/commands/verify.md	command	/verify done checklist finish	Walking the Definition of Done against your working diff
 .claude/commands/review.md	command	/review diff pr code review	Reviewing someone else's diff
-.claude/commands/gaps.md	command	/gaps missing coverage triage	Deciding what this architecture should cover
 .claude/commands/decide.md	command	/decide decision record settle	Recording a settled §0 decision
-.claude/commands/upgrade-stack.md	command	/upgrade-stack toolchain xcode swift version mismatch upgrade	Reconciling project settings with the machine
+.claude/commands/upgrade-stack.md	command	/upgrade-stack toolchain version mismatch upgrade reconcile stack	Reconciling project settings with the machine
 .claude/commands/find.md	command	/find lookup where is screen route endpoint asset token search index	Looking up where something is, before grepping the codebase
 .claude/commands/sync-app-notes.md	command	/sync-app-notes rescan rebuild inventory scan	Rebuilding the inventories from a filesystem scan (user-typed only)
-.claude/commands/build.md	command	/build compile test archive scheme	Building, testing or archiving a stage (user-typed only)
+.claude/commands/build.md	command	/build compile test build stage	Building or testing a stage (user-typed only)
 docs/CLAUDE-TASKS.md	cross	claude-tasks pipeline phase intake audit plan apply verify present commit run-task	Driving or debugging the nine-phase CLAUDE.md task pipeline
 Scripts/claude-workflows/run-task.sh	tool	run-task pipeline entry point phase task project workflow	Running any phase of the CLAUDE.md task pipeline
 Scripts/claude-utils/_common.sh	tool	common helpers exit codes kv artifact md_sections md_symbols count	Changing any pipeline script — the shared contract lives here
 .claude/SCRIPTS.tsv	registry	script registry contract input output exit effects which script call	BEFORE writing code that a script already does — grep here first
 Scripts/claude-utils/register-scripts.sh	tool	register regenerate script metadata header sync registry	After adding or changing any script's #@ header
-Scripts/claude-utils/survey-repo.sh	tool	survey migrate migration revise existing repo score match adopt legacy	Before adopting into an existing repo — is this a revision or a migration?
-Scripts/claude-utils/audit-feature.sh	tool	audit feature package existing recommendations rules conformance	Reviewing a feature package that already exists
 docs/OPENSPEC.md	cross	openspec spec-driven proposal specs design tasks artifact context rules bridge projection	Wiring OpenSpec into a repo, or working out why a proposal ignored a rule
 .claude/commands/openspec-install.md	command	openspec install wire bridge live upstream	Installing OpenSpec and projecting this repo's rules into it
 Scripts/ga-roots.sh	tool	roots consolidate second root nested install which root keep retire	Two install roots in one checkout, or deciding which to keep
@@ -82,7 +62,3 @@ Scripts/ga-log.sh	tool	log decision meta comment journal append session where do
 .claude/tools/figma.md	tool	external platform connector figma attribute unit accessibility extraction scope wired unwired	Reaching figma — Figma — design files, variables and screenshots, reached through the Figma MCP connector (9 attributes recorded)
 #	GA:TOOLS-END
 .claude/skills/tool-profile/evals/README.md	cross	trigger eval description optimizer skill fires collision near-miss prefix match measure triggering	Editing any skill description — how to prove it still fires, and the three known failures
-.claude/skills/debug/evals/trigger-eval.json	registry	debug trigger eval query firing under-trigger measure crash blank silent	Before editing the debug skill description — the queries that prove it still fires
-.claude/skills/new-feature/evals/trigger-eval.json	registry	new-feature trigger eval query firing under-trigger measure scaffold greenfield	Before editing the new-feature skill description — the queries that prove it still fires
-.claude/skills/debug/evals/README.md	cross	debug trigger eval baseline recall under-trigger drafted rewrite not shipped prefix tiebreak	Before editing the debug description — what was measured and why the rewrite was not applied
-.claude/skills/new-feature/evals/README.md	cross	new-feature trigger eval zero recall never fires drafted rewrite not shipped confidence hypothesis	Before editing the new-feature description — it fires on nothing, and why a rewrite did not fix it

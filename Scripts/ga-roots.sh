@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Find every GenericArch root in a checkout, report how far each got, and recommend which to keep. Decides nothing and removes nothing.
 #@usage     ga-roots.sh [checkout-dir] [--tsv]
@@ -55,7 +55,7 @@ ga_footprint_at "$SCAN" && roots="$SCAN"
 for d in "$SCAN"/*/; do
   d="${d%/}"
   [ -d "$d" ] || continue
-  case "${d##*/}" in .*|Packages|Scripts|docs|node_modules|build|DerivedData) continue ;; esac
+  case "${d##*/}" in .*|Packages|Scripts|docs|node_modules|build) continue ;; esac
   ga_footprint_at "$d" && roots="$roots
 $d"
 done
@@ -83,12 +83,17 @@ for r in $roots; do
   done
   [ -n "$vers" ] || vers="none"
 
-  step="none"
+  # The FURTHEST step recorded, not the last row written. A back-filled row is appended at the end
+  # of a ledger that already reached a later step, so last-row order would rank a `ready` root by
+  # whatever was back-filled into it and hand consolidation to the wrong root.
+  step="none"; rank=0
   ledger="$(ga_step_path "$r")"
   if [ -f "$ledger" ]; then
-    step="$(awk -F'\t' '$0 !~ /^#/ && NF>=2 {s=$1} END {print (s ? s : "none")}' "$ledger")"
+    for s in $(awk -F'\t' '$0 !~ /^#/ && NF>=2 {print $1}' "$ledger"); do
+      p="$(ga_step_pos "$s" 2>/dev/null || echo 0)"
+      if [ "$p" -gt "$rank" ]; then rank="$p"; step="$s"; fi
+    done
   fi
-  rank="$(ga_step_pos "$step" 2>/dev/null || echo 0)"
   [ "$mcount" -gt 1 ] && rank=$((rank - 10))
 
   if [ "$rank" -gt "$best_rank" ]; then best_rank="$rank"; best="$r"; fi

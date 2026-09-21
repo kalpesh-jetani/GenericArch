@@ -12,7 +12,7 @@ Append-only, one section per session, written only by:
 
 Meta-commentary belongs here and nowhere else — not in a skill, a command, a script, a doc or a
 `#` comment. Those carry the rule; this carries the reasoning
-([STRUCTURE.md](../docs/STRUCTURE.md)).
+([STRUCTURE.md](/docs/reference/STRUCTURE.md)(../docs/STRUCTURE.md)).
 
 ---
 

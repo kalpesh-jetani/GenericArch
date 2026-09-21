@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      workflow
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   PHASE 4 plan: validate each edit against the real document, flag cross-refs, normalise payloads.
 #@usage     04-plan-claude-edits.sh <project> <task-id> (--edit 'SECTION|ACTION|OLD|NEW|NOTE'... | --from TSV | --template)
@@ -14,7 +14,7 @@
 #
 #   ./Scripts/claude-workflows/04-plan-claude-edits.sh <project> <task-id> --template
 #   ./Scripts/claude-workflows/04-plan-claude-edits.sh <project> <task-id> \
-#       --edit 'Concurrency|replace|@old.txt|@new.txt|drop the DispatchQueue example'
+#       --edit 'Concurrency|replace|@old.txt|@new.txt|drop the stale example'
 #   ./Scripts/claude-workflows/04-plan-claude-edits.sh <project> <task-id> --from myplan.tsv
 #
 # An --edit is five |-separated fields:  SECTION|ACTION|OLD|NEW|NOTE
@@ -184,8 +184,8 @@ printf '%s\n' "$EDITS_RAW" | while IFS= read -r spec; do
   if [ "$TARGET_EXISTS" = 1 ]; then
     SEC_ROW=$(awk -F'\t' -v s="$SEC" '!/^#/ && $5 == s {print; exit}' "$SECTIONS")
     if [ -z "$SEC_ROW" ]; then
-      # Fall back to a substring match before failing — a caller naming "§6
-      # Concurrency" when the heading is "Concurrency" is a near miss, not a
+      # Fall back to a substring match before failing — a caller naming "§3
+      # Index" when the heading is "Index" is a near miss, not a
       # different intent.
       SEC_ROW=$(awk -F'\t' -v s="$SEC" '!/^#/ && index($5, s) {print; exit}' "$SECTIONS")
       if [ -n "$SEC_ROW" ]; then

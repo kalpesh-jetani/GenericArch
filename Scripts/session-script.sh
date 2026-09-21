@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    needs-approval
 #@purpose   Stage a script per session; promote to the shared tree only once a second session needs it.
 #@usage     session-script.sh add --intent S --cmd C | list [--promotable] | show ID | promote ID [--apply] [--allow-mutating] | drop ID
@@ -33,6 +33,10 @@ set -o pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || { printf 'session-script.sh: cannot enter %s\n' "$ROOT" >&2; exit 2; }
+# For ga_profile_get: the no-compiler gate below checks the commands the PROFILE declares, because
+# the layer recognises no ecosystem and ships no list of build tools.
+# shellcheck source=Scripts/ga-lifecycle.sh
+. "$ROOT/Scripts/ga-lifecycle.sh"
 
 LEDGER=".claude/CANDIDATES.tsv"
 STAGE_ROOT=".claude/claude-tasks/sessions"
@@ -47,7 +51,7 @@ PROMOTABLE=0
 
 usage() {
   printf 'usage: session-script.sh add --intent S --cmd C | list [--promotable] | show ID | promote ID [--apply] | drop ID\n' >&2
-  printf 'example: ./Scripts/session-script.sh add --intent "count swift files per target" --cmd '"'"'rg -c ...'"'"'\n' >&2
+  printf 'example: ./Scripts/session-script.sh add --intent "count source files per module" --cmd '"'"'rg -c ...'"'"'\n' >&2
   exit 2
 }
 
@@ -196,10 +200,29 @@ promote)
   else
     gate offline-safe 0 "no network, no commit, no sudo"
   fi
-  if [ -n "$staged" ] && grep -qE 'xcodebuild|swift +(build|test)|simctl +boot' "$staged" 2>/dev/null; then
-    gate no-compiler 1 "body invokes a compiler — must be emit-only, not promoted as callable (rule 2.12)"
+  # §2.8 enforced against what the PROFILE declares, never a built-in list of build tools: the
+  # layer recognises no ecosystem, and a fixed list is both incomplete and a statement about which
+  # ones are first-class. Each declared command contributes its executable (its first word).
+  BUILD_EXES=""
+  for _k in build_command test_command lint_command; do
+    _c="$(ga_profile_get "$ROOT" "$_k" 2>/dev/null)" || continue
+    [ -n "$_c" ] || continue
+    _e="${_c%% *}"; _e="${_e##*/}"
+    case " $BUILD_EXES " in *" $_e "*) ;; *) BUILD_EXES="$BUILD_EXES${BUILD_EXES:+ }$_e" ;; esac
+  done
+  if [ -z "$BUILD_EXES" ]; then
+    # Unverifiable, so it fails CLOSED. Dropping the gate silently would retire §2.8's only
+    # automated enforcement the moment a repo has not declared a profile, which is every repo
+    # before /declare-profile runs.
+    if [ "$ALLOW_MUTATING" -eq 1 ]; then
+      gate no-compiler 0 "unverifiable — no profile declares build/test commands; overridden with --allow-mutating"
+    else
+      gate no-compiler 1 "no profile declares build/test commands, so rule 2.8 cannot be checked — run /declare-profile, or promote with --allow-mutating"
+    fi
+  elif [ -n "$staged" ] && grep -qE "(^|[^A-Za-z0-9_./-])($(printf '%s' "$BUILD_EXES" | tr ' ' '|'))([^A-Za-z0-9_-]|$)" "$staged" 2>/dev/null; then
+    gate no-compiler 1 "body invokes the profile's build/test command ($BUILD_EXES) — must be emit-only, not promoted as callable (rule 2.8)"
   else
-    gate no-compiler 0 "does not invoke a compiler"
+    gate no-compiler 0 "does not invoke the profile's build or test command ($BUILD_EXES)"
   fi
   [ "$promoted_count" -lt "$PROMOTED_MAX" ] && gate under-cap 0 "$promoted_count/$PROMOTED_MAX" \
                                             || gate under-cap 1 "at cap $PROMOTED_MAX — prune first"
@@ -217,7 +240,7 @@ promote)
   {
     printf '#!/usr/bin/env bash\n'
     printf '#@kind      tool\n'
-    printf '#@platform  macos\n'
+    printf '#@platform  any\n'
     printf '#@claude    call\n'
     printf '#@purpose   %s\n' "$intent"
     printf '#@usage     %s\n' "$ID.sh"

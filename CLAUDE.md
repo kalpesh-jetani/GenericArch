@@ -1,10 +1,13 @@
-# CLAUDE.md — Generic Apple Platform App Architecture
+# CLAUDE.md — Generic Development Layer
 
-Reference architecture for **iPhone / iPad / Mac** from one codebase. Every package must be
-reusable, replaceable, and droppable into a new product with minimal change.
+A tech-stack-agnostic layer for managing a development environment as **shared memory with Claude**:
+the rules, indexes, notes, memory, decision record and skills that let Claude work consistently in
+any repo. The layer ships **no stack content of its own** — language, build system, architecture
+pattern and their rules come from a **stack profile** a project authors when it adopts the layer
+([profiles/](profiles/CLAUDE.md)); **none ships by default**.
 
-**Session material only.** Setup, build, ship, project settings, packages — none of it is here.
-**Before any task that is not writing code, grep the map** (§5): it routes all of them, and a topic
+**Session material only.** Setup, build, ship, project settings — none of it is here.
+**Before any task that is not writing code, grep the map** (§3): it routes all of them, and a topic
 missing there is one to ask about, not improvise. A failed script writes its own report to
 `.genericarch/failures/` — read that, never the script.
 
@@ -12,289 +15,118 @@ missing there is one to ask about, not improvise. A failed script writes its own
 
 ## 0. Decisions Claude must ASK about, never assume
 
-Check [DECISIONS.md](docs/DECISIONS.md) first; if a row answers it, follow it without re-asking.
+Check [DECISIONS.md](/docs/decisions/DECISIONS.md)(docs/DECISIONS.md) first; if a row answers it, follow it without re-asking.
 Otherwise offer the options with a recommendation plus **Other** and (where meaningful) **Skip**,
-wait, then record it with `/decide`. Options and trade-offs per decision: the `new-feature` skill.
+wait, then record it with `/decide`.
 
-| Decision | When to ask |
-|---|---|
-| **Presentation pattern** | **Before every new feature or screen** |
-| **Persistence engine** | Only **if** the feature stores data |
-| **Caching / offline policy** | Any screen that fetches remote data |
-| **New external dependency** | Always, before adding it |
-| **Extracting a package to a repo** | Only when all three §4 tests pass |
-| **Deployment floors** | Before writing any `platforms:` line — never defaulted (§1.1) |
+**Which decisions need asking is the active profile's to state** — architecture pattern, persistence,
+caching, and the like. Two hold on any stack: a **new external dependency** is always asked before
+it is added, and until a profile is declared, treat **any** architectural choice as a §2.1 "no
+silent choice" and ask.
 
-Ask **once per feature**, not once per file. Say so in the question if the answer would change the
-module graph or a §2 rule. Don't start while the question is open — do the answer-independent work
-first (models, protocols, localization keys), then ask.
+Ask **once per feature**, not once per file. Don't start while the question is open — do the
+answer-independent work first (models, interfaces, keys), then ask.
 
 ---
 
-## 1. Stack
+## 1. Stack — declared by the active profile
 
-**Never quote a version from memory or from this file.** Every version is acquired, never assumed:
-min iOS, min macOS, Xcode, Swift and language mode live in
-[PROJECT.md](.claude/notes/PROJECT.md), and how they are resolved and set is
-[PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
+The layer fixes no stack. The active stack profile ([profiles/](profiles/CLAUDE.md)) declares the
+language, build system, UI/runtime, concurrency model and test framework, and supplies the
+stack-specific rules, architecture principles, conventions and definition-of-done that a stack needs.
+**None ships by default** — a project authors one when it adopts the layer.
 
-Fixed by **choice**, not detection — a divergent answer changes what §2 and the module docs apply
-to, and `/project-init` names what it invalidates:
-
-- **SwiftUI.** UIKit/AppKit only behind a `Representable`, only where SwiftUI genuinely cannot.
-- **macOS is a native SwiftUI target. No Mac Catalyst.**
-- **SPM for dependencies and project files** — nothing else, and no checked-in binary framework
-  ([PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md)).
-- **async/await + structured concurrency.** No completion handlers, no Combine in new code, no
-  `DispatchQueue` hopping.
-- **Swift Testing** (`import Testing`). XCTest only for UI tests.
-
-### 1.1 The asymmetric baseline — read before writing shared code
-
-The Mac floor sits many OS generations above the iPhone floor. **Shared code compiles against the
-lower one**, so a newer API breaks the iOS build even where the Mac target would accept it.
-
-- Reach a newer API with `#if os(macOS)` or `if #available` **plus a working fallback**. Never both
-  silently, and **never by raising a floor** — gate it or don't ship it.
-- The gate lives **inside a design-system component or an infrastructure wrapper**. A feature must
-  not know which OS it is on.
-- Until the cross-floor look-and-feel question ([DECISIONS.md](docs/DECISIONS.md) *Open*) is
-  answered, design-system tokens stay platform-neutral.
-
-Where the floors come from, and why "no `platforms:` line" means unanswered rather than missing:
-[PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
+**Never quote a version from memory or from this file.** Versions are acquired from the project and
+recorded in [PROJECT.md](.claude/notes/PROJECT.md).
 
 ---
 
 ## 2. The rules that must never be broken
 
-1. **No package imports a sibling feature.** Features talk through shared protocols and navigate by
-   route value, never by importing each other → [REPO.md](docs/REPO.md)
-2. **No third-party type crosses a module boundary.** Wrapper always → §7
-3. **No hardcoded user-facing string.** Localized key, always → [REPO.md](docs/REPO.md)
-4. **No system alert, action sheet, or system-styled message surface.** One presenter →
-   [REPO.md](docs/REPO.md)
-5. **Every data-driven screen handles every content state** — loading, empty, offline, error,
-   loaded, plus paging where paged. **One** state value per screen, never a boolean beside it →
-   [REPO.md](docs/REPO.md)
-6. **Every dependency injected via protocol.** No `.shared`, and no `resolve`, from inside a feature
-   type — one file per feature sees the container → [REPO.md](docs/REPO.md)
-7. **No `try?` that swallows an error**, no `fatalError` in a shipping path, no force-unwrap outside
-   tests.
-8. **No `@unchecked Sendable`** without a comment justifying the manual synchronization.
-9. **No silent architectural choice.** If it's in §0, ask.
-10. **No `#if DEBUG` or build-flag branching in a feature.** Configuration is read once at the
-    composition root and injected as `AppEnvironment` → [SCHEMES.md](.claude/notes/SCHEMES.md)
-11. **Never `commit` or `push`** — not to "save progress", not because the work looks finished.
-    Leave it in the working tree and say what changed. Only an explicit "commit"/"push" counts; a
-    release or `/project-init` run is not one.
-12. **Build to validate on your own initiative; ask before you run or test.** Compiling is how a
-    change gets checked, so build freely — prefer the repo's own `./Scripts/check.sh`, whose
-    iOS-floor step compiles, over a hand-rolled invocation, and report what it printed rather than
-    what it should have. **Running and testing need the user's consent** — `swift test`,
-    `xcodebuild test`, any simulator or device launch. Typing `/build` is that consent for the run
-    it names; consent is per request and never standing. Don't rebuild gratuitously: minutes of
-    their machine are not free.
-13. **Follow the matching skill and name it before starting.** Skipping one of its steps means
-    saying which step and why. If none fits, say that — a wrong skill is worse than none.
-14. **Stop on a vague instruction.** If a request admits readings that lead to materially different
-    work, settle it before doing anything — never pick silently, never ship a "safe subset". Ask for
-    a **reference** (repo, file, Figma frame, doc URL, the existing thing it should resemble —
-    building from the name of a thing produces something plausible and wrong), a **focused goal**
-    ("first paint under 300 ms", not "improve this"), or **which reading**, listed, with your
-    recommendation. Ask only what the user alone can answer; whatever the code, the docs or
-    [DECISIONS.md](docs/DECISIONS.md) already settles, look up instead.
-15. **Never delete an installed file with `rm`.** `./Scripts/ga-remove.sh <path> --reason "…"`
-    records the tombstone that stops the next install re-creating it and the DECISIONS row that
-    stops it being re-proposed. Any command that rewrites installed files closes with
-    `./Scripts/ga-reseal.sh --apply`.
-16. **Every component carries its own `CLAUDE.md`.** A component is any directory that owns a
-    concern — a package, a wrapper, a feature, a design-system area, wherever assets or API
-    conventions live. Write it **before the code**, opening with the boundary (owns · may depend
-    on · never imports), then only rules true inside that directory. **Never write a list of
-    components** — the rule follows the directory that exists → [STRUCTURE.md](docs/STRUCTURE.md)
+These hold on **every** stack — they govern how Claude works in the layer, not how any app is built.
+A profile adds its own rules at its own numbers; it may not weaken these.
+
+1. **No silent architectural choice.** If it's a §0 decision, ask.
+2. **Never `commit` or `push`** — not to "save progress", not because the work looks finished. Leave
+   it in the working tree and say what changed. Only an explicit "commit"/"push" counts; a release
+   or `/project-init` run is not one.
+3. **Follow the matching skill and name it before starting.** Skipping one of its steps means saying
+   which step and why. If none fits, say that — a wrong skill is worse than none.
+4. **Stop on a vague instruction.** If a request admits readings that lead to materially different
+   work, settle it before doing anything — never pick silently, never ship a "safe subset". Ask for
+   a **reference** (repo, file, doc URL, the existing thing it should resemble — building from the
+   name of a thing produces something plausible and wrong), a **focused goal** ("first paint under
+   300 ms", not "improve this"), or **which reading**, listed, with your recommendation. Ask only
+   what the user alone can answer; whatever the code, the docs or [DECISIONS.md](/docs/decisions/DECISIONS.md)(docs/DECISIONS.md)
+   already settles, look up instead.
+5. **Never delete an installed file with `rm`.** `./Scripts/ga-remove.sh <path> --reason "…"` records
+   the tombstone that stops the next install re-creating it and the DECISIONS row that stops it being
+   re-proposed. Any command that rewrites installed files closes with `./Scripts/ga-reseal.sh --apply`.
+6. **Every component carries its own `CLAUDE.md`.** A component is any directory that owns a concern.
+   Write it **before the code**, opening with the boundary (owns · may depend on · never imports),
+   then only rules true inside that directory. **Never write a list of components** — the rule
+   follows the directory that exists → [STRUCTURE.md](/docs/reference/STRUCTURE.md)(docs/STRUCTURE.md)
+7. **Doc comments, not meta comments.** No comment that restates the code or narrates the edit;
+   anything about the change belongs in the commit message. Every function or initialiser you write
+   or change carries a doc comment stating what the signature cannot.
+8. **Build to validate on your own initiative; ask before you run or test.** Compiling is how a
+   change gets checked, so build freely and report what the build printed. **Running and testing
+   need the user's consent** — any test run, or launching the app on a simulator or device. Consent
+   is per request and never standing. Don't rebuild gratuitously: minutes of their machine are not
+   free.
 
 ---
 
-## 3. Architecture principles
+## 3. Index
 
-**Protocol-oriented** — every capability is a protocol first, implementation second. Defaults in
-protocol extensions, never base classes. Abstract on *capability*, not type (`ImageCaching`,
-`TokenRefreshing`). Generics where they remove casting; `any P` at composition boundaries.
-
-**Modular** — one responsibility per package; if it needs a `// MARK: - Unrelated`, split it.
-Dependency direction is strictly downward, and **`Package.swift` enforces it, not repo walls** — a
-local package still cannot import a sibling feature.
-
-Downward is: app shell (thin) → features (never each other) → presentation and routing →
-infrastructure → the shared core (zero dependencies). An extracted package sits outside that order
-and maps in at our boundary like any vendor (§7). Which layers exist, and what each owns:
-[REPO.md](docs/REPO.md).
-
-**Inheritable** — a new feature gets standard behavior free and can override any piece, through a
-**protocol + extension** supplying state handling, error mapping, retry, lifecycle. **No generic
-base classes.** Prefer composition wherever both work.
-
-**Scalable** — adding a feature edits zero other features: one local package, one line in the
-composition root, one `Route` case. Use `/new-feature`.
-
----
-
-## 4. Repository
-
-### 4.1 Single repo, two extracted packages
-
-Local packages wire with `.package(path:)` and carry **no version numbers**. An extracted package
-has zero dependencies and does not import the shared core. Which ones this base extracted:
-[REPO.md](docs/REPO.md).
-
-### 4.2 When to extract — all three must be true
-
-**Product-independent · actually reused · stable API.** Otherwise keep it local. It is a §0
-question.
-
-Both in full — and `Package.swift` as the enforcement, not convention:
-[Packages/CLAUDE.md](Packages/CLAUDE.md).
-
----
-
-## 5. Index
-
-**Look it up before you read or search for it.** Three greps replace a table of contents:
+**Look it up before you read or search for it.** Four greps replace a table of contents:
 
 ```bash
 grep -i navigation .claude/MAP.tsv     # which doc, note, pattern or skill covers a topic
 grep -i lint .claude/SCRIPTS.tsv       # which script does this, and its contract
-./Scripts/find.sh SmartLockHomeView    # where is this screen/route/endpoint/asset/token?
+./Scripts/find.sh <name>               # where is this screen/route/endpoint/asset/token?
 ./Scripts/ga-step.sh show              # which step is next, and why a command refused
 ```
 
-Commands run in a fixed order — install → `/project-init` → `/gaps` → `/sync-app-notes` → ready —
+Commands run in a fixed order — install → `/project-init` → `/sync-app-notes` → ready —
 enforced by each command's first step. Exit 5 means an earlier one has not run →
-[SEQUENCE.md](docs/SEQUENCE.md).
+[SEQUENCE.md](/docs/operations/SEQUENCE.md)(docs/SEQUENCE.md).
 
-[`MAP.tsv`](.claude/MAP.tsv) carries every doc, note, pattern and skill; **read
-[REPO.md](docs/REPO.md) for which layer owns what before touching one.**
+[`MAP.tsv`](.claude/MAP.tsv) carries every doc, note, pattern and skill.
 [`SCRIPTS.tsv`](.claude/SCRIPTS.tsv) is each script's contract — **never read a
 script's body to learn what it does**; read it only when a call fails, then fix it in the same
 change.
 
 **What earlier sessions learned:** [`.claude/memory/INDEX.md`](.claude/memory/INDEX.md) — in-repo
 and tracked, so it survives a clone. Never write to a machine-local store. What may be written, and
-where **new** material belongs: [STRUCTURE.md](docs/STRUCTURE.md).
+where **new** material belongs: [STRUCTURE.md](/docs/reference/STRUCTURE.md)(docs/STRUCTURE.md).
 
 **In a repo with `openspec/`, look it up here before exploring.** `/opsx:explore` and
 `/opsx:propose` answer from the four indexes above first — a spec written against something this
 repo already settled is worse than no spec. They are the only OpenSpec commands nothing can inject
-into, so this line is the whole mechanism → [OPENSPEC.md](docs/OPENSPEC.md).
+into, so this line is the whole mechanism → [OPENSPEC.md](/docs/reference/OPENSPEC.md)(docs/OPENSPEC.md).
 
 Both indexes are pruned per install, so **a row that is not here may still exist upstream** —
 declined, or a layer this product did not take. Check `.genericarch/TOMBSTONES.tsv` before
-concluding
-something does not exist ([INSTALL-MANIFEST.md](docs/INSTALL-MANIFEST.md)).
+concluding something does not exist ([INSTALL-MANIFEST.md](/docs/reference/INSTALL-MANIFEST.md)(docs/INSTALL-MANIFEST.md)).
 
-`.claude/notes/` is generated. **Edit the affected rows in the same change as every insertion or
-deletion** — screen, route, API path, image, colour, font, token, scheme, target. A full rescan is
-the user's **`/sync-app-notes`**; never start one yourself.
-
----
-
-## 6. Concurrency
-
-Assuming the strict-concurrency mode in [PROJECT.md](.claude/notes/PROJECT.md); on an older mode
-these still hold, the compiler just stops enforcing them.
-
-- UI types and view models are `@MainActor` — mark the type, not each method.
-- Services are actors or `Sendable` structs. **Never `@MainActor` a network service.**
-- Cross-boundary types are `Sendable`. Prefer value types.
-- `async let` / `TaskGroup` for parallel work. Never a fire-and-forget `Task { }` that isn't stored
-  and cancelled.
-- Every long-running operation is **cancellable** and honors `Task.isCancelled`.
-- `AsyncStream` / `AsyncSequence` for continuous data. No `NotificationCenter` for app-internal
-  events.
-- **Typed throws inside a package only.** Untyped `throws` at an extracted package's public boundary
-  — widening a typed throw there is a major bump for a routine new error case.
+`.claude/notes/` is generated from the actual project. **Edit the affected rows in the same change
+as every insertion or deletion.** A full rescan is the user's **`/sync-app-notes`**; never start one
+yourself.
 
 ---
 
-## 7. External library wrapper policy
-
-**No feature or infrastructure module imports a third-party module directly** — only its wrapper
-does, and **swapping a vendor must touch exactly one target.** **Our** types at the boundary; no
-vendor enum or error crosses it.
-
-What a wrapper ships and how to remove one: [Packages/CLAUDE.md](Packages/CLAUDE.md) §7,
-[wrapper](docs/patterns/wrapper.md).
-
----
-
-## 8. Multiplatform, accessibility, security
-
-**Adaptivity** — branch on **size class and platform capability**, never device model or width
-constants; navigation state is data → [REPO.md](docs/REPO.md). `#if os(...)` lives **inside
-design-system components**, not features. Which iPad and Mac affordances a screen must prove:
-[DONE.md](docs/DONE.md).
-
-**Accessibility — a requirement, not polish.** **Never encode meaning in color alone.** Mostly
-guaranteed inside shared components → [REPO.md](docs/REPO.md); what a screen must still prove, and
-at which sizes, is the checklist in [DONE.md](docs/DONE.md).
-
-**Security & privacy** — two rules apply while writing code: **no PII, tokens or response bodies in
-logs**, and **secrets to the Keychain only**, behind a protocol → [REPO.md](docs/REPO.md).
-Everything else here is configuration — ATS, pinning, `PrivacyInfo.xcprivacy`, biometrics,
-capabilities: [PROJECT-SETTINGS.md](docs/PROJECT-SETTINGS.md).
-
----
-
-## 9. Testing
-
-**No network in tests** — enforced by the mandatory `testValue` on every dependency key. **Every
-package builds and tests standalone**; that is what enforces the module boundaries.
-
-Mocks, contract tests, snapshot bounds, the localization test:
-[Packages/CLAUDE.md](Packages/CLAUDE.md) §9.
-
----
-
-## 10. Conventions
-
-Naming, file layout, access control, and doc comments: [CONVENTIONS.md](docs/CONVENTIONS.md),
-enforced by [`.swiftlint.yml`](.swiftlint.yml) and `./Scripts/check.sh`. Three that are rules, not
-conventions:
-
-- **`public` only what crosses a package boundary** — in an extracted package every `public` symbol
-  is a semver commitment.
-- **Every function or initialiser you write or change carries a `///` doc comment** stating what the
-  signature cannot.
-- **Doc comments, not meta comments.** No `//` that restates the code or narrates the edit; anything
-  about the change belongs in the commit message.
-
----
-
-## 11. Finishing a change
-
-**Read [DONE.md](docs/DONE.md) before saying a change is done**, or run `/verify` to walk it against
-the diff. Never declare completion from memory of the checklist — the items most often missed are
-the ones that feel already handled. If something can't be checked here (device, VoiceOver, Mac
-resize), **say what was skipped**.
-
-Building it is a separate process with its own rules about who runs what:
-[BUILD-PROCESS.md](docs/BUILD-PROCESS.md).
-
----
-
-## 12. For Claude specifically
+## 4. For Claude specifically
 
 - **Never edit this file without explicit approval** — including when certain. Show the exact text
-  and wait. Where new guidance belongs instead: [STRUCTURE.md](docs/STRUCTURE.md).
-- **An existing repo's structure wins.** Never propose this layout for a repo that has one, and
-  never install the architecture layer on your own initiative — in a repo that has not adopted
-  §2/§3,
-  `new-feature` scaffolds what the app cannot consume and `/review` reports rules it declined.
-  `/project-init` offers them once the conflict table is settled.
-- Read the relevant `Package.swift` before adding a dependency edge. If it violates §3's direction,
-  stop and say so rather than adding it.
-- When asked for a feature, produce **protocol + mock + implementation + localized keys + every
-  content state** — not just the happy path.
+  and wait. Where new guidance belongs instead: [STRUCTURE.md](/docs/reference/STRUCTURE.md)(docs/STRUCTURE.md).
+- **An existing repo's structure wins.** Never impose the layer's conventions on a repo that has its
+  own; `/project-init` reconciles by asking, and installs nothing on your own initiative.
+- **The active profile owns stack rules.** Architecture, concurrency, dependency wrapping, testing,
+  conventions and the definition-of-done come from the declared profile — read it, don't assume a
+  stack. If no profile is declared, say so rather than guessing one.
+- **Before calling a change done**, walk the active profile's definition-of-done (or `/verify`);
+  never declare completion from memory of a checklist. If something can't be checked (device,
+  environment, tooling), say what was skipped.
 - If a requirement conflicts with a §2 rule, or §0 has no recorded answer, **raise it** — don't
-  silently work around it, and don't choose the scope of a broad instruction yourself (§2.14).
+  silently work around it, and don't choose the scope of a broad instruction yourself (§2.4).

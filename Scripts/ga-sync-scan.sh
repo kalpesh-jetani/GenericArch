@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
-#@purpose   Report what a sync would involve: the installed version and ref, any second install root, per-file drift against a base when one is given, and which docs/patterns/ the code now justifies promoting to skills. Recommends; applies nothing.
+#@purpose   Report what a sync would involve: the installed version and ref, any second install root, per-file drift against a base when one is given, and which indexed patterns the code now justifies promoting to skills. Recommends; applies nothing.
 #@usage     ga-sync-scan.sh [target-dir] [--base DIR] [--patterns] [--base-only] [--tsv]
 #@in        target:dir(default .) --base:dir(a GenericArch checkout; without it the drift half is skipped and said so) --patterns:flag(pattern signals only) --base-only:flag(drift only) --tsv:flag(machine-readable)
 #@out       stdout:install facts, then TAKE/HOLD/REFUSE rows per drifted file, then PROMOTE/NOT-YET rows per pattern
@@ -146,76 +146,27 @@ if want base; then
 fi
 
 # ── 3. which patterns the code now justifies ───────────────────────────────
-# Evidence, never intent. A pattern with no signal is not a candidate, and "not yet" is a result
-# worth printing — it stops the same question being reopened next month.
+# Evidence, never intent. This layer ships no pattern catalogue: a pattern is promoted from a
+# product's own recurring code by /learn, so the only patterns to weigh here are the ones a product
+# has already indexed as `pattern` rows in MAP.tsv. With none indexed there is nothing to enumerate,
+# and that is the common case. The promotion signal is stack-specific and therefore /learn's to
+# judge, not this scanner's — a pattern row found here is reported, never scored.
 if want patterns; then
   hdr "── patterns the code now justifies ────────────────────"
-  # A lean install carries NO pattern rows — adopt.sh drops them along with the module rows when the
-  # architecture layer was not taken. Enumerating from MAP.tsv alone therefore finds nothing and
-  # prints nothing, on exactly the installs where this question is live. So fall back to the known
-  # set: the patterns exist upstream and are fetchable whether or not a row routes to them here.
-  KNOWN="change dark-light-mode feature-complete release-bump rtl-support style-guide wrapper"
   PATS="$(awk -F'\t' '$2=="pattern"{print $1}' .claude/MAP.tsv 2>/dev/null | while IFS= read -r x; do basename "$x" .md; done)"
-  if [ -z "$PATS" ]; then
-    PATS="$KNOWN"
-    say "  ${GA_DIM}no pattern rows in MAP.tsv (lean install) — using the known upstream set${GA_OFF}"
-    say ""
-  fi
-  if true; then
-    found=0
-    for name in $PATS; do
-      found=1
-      if [ -d ".claude/skills/$name" ]; then
-        verdict REFUSE "$name" "already a skill" "out of scope here — whether it can still FIRE is ga-cleanup-scan.sh --skills"
-        continue
-      fi
-      case "$name" in
-        wrapper)
-          verdict REFUSE "$name" "reference for CLAUDE.md §7" "not promotable; the module docs cite it as a pattern" ;;
-        dark-light-mode)
-          d=$(count sh -c "grep -rl '\"dark\"' --include='Contents.json' . | wc -l")
-          [ "$d" -gt 0 ] && verdict PROMOTE "$name" "$d dark asset variant(s)" "dark mode is real here — /learn $name" \
-                         || verdict NOT-YET "$name" "no dark asset variants" "add a dark variant first, or it fires on nothing" ;;
-        rtl-support)
-          r=$(find . -name '*.lproj' 2>/dev/null | grep -cE '/(ar|he|fa|ur)\.lproj' | tr -d ' ' | head -1); r=${r:-0}
-          [ "$r" -gt 0 ] && verdict PROMOTE "$name" "$r RTL locale(s)" "an RTL language ships — /learn $name" \
-                         || verdict NOT-YET "$name" "no ar/he/fa/ur locale" "no RTL language ships here" ;;
-        style-guide)
-          t=$(count grep -c '^| `' .claude/notes/STYLE-GUIDE.md)
-          [ "$t" -gt 0 ] && verdict PROMOTE "$name" "$t registered token(s)" "there are tokens to prefer over literals — /learn $name" \
-                         || verdict NOT-YET "$name" "0 token rows in STYLE-GUIDE.md" "register tokens first" ;;
-        feature-complete)
-          # `grep -c '^| '` counts the note's own template rows, so an empty scaffold scored 6 and
-          # got recommended in a repo with no Swift at all. A real entry names something — bold or
-          # backticked in the first cell — and there has to be code for a feature to have shipped.
-          f=$(count grep -cE '^\| (\*\*|`)' .claude/notes/FEATURES.md)
-          sw=$(count sh -c "grep -rl . --include='*.swift' . | wc -l")
-          if [ "$sw" -eq 0 ]; then
-            verdict NOT-YET "$name" "no Swift files" "nothing has shipped yet, so there is no close-out to repeat"
-          elif [ "$f" -gt 2 ]; then
-            verdict PROMOTE "$name" "$f named feature row(s)" "features ship often enough to need a close-out — /learn $name"
-          else
-            verdict NOT-YET "$name" "$f named feature row(s)" "too few shipped features to have a repeatable close-out"
-          fi ;;
-        change)
-          sw=$(count sh -c "grep -rl . --include='*.swift' . | wc -l")
-          [ "$sw" -gt 0 ] && verdict PROMOTE "$name" "$sw Swift file(s)" "there is code to change — /learn $name" \
-                          || verdict NOT-YET "$name" "no Swift files" "nothing to change yet" ;;
-        release-bump)
-          tg=$(count sh -c "git tag | wc -l")
-          if [ -f Package.swift ] && [ "$tg" -gt 0 ]; then
-            verdict PROMOTE "$name" "Package.swift + $tg tag(s)" "this repo publishes a versioned package — /learn $name"
-          else
-            verdict NOT-YET "$name" "no Package.swift at the root" "a release-workflow tool, not code generation — for an app it fires on nothing"
-          fi ;;
-        *) verdict NOT-YET "$name" "no signal defined" "add one here before recommending it either way" ;;
-      esac
-    done
-    [ "$found" -eq 1 ] || say "  nothing to enumerate"
-    say ""
-    say "  ${GA_BLD}/learn <name>${GA_OFF} promotes one. It owns the earned-it test and its own approval"
-    say "  gate; a signal here is the first of its three conditions, not all of them."
-  fi
+  found=0
+  for name in $PATS; do
+    found=1
+    if [ -d ".claude/skills/$name" ]; then
+      verdict REFUSE "$name" "already a skill" "out of scope here — whether it can still FIRE is ga-cleanup-scan.sh --skills"
+      continue
+    fi
+    verdict NOT-YET "$name" "no signal defined here" "/learn owns the earned-it test — a signal is the first of its conditions, not all of them"
+  done
+  [ "$found" -eq 1 ] || say "  no patterns indexed — /learn promotes one when a product's code earns it"
+  say ""
+  say "  ${GA_BLD}/learn <name>${GA_OFF} promotes one. It owns the earned-it test and its own approval"
+  say "  gate; a signal here is the first of its three conditions, not all of them."
 fi
 
 exit "$GA_EX_OK"

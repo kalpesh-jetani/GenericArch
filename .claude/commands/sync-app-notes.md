@@ -1,5 +1,5 @@
 ---
-description: Rebuild the nine inventories in .claude/notes/ from a filesystem scan, and report the gaps it finds
+description: Rebuild the inventories the active stack profile declares in .claude/notes/ from a filesystem scan, and report the gaps it finds
 argument-hint: "[optional: a note name, e.g. FONTS]"
 allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 ---
@@ -9,23 +9,23 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Glob
 ```
 
 **Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
-never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+never work around it. Order and why: [SEQUENCE.md](/docs/operations/SEQUENCE.md)(/docs/SEQUENCE.md).
 
 Rebuild the living inventories in `.claude/notes/` from what is actually on disk.
 
-Scope: `$ARGUMENTS` if a note is named, otherwise all nine.
+Scope: `$ARGUMENTS` if a note is named, otherwise all of them.
 
-> **This is a command, not a skill, and that is the safety mechanism.** A full rescan rewrites nine
+> **This is a command, not a skill, and that is the safety mechanism.** A full rescan rewrites the
 > files wholesale; run against a half-finished tree it replaces correct rows with incomplete ones —
 > worse than a stale note, because it looks current. As a command it can only run when you type it,
 > so there is no path by which it fires as a side effect of another task.
 >
 > **Targeted edits are the normal case and do not belong here.** Adding one row to `FEATURES.md`
-> because you added one screen is part of that change (CLAUDE.md §5) — edit the file directly.
+> because you added one screen is part of that change (CLAUDE.md §3) — edit the file directly.
 
 **Run the command as written; do not improvise a substitute.** Each `⚠` marks a constraint that a
 naive rewrite breaks. The evidence behind them is in
-[SCAN-TRAPS.md](../../docs/SCAN-TRAPS.md) — read it before changing a scan, not before running one.
+[SCAN-TRAPS.md](/docs/operations/SCAN-TRAPS.md)(/docs/SCAN-TRAPS.md) — read it before changing a scan, not before running one.
 
 ---
 
@@ -40,7 +40,7 @@ the user decide.
 
 ### Scan what moved, not everything
 
-**Default scope is the stale set, not all nine.** Most syncs follow a change that touched two or
+**Default scope is the stale set, not all of them.** Most syncs follow a change that touched two or
 three areas; rescanning the other six spends tokens to rewrite files with identical content.
 
 Set the source root first — every scan in this command uses it. In a greenfield repo it is
@@ -57,7 +57,7 @@ the scope decision: on one repo a two-week baseline gave 88 changed files for `F
 
 It reads **git** timestamps, not mtime, and its baseline is each note's `- **Last synced:**` line —
 which is why S5.3 requires you to set it. Why not mtime:
-[SCAN-TRAPS.md](../../docs/SCAN-TRAPS.md).
+[SCAN-TRAPS.md](/docs/operations/SCAN-TRAPS.md)(/docs/SCAN-TRAPS.md).
 
 `$ARGUMENTS` overrides the staleness result: a named note is scanned whether or not it is stale, and
 if the user asks for everything, do everything. Report what you skipped either way.
@@ -71,167 +71,36 @@ Typing the command asks for a sync; it does not pre-approve discarding work in p
 the staleness table, then the sizes for the notes you intend to touch — `FEATURES: 88 changed files,
 115 screens` is the useful form, not "the notes".
 
-Use `AskUserQuestion` for the confirmation when scope is genuinely open (the stale set vs all nine);
+Use `AskUserQuestion` for the confirmation when scope is genuinely open (the stale set vs all of them);
 plain text is enough when the user named a note in `$ARGUMENTS` or only one note is stale.
 
 ## S1. What each note is built from
 
-**The note's own `Built from:` line wins over this table.** Adoption rewrites those lines
-([ADOPTION.md](../../docs/ADOPTION.md)), and in an adopted repo none of the greenfield paths below
-exist. Read the note's header first; this table is the default for a fresh GenericArch repo.
-
-| Note | Scan | Key output |
-|---|---|---|
-| `FEATURES.md` | `Packages/Features/*/Sources/**/Views/`, view models | features → screens → routes, states, **file paths** |
-| `NAVIGATION.md` | `Route` enum, shell `navigationDestination`, deep-link parser | route inventory, entry points, flow, deep links, **file paths** |
-| `API-MAP.md` | router enum + `callAPI(path:method:)` call sites | path → method → screen → controller, **file paths** |
-| `ASSETS-IMAGES.md` | `**/*.xcassets/**/*.imageset` | group, name, rendering mode, dark variant, owner |
-| `ASSETS-COLORS.md` | `**/*.xcassets/**/*.colorset/Contents.json` | token, **light + dark hex** |
-| `FONTS.md` | `*.otf`/`*.ttf`, `Info.plist`, `Font.custom` call sites | family, PostScript names, **registration path**, tokens |
-| `SCHEMES.md` | `*.xcconfig`, scheme list, `Info.plist` substitutions | DEV/TEST/BETA/PROD → config, bundle ID, base URL |
-| `PROJECT.md` | `project.pbxproj`, `*.entitlements`, `Info.plist`, package links | targets, deployment targets, capabilities, links |
-| `STYLE-GUIDE.md` | token declarations in `DesignSystem/Tokens/`, components + their `#Preview` blocks | spacing, radius, elevation, motion, type scale, component variants |
+The note SET — which inventories a project keeps, and how each is scanned — is the **active stack
+profile's** to declare (`profiles/<name>/`): the file taxonomy of one stack means nothing to another.
+This command hardcodes no scan; it drives the profile's, through `Scripts/sync-notes.sh`. With no
+profile declared there is no note set, and nothing to rebuild.
 
 ## S1b. Run the offline pass FIRST — most of this is not your work
 
-```bash
-./Scripts/sync-notes.sh --apply       # writes FONTS, ASSETS-COLORS, PROJECT outright
-./Scripts/sync-notes.sh --evidence    # candidates for the six that need judgement
-```
-
-Nine notes, three tiers — and **seven of the nine now come from the script**:
-
-| Tier | Notes | Your job |
-|---|---|---|
-| **Generated** | FONTS · ASSETS-COLORS · PROJECT | Nothing. Do not open them |
-| **Partial** | ASSETS-IMAGES · API-MAP · NAVIGATION · SCHEMES | Only the named remainder. Each note carries a caveat line stating what the scan did **not** establish |
-| **Hand-written** | FEATURES · STYLE-GUIDE | Review the candidates, then write the rows |
-
-A partial note's table is already correct for what it covers — **do not re-derive it**. Read its
-caveat line, open `.claude/notes/.evidence/<NOTE>.tsv`, and resolve only what is listed there:
-which screen calls an endpoint, whether an asset is really unused, whether a route case with call
-sites is a real destination. That is the difference between reviewing a list and running a scan.
-
-If a note has no markers yet the script says so — `--init-markers`, once. The scans in S2 below are
-the fallback for what the script could not cover, not the default route.
-
-**If a generator failed** it wrote a bounded report to `.genericarch/failures/`. Read *that*, not the
-script: it names what the script expected and what this repo actually has. Fix the script so the next
-run is mechanical again, and delete the report in the same change. A scan done by hand twice is a
-script nobody improved.
-
-## S2. The scans
-
-`$SRC` was set in S0. Run only the scans for the notes S0 marked stale.
-
-### Colours
+Before scanning anything by hand, run the offline engine. It regenerates every inventory the profile
+can derive deterministically and gathers candidate evidence for the ones that need judgement, so you
+review rows instead of re-running scans:
 
 ```bash
-find . -type d -name "*.colorset" -not -path "*/Pods/*" -not -path "*/build/*" | wc -l
+./Scripts/sync-notes.sh --check       # what has drifted (exit 1 on drift); no profile → nothing
+./Scripts/sync-notes.sh --evidence    # candidates for the judgement notes
+./Scripts/sync-notes.sh --apply       # rewrite the managed rows it can fully generate
 ```
 
-Normalise to `#RRGGBB` uppercase; record **Any/Light** and **Dark** separately:
+Only the rows a scan cannot settle — the ones the profile marks as needing judgement — are yours to
+work through. Reviewing a candidate list is a fraction of scanning from scratch.
 
-```bash
-python3 Scripts/scan-colors.py "$SRC"
-```
+## S2. The scans are the profile's
 
-A colorset with one appearance is a finding, not a blank cell.
-
-### Images, and deciding an asset is unused
-
-```bash
-find . -type d -name "*.imageset" -not -path "*/Pods/*" -not -path "*/build/*" | wc -l
-```
-
-⚠ Four failure modes make a naive name search wrong — [SCAN-TRAPS.md#images](../../docs/SCAN-TRAPS.md):
-
-```bash
-python3 Scripts/scan-unused-assets.py "$SRC"
-```
-
-> **An "unused asset" list is a deletion proposal.** Label every row a **candidate**, state the
-> method's blind spot in the note, and never present it as a verdict. Runtime-composed names are
-> invisible to this scan.
-
-### Fonts
-
-```bash
-find . \( -name "*.otf" -o -name "*.ttf" \) -not -path "*/Pods/*" -not -path "*/build/*"
-grep -rn "UIAppFonts\|ATSApplicationFontsPath" --include="*.plist" . | grep -v /build/
-grep -rn "Font.custom\|UIFont(name:" --include="*.swift" . | grep -v Pods | wc -l
-```
-
-⚠ **Read PostScript names from the file, never the filename** — a mismatch fails silently at runtime:
-
-```bash
-python3 Scripts/scan-fonts.py "$SRC"
-```
-
-### Routes
-
-⚠ `grep "case "` overcounts ~4× — it matches `hash(into:)`, `==` and the view builder too. Scope to
-the enum body:
-
-```bash
-# declarations only: stop at the first closing brace after the enum
-awk '/^enum .*Route/,/^}/' $(fd -g 'Route*.swift' . 2>/dev/null || find . -name "Route*.swift" -not -path "*/Pods/*") \
-  | grep -E '^\s{4}case ' 
-# the destination for each case — from the shell's switch
-grep -rn "navigationDestination" -A40 App | grep -E "case \.|Assembly"
-# who pushes each route
-grep -rn "\.push(\.\|startRoute:" --include="*.swift" . | grep -v Pods
-```
-
-### Screens
-
-⚠ Two Swift shapes defeat the obvious regexes and silently drop screens:
-
-```bash
-# Generic screens: `struct LiveVideoPreviewScreen<ViewModel: …>: View` is NOT matched
-# by `struct \w+: View`. Two route destinations went missing before this was fixed.
-grep -rnE 'struct\s+\w+\s*(<[^>]*>)?\s*:\s*View\b' --include="*.swift" . | grep -v Pods
-
-# View controllers usually inherit a PROJECT base class, not UIViewController.
-# Discover the real set first, then match on it — otherwise the four tab roots vanish.
-grep -rhoE "class [A-Za-z0-9_]*ViewController *: *[A-Za-z0-9_]*" --include="*.swift" . \
-  | grep -v Pods | sed 's/.*: *//' | sort | uniq -c | sort -rn
-```
-
-### API map
-
-```bash
-python3 Scripts/scan-api-map.py "$SRC" "$SRC/Resources/en.lproj/Localizable.strings" --markdown
-```
-
-Drop the output under `## Endpoints` in [API-MAP.md](../notes/API-MAP.md). Without `--markdown` it
-emits JSON, which is what you want when you need the `never_called` list for the Gaps table.
-
-The script **discovers the router from the call sites, not from its name.** That matters: one real
-repo has an `APIRouter.swift` that still compiles and is called exactly once, while every live call
-goes through a differently-named enum. Trusting the filename would have documented the dead one.
-
-If the project's API entry point is not `callAPI(path:method:)`, change `CALL_FN` at the top of the
-script rather than hand-rolling a scan.
-
-### Schemes, project, style
-
-```bash
-find . -name "*.xcconfig" -not -path "*/Pods/*" -not -path "*/build/*"
-grep -rn "IPHONEOS_DEPLOYMENT_TARGET\|PRODUCT_BUNDLE_IDENTIFIER\|CODE_SIGN_ENTITLEMENTS" \
-  *.xcodeproj/project.pbxproj | sort -u
-grep -n "UsageDescription\|UIBackgroundModes\|UIUserInterfaceStyle" **/Info.plist
-grep -rn "static let \(spacing\|radius\|cornerRadius\|duration\|elevation\)" --include="*.swift" . | grep -v Pods
-grep -rc "accessibilityReduceMotion" --include="*.swift" . | grep -v ':0' | wc -l
-```
-
-⚠ **Check secrets with `git ls-files`, not `.gitignore`** — an ignore rule has no effect on a file
-tracked before the rule existed:
-
-```bash
-git ls-files | grep -i "secret\|\.env"        # tracked despite any ignore rule
-git check-ignore -v $(find . -name "*Secrets*") 2>/dev/null
-```
+There are no built-in scans here: which files feed which inventory, and how, is declared by the
+active profile and run by `sync-notes.sh`. When a profile is declared, add or refine a scan in the
+profile, not in this command. With none declared, there is nothing to scan.
 
 ## S3. Paths are the point — emit them, verified
 
@@ -252,8 +121,8 @@ filename are overhead for a lookup that never opens the file (measured: −21% o
 `FEATURES.md`).
 
 ```
-before (171)  | `SmartLockHomeView` | SwiftUI | [SmartLockHomeView.swift](App/MyApp/Features/SmartLock/Home/SmartLockHomeView.swift) | `loading`, `empty`, `error` |
-after   (99)  | `SmartLockHomeView` | SwiftUI | Features/SmartLock/Home/ | loading, empty, error |
+before (171)  | `HomeScreen` | [HomeScreen.ext](src/App/Home/HomeScreen.ext) | `loading`, `empty`, `error` |
+after   (99)  | `HomeScreen` | src/App/Home/ | loading, empty, error |
 ```
 
 Four transformations, in order:
@@ -261,9 +130,9 @@ Four transformations, in order:
 1. **No markdown links in a row** — write the bare path. The link syntax duplicates the basename and
    serves a reader who, by §S6, never opens the file. Whoever *reports* a row renders the link.
 2. **Declare the root once in the header**, then write paths relative to it:
-   `- **Root:** \`App/MyApp/\`` — that prefix appeared 175 times across one app's notes.
+   `- **Root:** \`src/App/\`` — a repeated root prefix appeared 175 times across one project's notes.
 3. **Drop the filename when the key derives it.** State the convention in the header
-   (`file = <dir>/<Key>.swift`) and the row carries the directory. Only spell the filename when it
+   (`file = <dir>/<Key>`) and the row carries the directory. Only spell the filename when it
    does *not* follow from the key.
 4. **Backticks on the searchable key only.** They earn their two bytes on the column people grep for
    and nowhere else.
@@ -293,7 +162,7 @@ a negative claim ("never used", "no consumer", "missing") is the kind people act
 > and say which search you ran.**
 
 The package name is not the module name — nor is the target name, the product name, or the folder
-name. Worked example: [SCAN-TRAPS.md](../../docs/SCAN-TRAPS.md).
+name. Worked example: [SCAN-TRAPS.md](/docs/operations/SCAN-TRAPS.md)(/docs/SCAN-TRAPS.md).
 
 ## S5. Rules for every note
 
@@ -317,17 +186,17 @@ name. Worked example: [SCAN-TRAPS.md](../../docs/SCAN-TRAPS.md).
 7. **Group long tables by folder, with the count in the heading** (`### \`Images/Device/\` — 28
    assets`). Never truncate without saying so in the same sentence.
 8. **A note whose `Built from:` source does not exist records the absence.** Do not synthesise. If
-   there is no `DesignSystem/Tokens/`, `STYLE-GUIDE.md` says so and lists the literals it found as
-   evidence — a token registry nothing references is worse than an empty one.
+   a note's declared source does not exist, the note records the absence and lists what it found as
+   evidence — a registry nothing references is worse than an empty one.
 9. **Never edit CLAUDE.md.** If a scan suggests a rule, report it and let the user decide — CLAUDE.md
-   is approval-gated ([STRUCTURE.md](../../docs/STRUCTURE.md)).
-10. Cross-check owners against CLAUDE.md §3 layering — an asset used by one feature but living in
-    DesignSystem is worth flagging.
+   is approval-gated ([STRUCTURE.md](/docs/reference/STRUCTURE.md)(/docs/STRUCTURE.md)).
+10. Cross-check owners against the active profile's layering — a shared asset owned by a single
+    feature is worth flagging.
 
 ## S6. A note is a grep index, never a document
 
 **Notes are searched, never read.** That is the whole reason they exist
-([PATTERN-SEARCH.md](../../docs/PATTERN-SEARCH.md)): one `grep` returns the row, the row answers the
+([PATTERN-SEARCH.md](/docs/patterns/PATTERN-SEARCH.md)(/docs/PATTERN-SEARCH.md)): one `grep` returns the row, the row answers the
 question, and the file never enters context. A note read end-to-end has cost more than the search it
 was built to replace.
 
@@ -340,7 +209,7 @@ Three rules follow, and they bind this command as much as daily work:
 2. **Never read a note in full**, including here. Read the header for its `Built from:` line and its
    scaffold marker; everything below that is written, not consulted.
 3. **Maintain by insertion and deletion of rows** — a row appears when the thing appears, a row goes
-   when the thing goes, in the same change (CLAUDE.md §5). This command's wholesale rewrite is the
+   when the thing goes, in the same change (CLAUDE.md §3). This command's wholesale rewrite is the
    **only** exception, and it is why the command is user-typed.
 
 ### What that demands of a row
@@ -360,7 +229,7 @@ Check it, rather than assuming it:
 awk 'BEGIN{FS=""} /^\| / && !/\|$/ {print FILENAME":"NR": row does not end in |"}' .claude/notes/*.md
 
 # does a real lookup return a usable line?
-grep -h "SmartLockHomeView" .claude/notes/*.md | head -3
+grep -h "HomeScreen" .claude/notes/*.md | head -3
 ```
 
 Report the sizes for information, never as a trigger for restructuring:
@@ -371,34 +240,10 @@ wc -c .claude/notes/*.md | sort -rn
 
 ## S7. Gaps to flag, per note
 
-- **FEATURES** — screens with no route; routes with no screen; screens missing `empty`/`offline`;
-  features with no `Feature<Name>.md`; a screen whose only state is `loaded`.
-- **NAVIGATION** — routes absent from the shell switch; deep links with no route; a feature
-  constructing another feature's view (CLAUDE.md §2.1); **a route declared, hashed, compared and
-  built but never pushed**, and its inverse — a screen reached by bypassing its own route.
-- **API-MAP** — endpoints declared but never called (candidates, per S2); a call site whose method
-  could not be read; two enums that both look like routers, one of them legacy; a path built by
-  string concatenation inside a feature.
-- **IMAGES** — unused assets (**candidates**, never a verdict); raw-string references;
-  `original`-mode assets with no dark variant; duplicates across packages.
-- **COLORS** — colorsets with no dark appearance; literal `Color(...)` in a feature; text tokens
-  below 4.5:1 in **either** appearance; tokens with no consumer; **two names resolving to one value,
-  and a name whose value contradicts it** (`blueSwitchAlpha08` resolving to grey).
-- **FONTS** — files never registered; `UIAppFonts` entries whose file is missing; **package-resource
-  fonts relying on `Info.plist`, which silently does nothing**; `Font.custom` without `relativeTo:`;
-  **one typeface fragmented across several family names**, which breaks anything enumerating by
-  family.
-- **SCHEMES** — a config with no scheme or a scheme with no `.xcconfig`; duplicate bundle IDs;
-  `#if DEBUG` in a feature (CLAUDE.md §2.10); a live analytics key outside PROD; **a secrets file
-  tracked in git despite a matching ignore rule** (check `git ls-files`, per S2).
-- **STYLE-GUIDE** — a literal spacing/radius/duration in a feature; two tokens within ~20% of each
-  other (a near-duplicate nobody will reconcile); a component with no preview matrix; a token
-  declared but never used; motion that ignores Reduce Motion.
-- **PROJECT** — build settings in the project file instead of an `.xcconfig`; deployment target
-  mismatched against `Package.swift`; a linked package nothing imports (**verify per S4** — the
-  product name is not the package name); a permission with **no `NS*UsageDescription`** (crashes on
-  call, not at build); an extension importing the app; **`aps-environment = development` in a
-  Release entitlement**; **an `.lproj` on disk absent from `knownRegions`**.
+What is worth flagging in each inventory is the **active stack profile's** to define — a colour note
+flags different things than an endpoint note, and both are stack-specific. The offline pass
+(`sync-notes.sh --evidence`) surfaces the candidates the profile knows to look for; verify each per
+S4 before it becomes a row. With no profile declared there is nothing to flag.
 
 ## S8. Report
 
@@ -410,7 +255,7 @@ numbers hides that the method was tuned until it agreed with them. Disclosing "t
 pass said 52, the verified figure is 42, here is what the first pass missed" is what makes the other
 rows worth trusting.
 
-Close with the commands the user should run themselves (CLAUDE.md §2.12) — this command never
+Close with the commands the user should run themselves (CLAUDE.md §2.8) — this command never
 builds, tests, or compiles.
 
 ## S9. Header discipline — a note is read to be looked something up in
@@ -431,7 +276,7 @@ call this endpoint?".
 
 If the header runs past roughly eight lines, something in it is narrative.
 
-Stamp the tree hash so the next run can tell staleness without re-reading nine files:
+Stamp the tree hash so the next run can tell staleness without re-reading every inventory:
 
 ```bash
 ./Scripts/notes-staleness.sh --stamp
@@ -446,5 +291,5 @@ Stamp the tree hash so the next run can tell staleness without re-reading nine f
 ./Scripts/ga-step.sh record ready
 ```
 
-`ready` is what unblocks the skills and the day-to-day commands. Record it only when the nine notes
+`ready` is what unblocks the skills and the day-to-day commands. Record it only when the inventories
 actually reflect the tree — that is the whole value everything downstream is trusting.

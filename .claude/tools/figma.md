@@ -7,7 +7,7 @@
 - **Status:** active · failures 0 · **Last verified:** 2026-09-09
 
 Every row below was observed in a real response. `not observed` means exactly that and is
-left alone until it is actually seen — see [TOOL-PROFILES.md](../../docs/TOOL-PROFILES.md).
+left alone until it is actually seen — see [TOOL-PROFILES.md](/docs/reference/TOOL-PROFILES.md)(../../docs/TOOL-PROFILES.md).
 
 ---
 
@@ -52,7 +52,7 @@ screenshot or an export.
   return the top-level page list, which is how you find a real node id. An invented or empty
   `nodeId` is rejected by the schema pattern.
 - **`whoami` returns PII** — a handle and an email. The values must never be copied into this
-  file, a log, or a commit; only their shapes are recorded above (CLAUDE.md §8).
+  file, a log, or a commit; only their shapes are recorded above.
 - **`whoami`'s response carries a trailing `resource_link`** to a rate-limits document alongside
   the JSON body, so a strict JSON parse of the whole response fails. Parse the object, not the
   stream.

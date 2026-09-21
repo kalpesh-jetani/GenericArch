@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Append a memory to .claude/memory/ with frontmatter and index it.
 #@usage     python3 Scripts/memory-add.py --type T --name N --description D [body]

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Scan for font files and registration; emit inventory rows.
 #@usage     python3 Scripts/scan-fonts.py

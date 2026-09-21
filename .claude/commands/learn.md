@@ -9,11 +9,11 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Glob, WebFetch, AskUserQuestion
 ```
 
 **Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
-never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+never work around it. Order and why: [SEQUENCE.md](/docs/operations/SEQUENCE.md)(../../docs/SEQUENCE.md).
 
 Turn something into repo knowledge: a resource you were given, or work that just finished.
 
-Input: `$ARGUMENTS` — a URL, a local path, a pattern name from `docs/patterns/`, or nothing (then
+Input: `$ARGUMENTS` — a URL, a local path, a pattern name, or nothing (then
 ask what to learn from).
 
 ---
@@ -24,7 +24,7 @@ Before writing anything, get the material. **Ask; do not guess from the name of 
 
 | Building | Ask for |
 |---|---|
-| A screen or component | The Figma frame or a screenshot, and which existing screen it should resemble |
+| A screen or component | The Figma frame or a screenshot, and which existing thing it should resemble |
 | An integration | The vendor's docs URL, and a working sample — theirs or yours |
 | A pattern from elsewhere | The example repo or file, and what specifically to copy from it |
 | A framework or tool | The docs URL, and what problem it is being brought in to solve |
@@ -53,7 +53,7 @@ The specific pieces, each with the file or section they come from.
 The parts that conflict with a §2 rule, or that solve a problem we do not have.
 
 ## How it maps here
-Their concept → our layer. Where the wrapper goes (§7) if it is a vendor.
+Their concept → our layer. Where a vendor wrapper goes (per the active profile's rules) if it is a vendor.
 
 ## Open questions
 What the source does not answer.
@@ -81,28 +81,26 @@ awk -F'\t' 'NF!=4 && $0 !~ /^#/ {print FILENAME":"NR": "NF" columns"}' .claude/M
 
 ## 4. Promoting a pattern to a skill
 
-`docs/patterns/` holds six patterns that ship un-promoted because they cannot fire in an empty repo.
-`/learn <pattern>` promotes one.
+A recurring pattern in THIS repo's code can graduate into a skill — there is no pre-shipped
+catalogue. `/learn <name>` promotes one once the code it governs exists.
 
 **Check the first condition before asking about the other two:**
 
 ```bash
-ls .claude/skills/                                     # what is already promoted
-grep -c '^| `' .claude/notes/STYLE-GUIDE.md            # e.g. does style-guide govern any token yet
+ls .claude/skills/                                     # what is already a skill
 ./Scripts/check-skill-triggers.py 2>/dev/null || echo "(no trigger checker in this repo)"
 ```
 
 **Promote only when all three are true:**
 
-1. **The code it governs exists** — a `style-guide` skill with no registered tokens fires on nothing.
+1. **The code it governs exists** — a skill that fires on nothing is noise.
 2. **It has been needed at least twice**, or once with a gotcha worth warning about. Once is an
    anecdote.
 3. **Its trigger vocabulary does not collide** — `python3 Scripts/check-skill-triggers.py` after
    drafting, and add a prompt for it.
 
 Then: move the body to `.claude/skills/<name>/SKILL.md`, rewrite the description as trigger phrases
-only, **replace its generic examples with this repo's real file paths**, and delete the pattern file.
-Two copies means one rots.
+only, and ground its examples in this repo's real file paths.
 
 Show the draft and **wait for approval** before writing it — a skill changes behaviour in every
 future session.
@@ -158,8 +156,7 @@ something every future session is told to call.
 
 ## 6. Learning from finished work
 
-When a feature ships, `docs/patterns/feature-complete.md` has the full close-out procedure. The
-short version: offer **save it as a skill · just close with a note · continue · decide later**, and
+When a piece of work ships, offer **save it as a skill · just close with a note · continue · decide later**, and
 recommend *just close* unless the next similar feature would follow the same sequence. Most work
 teaches nothing reusable, and a thin skill is worse than none.
 

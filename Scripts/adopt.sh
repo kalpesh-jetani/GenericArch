@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Copy the product-independent tooling layer into another repo.
 #@usage     adopt.sh <target-dir> [--apply]
@@ -34,17 +34,13 @@ RED=$'\033[31m'; YEL=$'\033[33m'; GRN=$'\033[32m'; DIM=$'\033[2m'; BLD=$'\033[1m
 TARGET="${1:-}"
 APPLY=0
 QUIET_NEXT=0
-WITH_LINT=0
 WITH_META=0
-WITH_ARCH=0
 WITH_CLAUDE=0
 for a in "$@"; do
   [ "$a" = "--apply" ] && APPLY=1
   # install.sh prints advice matched to fresh-vs-existing; ours would contradict it.
   [ "$a" = "--quiet-next" ] && QUIET_NEXT=1
-  [ "$a" = "--with-lint" ] && WITH_LINT=1
   [ "$a" = "--with-meta" ] && WITH_META=1
-  [ "$a" = "--with-architecture" ] && WITH_ARCH=1
   [ "$a" = "--with-claude-md" ] && WITH_CLAUDE=1
 done
 [ "${1:-}" = "--apply" ] && { echo "${RED}pass the target path first${OFF}"; exit 2; }
@@ -69,6 +65,7 @@ BASE="
 .claude/INDEX.md
 .claude/MAP.tsv
 .claude/SCRIPTS.tsv
+profiles
 Scripts/check.sh
 Scripts/check-skill-triggers.py
 Scripts/detect-toolchain.sh
@@ -78,12 +75,8 @@ Scripts/find.sh
 Scripts/notes-staleness.sh
 Scripts/sync-notes.sh
 Scripts/ga-handoff.sh
-Scripts/scan-colors.py
 Scripts/scan-fonts.py
-Scripts/scan-unused-assets.py
-Scripts/scan-api-map.py
 Scripts/check-note-links.py
-Scripts/detect-capabilities.sh
 Scripts/claude-utils
 Scripts/memory-add.py
 Scripts/verify-memory.sh
@@ -91,8 +84,8 @@ Scripts/find-script.sh
 Scripts/session-script.sh
 Scripts/adopt-review.sh
 Scripts/ga-lifecycle.sh
-Scripts/ga-project-setup.sh
 Scripts/ga-step.sh
+Scripts/ga-profile.sh
 Scripts/ga-tool-note.sh
 Scripts/ga-log.sh
 Scripts/ga-remove.sh
@@ -106,31 +99,10 @@ uninstall.sh
 "
 
 # ── Optional groups — off by default, and that is the point ────────────────
-# Both were unconditional, and both cost more than they returned in the one adoption that proved it.
-#
-# lint: .swiftlint.yml/.swiftformat encode GenericArch's §2 conventions. A product that declined
-# those rules gets a config that flags its whole codebase, so it deletes it — and the next install
-# puts it back. That file flipped in/out four times in eight commits. Opt in when the rules were
-# adopted.
-#
 # meta: Scripts/claude-workflows is the CLAUDE.md-editing pipeline — tooling for authoring this
 # layer, not for building a product with it. Eleven scripts, eleven SCRIPTS.tsv rows every lookup
-# greps past.
-OPTIONAL_LINT=".swiftlint.yml .swiftformat"
+# greps past. Opt in only when a consumer edits CLAUDE.md files through the recorded pipeline.
 OPTIONAL_META="Scripts/claude-workflows"
-# The new-repo set. Not "optional" in the same sense — it is decided by what the target IS, not by
-# preference, which is why install.sh derives it from the compatibility gate rather than asking.
-# ── The architecture layer ─────────────────────────────────────────────────
-# Not a subset of the tooling — a different thing. `new-feature` scaffolds Packages/Features with
-# the §2 content-state and injection seams; `/review` checks the §2 rules. Both are useful exactly when
-# the product adopted this architecture, and inapplicable when it did not: in a repo with no
-# Packages/, new-feature produces a package the app cannot consume, and /review reports violations of
-# rules the product recorded as declined.
-#
-# So it travels only on an explicit --with-architecture, which /project-init offers after the
-# rule-conflict table — the point where consent is actually given. Otherwise the target arrives lean
-# and has nothing to decline afterwards.
-OPTIONAL_ARCH=".claude/skills/new-feature .claude/commands/review.md"
 
 # ── The rules themselves ───────────────────────────────────────────────────
 # CLAUDE.md was EXCLUDED outright, on the grounds that the target's rules are the target's. That is
@@ -141,13 +113,9 @@ OPTIONAL_ARCH=".claude/skills/new-feature .claude/commands/review.md"
 # replacing, because only install.sh can back the original up to CLAUDE-BK.md and record the swap
 # in the manifest. Without that record uninstall.sh cannot put their rules back.
 OPTIONAL_CLAUDE="CLAUDE.md"
-OPTIONAL_ALL="$OPTIONAL_LINT $OPTIONAL_META $OPTIONAL_ARCH $OPTIONAL_CLAUDE"
-[ "$WITH_LINT" -eq 1 ] && BASE="$BASE
-$(printf '%s\n' $OPTIONAL_LINT)"
+OPTIONAL_ALL="$OPTIONAL_META $OPTIONAL_CLAUDE"
 [ "$WITH_META" -eq 1 ] && BASE="$BASE
 $(printf '%s\n' $OPTIONAL_META)"
-[ "$WITH_ARCH" -eq 1 ] && BASE="$BASE
-$(printf '%s\n' $OPTIONAL_ARCH)"
 [ "$WITH_CLAUDE" -eq 1 ] && BASE="$BASE
 $(printf '%s\n' $OPTIONAL_CLAUDE)"
 
@@ -155,7 +123,6 @@ $(printf '%s\n' $OPTIONAL_CLAUDE)"
 # Each is this product's state. Carrying it into another repo makes the target's docs lie.
 EXCLUDED="
 docs/DECISIONS.md|THIS product's answers — an empty one is created instead (see Scaffolded)
-docs/GAPS.md|gap statuses are per-product — an empty one is created instead (see Scaffolded)
 Packages|this product's code
 App|this product's app shells
 README.md|the target has its own
@@ -176,21 +143,20 @@ CHANGELOG.md|our release history, not the target's — the manifest records whic
 # .claude/CANDIDATES.tsv is scaffolded for the same reason as .claude/memory: the recurrence
 # history is THIS repo's, and a target that inherits our candidate rows would see promotions it
 # never earned. The target gets the header and an empty ledger.
-SCAFFOLDED="docs/DECISIONS.md docs/GAPS.md .claude/notes docs/resources .claude/memory .claude/CANDIDATES.tsv .claude/tools"
+SCAFFOLDED="docs/DECISIONS.md .claude/notes docs/resources .claude/memory .claude/CANDIDATES.tsv .claude/tools"
 # Reference material — listed in genericarch.installation.md and fetched when actually read.
 # Not copied: reference docs a consumer may never open, that go stale the moment upstream moves.
 # No count here on purpose — a literal number in a comment is what rotted last time.
-REFERENCED="docs/STRUCTURE.md docs/CONVENTIONS.md docs/DONE.md docs/REPO.md docs/DELIVERY.md
-docs/patterns docs/PERFORMANCE.md docs/ADOPTION.md docs/SHARING.md docs/PATTERN-SEARCH.md
-docs/SCAN-TRAPS.md docs/CLAUDE-TASKS.md docs/INSTALL-MANIFEST.md
-docs/TOOL-PROFILES.md docs/SEQUENCE.md docs/BUILD-PROCESS.md docs/DEPLOYMENT-PROCESS.md docs/PROJECT-SETTINGS.md
-docs/OPENSPEC.md"
+REFERENCED="docs/README.md docs/adoption/README.md docs/adoption/ADOPTION.md docs/adoption/SHARING.md
+docs/operations/SEQUENCE.md docs/operations/SCAN-TRAPS.md docs/operations/CLAUDE-TASKS.md
+docs/reference/STRUCTURE.md docs/reference/TOOL-PROFILES.md docs/reference/OPENSPEC.md
+docs/reference/INSTALL-MANIFEST.md docs/patterns/PATTERN-SEARCH.md docs/decisions/DECISIONS.md"
 # BASE is newline-separated and EXCLUDED is "path|reason" — flatten both to a space-delimited
 # list of bare paths before matching, or every entry looks unaccounted for.
 KNOWN=" $(echo $BASE) $(echo $REFERENCED) $(printf '%s\n' "$EXCLUDED" | sed 's/|.*//' | tr '\n' ' ') $SCAFFOLDED $OPTIONAL_ALL "
 unaccounted=""
-for f in $(ls -d docs/*.md docs/patterns docs/resources .claude/INDEX.md .claude/*.tsv \
-                 .claude/memory Scripts/* .swiftlint.yml .swiftformat .gitignore \
+for f in $(ls -d docs/*.md .claude/INDEX.md .claude/*.tsv \
+                 .claude/memory Scripts/* profiles .gitignore \
                  install.sh uninstall.sh bootstrap.sh README.md CLAUDE.md OPERATORS-GUIDE.md CHANGELOG.md \
                  .claude/skills .claude/commands .claude/notes \
                  Packages App 2>/dev/null); do
@@ -264,7 +230,6 @@ expand() {
 # .claude/commands — so removing one entry from a group cannot be done by editing BASE; a directory
 # entry would bring it back. Subtracting at the leaf is the only place that holds for every group.
 SKIP=""
-[ "$WITH_ARCH" -eq 0 ] && SKIP="$SKIP $OPTIONAL_ARCH"
 [ "$WITH_CLAUDE" -eq 0 ] && SKIP="$SKIP $OPTIONAL_CLAUDE"
 # Sets SKIP_FLAG to the flag that would bring it. There is more than one optional group now, and a
 # message that names the wrong flag is worse than one that names none.
@@ -272,7 +237,6 @@ skipped_group() {
   SKIP_FLAG=""
   for _s in $SKIP; do
     if [ "$1" = "$_s" ] || case "$1" in "$_s"/*) true ;; *) false ;; esac; then
-      case " $OPTIONAL_ARCH " in *" $_s "*) SKIP_FLAG="--with-architecture" ;; esac
       case " $OPTIONAL_CLAUDE " in *" $_s "*) SKIP_FLAG="--with-claude-md" ;; esac
       return 0
     fi
@@ -336,20 +300,15 @@ if [ "$APPLY" -eq 1 ] && [ -f "$TARGET/.claude/MAP.tsv" ]; then
   # `module` rows go unconditionally: this base ships none, so one can only have arrived from a
   # stale index, and nothing here will ever satisfy it.
   #
-  # `pattern` rows STAY, marked :remote by the pass above. They used to be dropped whenever the
-  # architecture layer was absent, on the grounds that a :remote mark turns a dead lookup into a
-  # fetch for a doc describing a layer that will not exist — with the promise that
-  # --with-architecture would bring them back. That promise could not be kept, for two independent
-  # reasons. Nothing restores a dropped row: this function rewrites MAP.tsv at install (the
-  # FETCH-BASE stamp, the :remote suffixes, the drop itself), so the target's copy differs from the
-  # base from that moment on, and every later install therefore preserves it as theirs — install.sh
-  # emits `keep`, and the staged copy carrying the rows is discarded. And the layer never carried
-  # the docs regardless: OPTIONAL_ARCH is the new-feature skill and /review, nothing under
-  # docs/patterns/. So these rows are fetch-only in every configuration, which is exactly what
-  # :remote means and what /project-init S2b says to leave in place — a row naming a surface that
-  # exists upstream and this product did not take is how Claude learns it exists without paying to
-  # carry it. Dropping them left `/learn <name>`'s own "already indexed?" grep finding nothing, and
-  # the seven patterns invisible to the only index that routes to them.
+  # `pattern` rows STAY, marked :remote by the pass above. A :remote mark turns what would be a dead
+  # lookup into a fetch for a doc describing a surface that exists upstream and this product did not
+  # take — which is how Claude learns it exists without paying to carry it, exactly what :remote means
+  # and what /project-init S2b says to leave in place. Nothing here restores a dropped row: this
+  # function rewrites MAP.tsv at install (the FETCH-BASE stamp, the :remote suffixes, the drop itself),
+  # so the target's copy differs from the base from that moment on, and every later install preserves
+  # it as theirs — install.sh emits `keep`, and the staged copy carrying the rows is discarded. So
+  # dropping a pattern row would leave `/learn <name>`'s own "already indexed?" grep finding nothing,
+  # and the pattern invisible to the only index that routes to it.
   tmp="$TARGET/.claude/MAP.tsv.tmp"
   _stale_modules=$(awk -F'\t' '$2 ~ /^module/' "$TARGET/.claude/MAP.tsv" | grep -c . || true)
   awk -F'\t' '/^#/ || NF < 2 {print; next} $2 !~ /^module/ {print}' \
@@ -447,15 +406,11 @@ fi
 
 echo
 echo "${BLD}── Optional, off unless asked for ──────────────────────${OFF}"
-for pair in "--with-lint|$OPTIONAL_LINT|only if the target adopted GenericArch's §2 conventions" \
-            "--with-meta|$OPTIONAL_META|the CLAUDE.md authoring pipeline — not needed to build a product" \
-            "--with-architecture|$OPTIONAL_ARCH|only once the product adopted §2/§3 — /project-init offers it" \
+for pair in "--with-meta|$OPTIONAL_META|the CLAUDE.md authoring pipeline — not needed to build a product" \
             "--with-claude-md|$OPTIONAL_CLAUDE|replaces the target's rules; the original is kept at CLAUDE-BK.md"; do
   flag="${pair%%|*}"; rest="${pair#*|}"; items="${rest%%|*}"; why="${rest#*|}"
   case "$flag" in
-    --with-lint) on=$WITH_LINT ;;
     --with-meta) on=$WITH_META ;;
-    --with-architecture) on=$WITH_ARCH ;;
     --with-claude-md) on=$WITH_CLAUDE ;;
   esac
   if [ "$on" -eq 1 ]; then
@@ -477,13 +432,12 @@ done
 IFS="$OLDIFS"
 
 # ── Scaffolded: created empty in the target, never copied from here ────────
-# /decide, /gaps and /project-init all write to these. Without them the commands have nowhere to
+# /decide and /project-init both write to these. Without them the commands have nowhere to
 # go; with our copies the target inherits this product's decisions. So: create, don't copy.
 echo
 echo "${BLD}── Created empty (never copied) ────────────────────────${OFF}"
 scaffolded=0
 for pair in "docs/DECISIONS.md|the target records its own decisions here — /decide" \
-            "docs/GAPS.md|the target triages its own gaps here — /gaps" \
             ".claude/notes|every inventory, prose kept and data rows blanked" \
             ".claude/memory|Claude's in-repo memory — the index only; our memories are ours" \
             ".claude/tools|the rules and an empty ledger — a profile is per-product, and observed or nothing"; do
@@ -530,7 +484,7 @@ PY
 fi
 
 # .claude/tools carries observations, and an observation this repo made is not the target's. The
-# component doc travels verbatim (§2.16 requires it to exist); the ledger arrives with its header
+# component doc travels verbatim (§2.6 requires it to exist); the ledger arrives with its header
 # and no data row, and no profile travels at all. A profile marked verified in a repo that never
 # observed it is what docs/TOOL-PROFILES.md forbids.
 if [ "$APPLY" -eq 1 ] && [ ! -e "$TARGET/.claude/tools" ]; then
@@ -643,48 +597,6 @@ Rejected with reasons recorded — reopen only with new information, not a fresh
 |---|---|---|---|---|
 | — | — | — | — | — |
 DEC
-  [ -e "$TARGET/docs/GAPS.md" ] || cat > "$TARGET/docs/GAPS.md" <<'GAP'
-# Gaps
-
-What this architecture does not cover **for this product**, as decisions to make rather than a
-backlog to burn down. Run `/gaps` to triage.
-
-`/gaps` behaves differently by repo state: on an existing repo it derives each status from the code
-without asking; on a fresh one it asks per item. Absence of evidence is not always a decision — no
-StoreKit means the product doesn't monetise, but no crash reporting is a **missing safeguard**,
-reported as a risk rather than silently skipped.
-
-## Status legend
-
-| Status | Meaning | Gets re-raised? |
-|---|---|---|
-| ✅ **Applied** | Landed. The row records where | No |
-| ▶ **Open** | Needs a decision | Yes, by `/gaps` |
-| ⏸ **Deferred** | Tracked, with a named revisit trigger | Only when the trigger fires |
-| ⛔ **Skipped** | Decided against. Also recorded in DECISIONS.md *Do not re-propose* | **No** |
-
-**Skip is a real answer.** Most capabilities should end up Skipped for any given product.
-
-## ▶ Open
-
-| Item | Cost of skipping | Status |
-|---|---|---|
-| Feature flags / remote config | No kill switch — a bad release is only fixable by another release | ▶ |
-| Crash reporting + dSYM upload | Crash reports unreadable, unrecoverable after the fact | ▶ |
-| SwiftLint / SwiftFormat config | Rules stay review-only and decay | ▶ |
-| Analytics event taxonomy | Events accrete ad-hoc and become unqueryable | ▶ |
-| Auth flows · IAP · CloudKit · widgets · search · haptics · biometrics | — | ▶ |
-
-Run `/gaps` to work through these; it fills in what your code already answers.
-
-## Recording an answer
-
-- **Adopt** → do the work, move the row to Applied with where it landed.
-- **Defer** → ⏸ and **name the trigger**. A deferral with no trigger is an Open item pretending.
-- **Skip** → ⛔ **and** a DECISIONS.md *Do not re-propose* row. Both, or it comes back.
-
-Never delete a row. The value is knowing what was considered and declined.
-GAP
 fi
 
 echo
@@ -700,9 +612,8 @@ fi
 
 # Only the scripts invoked as ./Scripts/… need the bit; the scan-*.py and check-note-links.py
 # are run via `python3 Scripts/…`. cp -R already preserves mode — this is belt-and-braces.
-chmod +x "$TARGET/Scripts/check.sh" "$TARGET/Scripts/detect-toolchain.sh" \
-         "$TARGET/Scripts/find.sh" "$TARGET/Scripts/notes-staleness.sh" \
-         "$TARGET/Scripts/detect-capabilities.sh" 2>/dev/null
+chmod +x "$TARGET/Scripts/check.sh" "$TARGET/Scripts/detect-toolchain.sh" "$TARGET/Scripts/ga-profile.sh" \
+         "$TARGET/Scripts/find.sh" "$TARGET/Scripts/notes-staleness.sh" 2>/dev/null
 [ "$QUIET_NEXT" -eq 1 ] && exit 0
 cat <<NEXT
 
@@ -713,16 +624,13 @@ ${BLD}Next, in the target repo${OFF}
                     table, and asks per conflict. Keeps their rules by default — nothing is
                     overwritten without an explicit yes.
 
-  2. ${BLD}/gaps${OFF}           Derives each gap's status from the target's own code instead of asking,
-                    and reports missing safeguards as risks.
-
-  3. ${BLD}./Scripts/detect-toolchain.sh${OFF}
+  2. ${BLD}./Scripts/detect-toolchain.sh${OFF}
                     Reads the target's own stack from its project settings, and the machine for
                     the rest. Whatever CLAUDE.md ends up saying comes from this, not from
                     GenericArch's numbers. If it reports a mismatch, ${BLD}/upgrade-stack${OFF}
                     reviews it and asks twice before changing anything.
 
-  4. ${BLD}./Scripts/check.sh${OFF}
+  3. ${BLD}./Scripts/check.sh${OFF}
                     Expect failures on an existing codebase — that is the point. Triage them in
                     /project-init as "keep theirs", "new code only", or "migrate".
 

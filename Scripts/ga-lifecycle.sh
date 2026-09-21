@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #@kind      lib
-#@platform  macos
+#@platform  any
 #@claude    call
-#@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, the macOS/Swift compatibility gate. Sourced, never executed.
+#@purpose   Shared library for install.sh and uninstall.sh: exit codes, logging, sha256, manifest read/write, managed config blocks, emptiness checks and host checks. Sourced, never executed.
 #@usage     . Scripts/ga-lifecycle.sh
 #@in        n/a (sourced). Honours GA_ASSUME_YES=1, GA_DRY_RUN=1, NO_COLOR
-#@out       functions: ga_die ga_need_val ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_footprint_at ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_is_deprecated_version ga_require_macos ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
+#@out       functions: ga_die ga_need_val ga_warn ga_ok ga_info ga_dim ga_hdr ga_confirm ga_sha256 ga_mtime_iso ga_now_iso ga_json_escape ga_json_field ga_manifest_path ga_manifest_find ga_manifest_version ga_manifest_records ga_manifest_record_for ga_manifest_begin ga_manifest_add ga_manifest_commit ga_block_present ga_block_append ga_block_strip ga_check_compatible ga_footprint_at ga_known_paths ga_prune_empty_dirs ga_is_supported_version ga_is_deprecated_version ga_require_host ga_has_base_markers ga_is_source_checkout ga_is_template_copy ga_staged_kind ga_tombstone_add ga_tombstoned ga_tombstone_reason ga_tombstone_drop ga_step_record ga_step_done ga_step_next ga_step_missing ga_grave_path
 #@exit      0=sourced ok 2=executed directly instead of sourced
 #@effects   none on its own; every write is performed by the caller through these helpers
 #@when      installer helper|manifest format|install exit codes|hashing a manifest|uninstall helper
@@ -17,8 +17,8 @@
 # is spelled, and what a managed config block looks like. Any of those diverging turns "restore the
 # repo to its pre-install state" into a guess.
 #
-# macOS-native tooling only: shasum, stat -f, date -r, BSD sed/awk. No jq, no GNU flags, no
-# network, no new dependencies.
+# POSIX host tooling only: a SHA-256 tool (shasum or sha256sum), and BSD or GNU stat/date/sed/awk.
+# No jq, no network, no new dependencies.
 
 # Sourced, not executed. Running it directly would define functions into a shell that exits
 # immediately afterwards, which reads as "the tool did nothing" rather than as a mistake.
@@ -29,16 +29,16 @@ if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
 fi
 
 # ── Exit codes ─────────────────────────────────────────────────────────────
-# Distinct on purpose: a caller in CI must be able to tell "this repo is not a Swift project"
-# (3, expected, not a failure) from "the install broke" (1) without parsing stdout.
+# Distinct on purpose: a caller in CI must tell an out-of-order or declined run from a real
+# failure (1) without parsing stdout.
 GA_EX_OK=0        # success
 GA_EX_ERR=1       # generic error — something went wrong
 GA_EX_USAGE=2     # bad or missing arguments
-GA_EX_COMPAT=3    # compatibility gate rejected the target; nothing was written
+GA_EX_COMPAT=3    # reserved — the stack gate no longer rejects a target; kept so codes don't shift
 GA_EX_ABORT=4     # the operator declined at the confirmation prompt
 GA_EX_SEQ=5       # a step ran out of order — nothing was written
 GA_EX_UPGRADE=6   # a different version is already installed; uninstall it first. Nothing written
-GA_EX_PLATFORM=78 # not macOS — EX_CONFIG, the same code Scripts/claude-utils/_common.sh uses
+GA_EX_PLATFORM=78 # host lacks a required tool (e.g. no SHA-256) — EX_CONFIG
 
 # The manifest format version. Bump only when the SHAPE changes, never for a GenericArch release —
 # uninstall.sh keys its parser off this, not off the product version.
@@ -126,11 +126,12 @@ ga_confirm() {
 }
 
 # ── Hashing and timestamps ─────────────────────────────────────────────────
-# shasum -a 256 ships with macOS; sha256sum does not. Bare hex, no filename, so the value can be
-# compared with `=` and embedded in JSON without trimming.
+# Some systems ship shasum -a 256; others have sha256sum. Both produce the same format:
+# bare hex with no filename, so the value can be compared with `=` and embedded in JSON.
 ga_sha256() {
   [ -f "$1" ] || return 1
-  shasum -a 256 "$1" | awk '{print $1}'
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'
+  else sha256sum "$1" | awk '{print $1}'; fi
 }
 
 # BSD stat gives the mtime as an epoch; BSD date turns an epoch into UTC ISO-8601 with -r.
@@ -138,8 +139,8 @@ ga_sha256() {
 # same install.
 ga_mtime_iso() {
   [ -e "$1" ] || return 1
-  _ga_epoch=$(stat -f '%m' "$1") || return 1
-  date -u -r "$_ga_epoch" '+%Y-%m-%dT%H:%M:%SZ'
+  _ga_epoch=$(stat -f '%m' "$1" 2>/dev/null) || _ga_epoch=$(stat -c '%Y' "$1" 2>/dev/null) || return 1
+  date -u -r "$_ga_epoch" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -d "@$_ga_epoch" '+%Y-%m-%dT%H:%M:%SZ'
 }
 
 ga_now_iso() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
@@ -154,9 +155,9 @@ ga_ver_lt() {
 }
 
 # ── JSON, hand-rolled ──────────────────────────────────────────────────────
-# No jq on a stock macOS box, and adding a dependency to an installer is how an installer stops
-# being runnable. We are the only writer of this file, so the format is chosen to be BOTH valid
-# JSON and parseable with one awk: every file record is exactly one line.
+# jq is not available on all systems. Adding external dependencies to an installer can make
+# it non-portable. Since we are the only writer of this JSON, the format is designed to be
+# both valid JSON and parseable with awk alone: every file record is exactly one line.
 ga_json_escape() {
   printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
@@ -353,34 +354,27 @@ ga_block_strip() {
   ' "$_ga_file" > "$_ga_tmp" && mv "$_ga_tmp" "$_ga_file"
 }
 
-# ── Platform gate ──────────────────────────────────────────────────────────
-# Runs before anything else, including the fetch. Every script this installs declares
-# `#@platform macos` and Scripts/claude-utils/_common.sh already exits 78 on anything else — but
-# that check fires only once a script is RUN, which is long after the install wrote it. Refusing
-# here means a Linux or WSL machine never receives a toolchain layer it cannot execute: shasum,
-# xcrun, xed, xcodebuild and BSD sed/awk semantics are all assumed, and a GNU box fails in ways
-# that read as corrupt data rather than the wrong platform.
-#
-# There is deliberately no override. macOS is a fixed choice, not a default (CLAUDE.md §1).
-ga_require_macos() {
-  _ga_os="$(uname -s 2>/dev/null || echo unknown)"
-  [ "$_ga_os" = Darwin ] && return 0
-  printf '%s✗ GenericArch is macOS-only (found: %s).%s\n' "${GA_RED:-}" "$_ga_os" "${GA_OFF:-}" >&2
-  printf '  It installs Apple-platform rules and scripts that assume shasum, xcrun and BSD\n' >&2
-  printf '  sed/awk. Nothing was written.\n' >&2
+# ── Host capability check ────────────────────────────────────────────────────
+# The layer runs on any POSIX host — it no longer refuses by OS. Its one hard requirement is a
+# SHA-256 tool for the manifest; the helpers above already fall back from BSD to GNU stat/date. So
+# this verifies that requirement rather than gating on the platform.
+ga_require_host() {
+  command -v shasum >/dev/null 2>&1 || command -v sha256sum >/dev/null 2>&1 && return 0
+  printf '%s✗ no SHA-256 tool found — install `shasum` or `sha256sum`.%s\n' "${GA_RED:-}" "${GA_OFF:-}" >&2
+  printf '  Nothing was written.\n' >&2
   exit "$GA_EX_PLATFORM"
 }
 
-# ── Compatibility gate ─────────────────────────────────────────────────────
-# Runs BEFORE the first write, never alongside it. GenericArch is a rules-and-tooling layer for
-# Apple-platform Swift repos; in a Gradle or Node repo every skill it installs is wrong, every
-# script it installs targets a toolchain that is not there, and the operator finds out days later.
+# ── Is this repo empty? ──────────────────────────────────────────────────────
+# NOT stack detection. The layer recognises no ecosystem and ships no table of build markers: what
+# language, build system or dependency manager a project uses is the project's to declare, never
+# the layer's to infer. A baked-in list of markers is stack content, and the moment it exists it is
+# both incomplete and a statement about which ecosystems are first-class.
 #
-# A repo with NO markers at all passes: installing into an empty repo before the Xcode project
-# exists is a supported path (install.sh calls it "fresh", /project-init scaffolds from there).
-# What is rejected is a repo that positively identifies as something else.
+# All this answers is whether the tree has anything in it, which the installer needs in order to
+# tell a fresh repo from one being adopted. GA_COMPAT_KIND is `fresh` or `existing`;
+# GA_COMPAT_FOUND names the first file found, as evidence of non-emptiness and nothing more.
 GA_COMPAT_FOUND=""
-GA_COMPAT_FOREIGN=""
 GA_COMPAT_KIND=""
 
 # ── Where GenericArch already lives ────────────────────────────────────────
@@ -394,70 +388,17 @@ ga_footprint_at() {
 
 ga_check_compatible() {
   _ga_dir="$1"
-  GA_COMPAT_FOUND=""; GA_COMPAT_FOREIGN=""; GA_COMPAT_KIND=""
-
-  # -maxdepth 2 keeps this from walking a whole monorepo, and every marker below is a
-  # repo-root-or-near-root artifact by convention.
-  for _ga_m in "*.xcodeproj" "*.xcworkspace" "Package.swift" "*.playground"; do
-    _ga_hit=$(find "$_ga_dir" -maxdepth 2 -name "$_ga_m" -not -path '*/.git/*' -print -quit 2>/dev/null)
-    [ -n "$_ga_hit" ] && GA_COMPAT_FOUND="$GA_COMPAT_FOUND ${_ga_hit#"$_ga_dir"/}"
-  done
-  # The state dir is GenericArch's own footprint, not the target's. Counting anything under it as
-  # the target's Swift code would make a re-install read as an
-  # existing one, and silently stop staging the material that repo was installed with.
-  _ga_hit=$(find "$_ga_dir" -name '*.swift' -not -path '*/.git/*' \
+  GA_COMPAT_FOUND=""; GA_COMPAT_KIND=""
+  # -maxdepth 2 keeps this off a monorepo's depths, and the state dir is skipped so the layer's own
+  # files never make a fresh repo read as an established one.
+  _ga_hit=$(find "$_ga_dir" -maxdepth 2 -type f -not -path '*/.git/*' \
               -not -path "*/$GA_STATE_DIR/*" -print -quit 2>/dev/null)
-  [ -n "$_ga_hit" ] && GA_COMPAT_FOUND="$GA_COMPAT_FOUND *.swift"
-
-  for _ga_m in build.gradle build.gradle.kts settings.gradle settings.gradle.kts \
-               AndroidManifest.xml pom.xml build.xml Cargo.toml go.mod \
-               pubspec.yaml composer.json Gemfile requirements.txt pyproject.toml CMakeLists.txt \
-               build.sbt mix.exs deno.json deno.jsonc setup.py Rakefile \
-               Makefile GNUmakefile; do
-    [ -e "$_ga_dir/$_ga_m" ] && GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN $_ga_m"
-  done
-  # Build files that only exist under a glob, found the same bounded way as the Apple markers.
-  for _ga_m in "*.sln" "*.csproj" "*.vcxproj" "*.cabal"; do
-    _ga_hit=$(find "$_ga_dir" -maxdepth 2 -name "$_ga_m" -not -path '*/.git/*' -print -quit 2>/dev/null)
-    [ -n "$_ga_hit" ] && GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN ${_ga_hit#"$_ga_dir"/}"
-  done
-  # package.json alone is Node; beside an Xcode project it is React Native tooling and the Apple
-  # markers already found decide the outcome.
-  if [ -e "$_ga_dir/package.json" ] && [ -z "$GA_COMPAT_FOUND" ]; then
-    GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN package.json"
+  if [ -n "$_ga_hit" ]; then
+    GA_COMPAT_FOUND="${_ga_hit#"$_ga_dir"/}"
+    GA_COMPAT_KIND="existing"
+  else
+    GA_COMPAT_KIND="fresh"
   fi
-  # An android/ or app/src/main tree is Gradle even when the build file sits deeper.
-  [ -d "$_ga_dir/app/src/main/java" ] && GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN app/src/main/java"
-
-  # A repo can hold a whole codebase and no build file at its root — a Java or C# tree with the
-  # build one level up, a PHP site, a plain Makefile-less C project. Source files decide those,
-  # but ONLY when no Apple marker was found: a Swift repo with a helper script in another language
-  # is still a Swift repo, which the ordering below already guarantees.
-  #
-  # Scripts/ and .claude/ are skipped because GenericArch installs its own .py helpers there — on
-  # a re-install into a repo that has not scaffolded its Xcode project yet, scanning them would
-  # make the previous install look like a Python project and refuse the upgrade.
-  #
-  # .py/.js/.ts are deliberately absent: they are too often incidental tooling in an otherwise
-  # Apple repo, and their real projects are already caught by the manifests above.
-  if [ -z "$GA_COMPAT_FOUND" ]; then
-    for _ga_x in java kt cs go rs rb php scala dart ex; do
-      _ga_hit=$(find "$_ga_dir" -name "*.$_ga_x" \
-                  -not -path '*/.git/*' -not -path '*/Scripts/*' -not -path '*/.claude/*' \
-                  -print -quit 2>/dev/null)
-      [ -n "$_ga_hit" ] && GA_COMPAT_FOREIGN="$GA_COMPAT_FOREIGN *.$_ga_x"
-    done
-  fi
-
-  if [ -n "$GA_COMPAT_FOUND" ]; then
-    GA_COMPAT_KIND="swift"
-    return 0
-  fi
-  if [ -n "$GA_COMPAT_FOREIGN" ]; then
-    GA_COMPAT_KIND="foreign"
-    return 1
-  fi
-  GA_COMPAT_KIND="fresh"
   return 0
 }
 
@@ -524,7 +465,6 @@ ga_known_paths() {
         .claude/skills .claude/commands \
         docs/modules docs/STRUCTURE.md docs/CONVENTIONS.md docs/DONE.md docs/REPO.md \
         docs/DELIVERY.md docs/PERFORMANCE.md \
-        .swiftlint.yml .swiftformat \
         Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
         .genericarch-version
       ;;
@@ -535,7 +475,6 @@ ga_known_paths() {
       printf '%s\n' \
         .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
         .claude/CANDIDATES.tsv .claude/notes .claude/memory \
-        .swiftlint.yml .swiftformat \
         Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
         Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
         Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
@@ -553,7 +492,6 @@ ga_known_paths() {
       printf '%s\n' \
         .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
         .claude/CANDIDATES.tsv .claude/notes .claude/memory \
-        .swiftlint.yml .swiftformat \
         Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
         Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
         Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
@@ -569,8 +507,7 @@ ga_known_paths() {
         .genericarch-version
       ;;
     v0.4.0|v0.4.1)
-      # v0.3.0 plus the two tools the empty-directory path needs: ga-project-setup.sh (the Xcode
-      # toolchain gate and the four .xcconfig files) and ga-init-scan.sh (the offline half of
+      # v0.3.0 plus two tools: ga-project-setup.sh and ga-init-scan.sh (the offline half of
       # /project-init, which install.sh now runs itself). Both are copied, so both are removable.
       #
       # NOT listed, on purpose: .claude/notes/.evidence/. install.sh generates it rather than
@@ -579,7 +516,6 @@ ga_known_paths() {
       printf '%s\n' \
         .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
         .claude/CANDIDATES.tsv .claude/notes .claude/memory \
-        .swiftlint.yml .swiftformat \
         Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
         Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
         Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
@@ -611,7 +547,6 @@ ga_known_paths() {
       printf '%s\n' \
         .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
         .claude/CANDIDATES.tsv .claude/notes .claude/memory .claude/tools \
-        .swiftlint.yml .swiftformat \
         Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
         Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
         Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
@@ -641,7 +576,6 @@ ga_known_paths() {
       printf '%s\n' \
         .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
         .claude/CANDIDATES.tsv .claude/notes .claude/memory \
-        .swiftlint.yml .swiftformat \
         Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
         Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
         Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
@@ -680,7 +614,6 @@ ga_known_paths() {
       printf '%s\n' \
         .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
         .claude/CANDIDATES.tsv .claude/notes .claude/memory \
-        .swiftlint.yml .swiftformat \
         Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
         Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
         Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
@@ -697,9 +630,8 @@ ga_known_paths() {
         .genericarch-version
       ;;
     v0.4.2)
-      # v0.4.1 minus what left for GenericXCodeSetup — Scaffold/ and ga-scaffold.sh — because this
-      # base no longer writes a package layout. ga-project-setup.sh stays: it writes the .xcconfig
-      # files an existing project should reference, so it is now part of every install rather than
+      # v0.4.1 minus Scaffold/ and ga-scaffold.sh — because this base no longer writes a package
+      # layout. ga-project-setup.sh stays: it is now part of every install rather than
       # of a new-repo one.
       #
       # NOT listed, on purpose: .claude/notes/.evidence/. install.sh generates it rather than
@@ -707,7 +639,6 @@ ga_known_paths() {
       printf '%s\n' \
         .claude/skills .claude/commands .claude/INDEX.md .claude/MAP.tsv .claude/SCRIPTS.tsv \
         .claude/CANDIDATES.tsv .claude/notes .claude/memory \
-        .swiftlint.yml .swiftformat \
         Scripts/check.sh Scripts/check-skill-triggers.py Scripts/detect-toolchain.sh \
         Scripts/adopt.sh Scripts/adopt-review.sh Scripts/build-plugin.sh Scripts/find.sh \
         Scripts/notes-staleness.sh Scripts/scan-colors.py Scripts/scan-fonts.py \
@@ -852,33 +783,20 @@ ga_is_template_copy() {
   ga_has_base_markers "$1" && ! ga_is_source_checkout "$1"
 }
 
-# ── Xcode-first: the project exists, the packages do not ───────────────────
-# The user creates the .xcodeproj in Xcode — the one artifact nothing here generates (docs/REPO.md
-# rejected Tuist and XcodeGen) — and only then installs. An .xcodeproj is an Apple marker, so every
-# gate reads that directory as an EXISTING repo and skips the package layer that has not been
-# written down anywhere. install.sh uses this to decide whether to offer the .xcconfig files, which
-# is worth asking about rather than assuming either way.
-#
-# Judged on the PACKAGES, never on Swift files: a project created in Xcode ships MyApp/MyAppApp.swift
-# and ContentView.swift, so "no .swift anywhere" would never match the case it is meant to catch.
-ga_is_xcode_first() {
-  [ -d "$1/Packages" ] && return 1
-  [ -f "$1/Package.swift" ] && return 1
-  for _ga_m in "$1"/*.xcodeproj "$1"/*.xcworkspace; do
-    [ -e "$_ga_m" ] && return 0
-  done
-  return 1
-}
-
 # ── Step ledger ────────────────────────────────────────────────────────────
 # The order commands must run in, and the record of which have run. A command that reorders itself
-# reads a repo that is not yet in the state it assumes — /gaps before /project-init triages items
-# nobody has decided, /sync-app-notes before either one writes nine notes off an unsurveyed tree.
+# reads a repo that is not yet in the state it assumes — /sync-app-notes before /project-init writes
+# inventories off a tree whose structure is still being agreed.
 #
 # Canonical order. Position is the gate: a step requires every LOWER step to be recorded. There is
-# no scaffold step: this base installs into a repo that already has an Xcode project, and the
-# package layout for a repo that has none lives in GenericXCodeSetup.
-GA_STEPS="install project-init gaps sync-app-notes ready"
+# no scaffold step: this base installs into a repo that already exists — it never creates the
+# project, only the layer that manages it.
+#
+# declare-profile sits second because every step after it reads the profile: project-init scaffolds
+# from it, sync-app-notes generates the note set it declares, and the stack commands drive its
+# toolchain. Without the gate a repo reaches `ready` having never been asked, and that half of the
+# layer is silently dormant — the one state the ledger must not certify.
+GA_STEPS="install declare-profile project-init sync-app-notes ready"
 GA_STEP_LEDGER="STEPS.tsv"
 
 ga_step_path() { printf '%s/%s/%s' "$1" "$GA_STATE_DIR" "$GA_STEP_LEDGER"; }
@@ -958,4 +876,79 @@ ga_step_missing() {
     ga_step_done "$1" "$_ga_s" || _ga_out="$_ga_out $_ga_s"
   done
   printf '%s' "${_ga_out# }"
+}
+
+# ── Stack profile ────────────────────────────────────────────────────────────
+# A project's STACK PROFILE declares its platform, language, build system and design pattern, so the
+# framework runs the right toolchain instead of hard-assuming one. Two files, mirroring how the
+# resolved stack already works: the static definition ships in profiles/<name>/profile.tsv; the
+# ACTIVE profile and its resolved values are projected into .genericarch/PROFILE.tsv at init, and
+# that projection is what scripts read. Both are TSV with a '#' header and key<TAB>value rows — the
+# same shape and awk idiom as the step ledger. The layer ships NO default profile: until a project
+# authors one, ga_profile_active is empty and stack-specific scripts report "no profile declared".
+GA_PROFILE_DEFAULT=""
+GA_PROFILE_PROJECTION="PROFILE.tsv"
+
+ga_profile_projection_path() { printf '%s/%s/%s' "$1" "$GA_STATE_DIR" "$GA_PROFILE_PROJECTION"; }
+ga_profile_def_path()        { printf '%s/profiles/%s/profile.tsv' "$1" "$2"; }
+
+# ga_profile_active <target> — the active profile's name: the `active` row of the projection, else
+# the built-in default.
+ga_profile_active() {
+  _ga_pf="$(ga_profile_projection_path "$1")"
+  if [ -f "$_ga_pf" ]; then
+    _ga_a="$(awk -F'\t' '$1!~/^#/ && $1=="active" {print $2; exit}' "$_ga_pf")"
+    [ -n "$_ga_a" ] && { printf '%s' "$_ga_a"; return 0; }
+  fi
+  printf '%s' "$GA_PROFILE_DEFAULT"
+}
+
+# ga_profile_declared <target> — what the declare-profile step recorded: the profile name, `none`
+# when this repo consciously has no stack, or empty when nobody has been asked yet. This is a
+# SEPARATE key from `active` on purpose. Every reader of ga_profile_active tests `[ -z "$PROFILE" ]`
+# to mean "no stack here", so writing `active=none` would send all of them looking for
+# profiles/none/profile.tsv. A declared-none repo must keep `active` empty and say so here instead.
+ga_profile_declared() {
+  _ga_pf="$(ga_profile_projection_path "$1")"
+  [ -f "$_ga_pf" ] || return 0
+  awk -F'\t' '$1!~/^#/ && $1=="declared" {print $2; exit}' "$_ga_pf"
+}
+
+# ga_profile_get <target> <key> — the resolved value for a key: the projection wins (a project may
+# resolve or override a value there), the active profile's static definition fills the rest. Exit 1
+# with no output when the key is set nowhere.
+ga_profile_get() {
+  _ga_pf="$(ga_profile_projection_path "$1")"
+  if [ -f "$_ga_pf" ]; then
+    _ga_v="$(awk -F'\t' -v k="$2" '$1!~/^#/ && $1==k {print $2; exit}' "$_ga_pf")"
+    [ -n "$_ga_v" ] && { printf '%s' "$_ga_v"; return 0; }
+  fi
+  _ga_def="$(ga_profile_def_path "$1" "$(ga_profile_active "$1")")"
+  [ -f "$_ga_def" ] || return 1
+  _ga_v="$(awk -F'\t' -v k="$2" '$1!~/^#/ && $1==k {print $2; exit}' "$_ga_def")"
+  [ -n "$_ga_v" ] && { printf '%s' "$_ga_v"; return 0; }
+  return 1
+}
+
+# ga_profile_set <target> <key> <value> — write or replace a row in the projection, creating the
+# file with its header on first write. Mirrors ga_step_record: a re-set REPLACES the value through a
+# temp file rather than appending a second row.
+ga_profile_set() {
+  _ga_pf="$(ga_profile_projection_path "$1")"
+  _ga_val="$(printf '%s' "${3:-}" | tr '\t\n' '  ')"
+  if [ ! -f "$_ga_pf" ]; then
+    mkdir -p "$(dirname "$_ga_pf")"
+    {
+      printf '#\tGenericArch active stack profile — the resolved profile this project uses.\n'
+      printf '#\tWritten at declare-profile. key<TAB>value; the `active` row names the profile under profiles/.\n'
+      printf '#\tkey\tvalue\n'
+    } > "$_ga_pf"
+  fi
+  if awk -F'\t' -v k="$2" '$1!~/^#/ && $1==k {f=1} END {exit !f}' "$_ga_pf"; then
+    _ga_tmp="$_ga_pf.tmp"
+    awk -F'\t' -v OFS='\t' -v k="$2" -v v="$_ga_val" \
+      '$1!~/^#/ && $1==k {$2=v} {print}' "$_ga_pf" > "$_ga_tmp" && mv "$_ga_tmp" "$_ga_pf"
+  else
+    printf '%s\t%s\n' "$2" "$_ga_val" >> "$_ga_pf"
+  fi
 }

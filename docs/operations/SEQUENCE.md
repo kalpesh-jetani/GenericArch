@@ -1,0 +1,106 @@
+# Command sequence
+
+The order the commands run in, what each one must leave behind, and what enforces it.
+
+- **When to read this:** a command refused with "cannot run yet", you are adopting into an existing
+  repo, or you are adding a command and need to know where it sits.
+- **Enforced by:** `./Scripts/ga-step.sh` — every command's first step. The ledger is
+  `.genericarch/STEPS.tsv`.
+
+```bash
+./Scripts/ga-step.sh show     # where am I, what is next
+./Scripts/ga-step.sh next     # just the next step
+```
+
+---
+
+## The order
+
+| # | Step | Run by | Must leave behind |
+|---|---|---|---|
+| 1 | `install` | `./install.sh` (or `./bootstrap.sh`) | The manifest. Recorded automatically — no command records it |
+| 2 | `declare-profile` | `/declare-profile` | A `declared` row in `.genericarch/PROFILE.tsv` — the stack answered, or consciously recorded as none |
+| 3 | `project-init` | `/project-init` | A reconciled `CLAUDE.md`, `docs/DECISIONS.md` rows for every answer, declined files tombstoned |
+| 4 | `sync-app-notes` | `/sync-app-notes` | The project's inventories in `.claude/notes/`, each with a `Last synced` line |
+| 5 | `ready` | recorded by step 4 | Nothing — it is the gate everything else waits on |
+
+After `ready`: `/find`, `/decide`, `/learn`, `/review`, `/verify`, `/build`, `/openspec-install` and every skill run in
+any order, as often as needed. They are not steps; they are the work.
+
+**An upgrade re-enters at step 1.** `install.sh` refuses over a different recorded version (exit 6),
+so moving releases means `./uninstall.sh <old>` and then installing — which resets the ledger, since
+a clean uninstall deletes `STEPS.tsv` unless something was declined. The three commands run again
+against the new base; that is the intent, not an accident of the gate.
+
+## Why the order is load-bearing
+
+Each step reads a repo state the previous one creates. Ungated, they would not fail out of order —
+they would succeed against the wrong input, which is worse. That is what exit 5 buys:
+
+- **`sync-app-notes` before `project-init`** scans a tree whose structure is still being agreed, so
+  the inventories record a layout that changes the same day.
+- **`project-init` before `declare-profile`** scaffolds from a profile nobody has declared, and
+  generates the note set that profile was supposed to name. It does not fail — it produces nothing
+  and reports success, which is the state the gate exists to prevent.
+- **anything before `install`** runs a command file that is not there.
+
+Documented order is not enough. Enforcement is what makes it hold.
+
+**There is no `scaffold` step.** This layer installs into a repo that already exists and creates no
+project layout of its own. A consumer ledger from an older base may still carry a `scaffold` row — it
+is ignored, because the gate iterates the steps above, not the file.
+
+## Skipping a step
+
+A step that genuinely does not apply is **recorded as skipped, not ignored** — by the operator, with
+a reason. Claude never passes `--force`:
+
+```bash
+./Scripts/ga-step.sh record sync-app-notes "not applicable: docs-only adoption, no code to inventory"
+```
+
+`install` is the one step no command records: the manifest *is* the record, and `ga-step.sh` derives
+it — so a repo installed before this ledger existed does not look like one that never ran it.
+
+`declare-profile` is derived the same way, for the same reason: a repo that already recorded
+`project-init` answered the stack question inside its old S1a, so the row is **back-filled** rather
+than demanded. A gate must not block an install that predates it.
+
+## Maintenance operations — outside the sequence
+
+These run whenever the situation calls for them, and gate on `install` only:
+
+| Operation | Tool | Why it is not a step |
+|---|---|---|
+| Gather what `/project-init` can establish without asking | `Scripts/ga-init-scan.sh` | Preflight, not a step: read-only, records nothing, and `install.sh` runs it once the manifest lands. `project-init` is still the step, because the asking is the step |
+| Take a base update | `Scripts/adopt-review.sh` | Reacts to upstream moving, not to a phase |
+| Work out which of two install roots to keep | `Scripts/ga-roots.sh` | A consolidation decision. Both `install.sh` and `ga-sync-scan.sh` refuse while it is pending, so it precedes the sequence rather than sitting in it |
+| Decline a file (moves it to `safetodelete/`) | `Scripts/ga-remove.sh` | A decision, recordable at any point |
+| Re-seal after editing installed files | `Scripts/ga-reseal.sh` | Runs *after* any command that rewrote them |
+| Remove everything | `./uninstall.sh <version>` | Ends the lifecycle |
+
+## Never offer a command whose gate you have not satisfied
+
+A step command must not suggest running another command mid-run unless that command's `require`
+line would pass **at that moment**. It usually would not: a step records itself at its *end*, so
+anything gated on it is refused for the whole of its own run.
+
+That produced a real loop. `/project-init` S3 offered `/sync-app-notes`, whose gate needs
+`install` and `project-init` recorded — but `project-init` records at S5. The user accepted,
+the gate exited 5, the command's header said stop, and the next run offered it again. `--force` is
+never the way out; the offer was the bug.
+
+**So: describe what comes next, and run nothing.** Name the commands in order and let the user
+start them once this one has recorded. Checking is one line:
+
+```bash
+./Scripts/ga-step.sh next        # what the ledger says may run now
+```
+
+## Adding a command
+
+1. Decide whether it is a **step** (it must precede other work) or **work** (it needs `ready`).
+2. Add its `require` line as the command's first step, and — if it is a step — its `record` line as
+   the last.
+3. A new step also needs its name in `GA_STEPS` in `Scripts/ga-lifecycle.sh` and a row in the table
+   above. Position in that list *is* the gate.

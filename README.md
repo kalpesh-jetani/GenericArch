@@ -1,11 +1,13 @@
 # GenericArch
 
-Reference architecture for building **iPhone / iPad / Mac** apps from one shared codebase, with
-Claude Code as the thing that enforces it.
+A tech-stack-agnostic layer for managing a development environment as shared memory with Claude:
+the rules, indexes, notes, memory, decisions and skills that let Claude work consistently in any
+repo, with Claude Code as the thing that enforces it.
 
-It ships **rules, docs and tooling — no Swift**. You install it into a repo that already has its
-Xcode project; the packages live there. Every version, floor and setting is read from your project
-or your machine, never written here.
+It ships **the machinery, no stack content** — language, build system, architecture pattern and
+their rules come from a **stack profile** a project declares (`profiles/`); none ships by default.
+You install it into any repo, and every version and setting is read from your project or your
+machine, never written here.
 
 **Contents** — [Install](#1-install) · [Commands](#2-commands) · [Skills](#3-skills) ·
 [CLAUDE.md](#4-claudemd) · [Upgrade & migrate](#5-upgrade--migrate) ·
@@ -55,14 +57,11 @@ tooling fixes reach every repo by updating one plugin.
 **Then, in this order — the order is enforced, not advisory**
 
 ```
-install → /project-init → /gaps → /sync-app-notes → ready
+install → /declare-profile → /project-init → /sync-app-notes → ready
 ```
 
 ```
 /project-init
-```
-```
-/gaps
 ```
 ```
 /sync-app-notes
@@ -84,24 +83,13 @@ Then, on your own machine:
 ./Scripts/check.sh
 ```
 
-**Build settings as reviewable text** — writes `Configurations/{Base,DEV,TEST,BETA,PROD}.xcconfig`
-plus `XCODE-SETUP.md`. Offered during install; to run it yourself, or again later:
-
-```bash
-./Scripts/ga-project-setup.sh .
-```
-```bash
-./Scripts/ga-project-setup.sh . --product MyApp --bundle-id com.acme.myapp --targets ios,macos --ios 17 --macos 15 --apply
-```
-
 ### Options
 
 | Flag / variable | Effect |
 |---|---|
 | `--apply` | `bootstrap.sh` writes; without it, dry run |
 | `--dry-run` · `--yes` | `install.sh`: print the plan and stop · skip the confirmation prompt |
-| `--with-architecture` | Take the architecture layer up front — `new-feature`, `/review`, module and pattern rows |
-| `--with-lint` · `--with-meta` | `.swiftlint.yml` + `.swiftformat` · `Scripts/claude-workflows/` |
+| `--with-meta` | `Scripts/claude-workflows/` — the CLAUDE.md-editing pipeline |
 | `--with-claude-md` | Take GenericArch's `CLAUDE.md`; yours is kept at `CLAUDE-BK.md`. Off by default |
 | `--in-place` | Install over an existing install instead of uninstalling first |
 | `--ref <tag>` or `GA_REF=<tag>` | Pin a version instead of taking the newest tag |
@@ -109,7 +97,7 @@ plus `XCODE-SETUP.md`. Offered during install; to run it yourself, or again late
 
 Full flag list and exit codes are in each script's own header — `install.sh`, `bootstrap.sh`,
 `uninstall.sh`. Exit codes: `0` ok · `1` error · `2` usage · `3` incompatible target ·
-`4` declined · `6` uninstall first, or the version is deprecated · `78` not macOS.
+`4` declined · `6` uninstall first, or the version is deprecated · `78` host lacks a required tool.
 
 **Version support — v0.6 is the LTS line.**
 
@@ -126,21 +114,19 @@ most likely have an old tag checked out — the error names the fix.
 
 | | What | Why |
 |---|---|---|
-| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · scan and lookup scripts · `ga-step`, `ga-remove`, `ga-reseal`, `ga-roots` · `ga-project-setup.sh` · `openspec-sync.sh` · `uninstall.sh` | They must be local to work |
-| **Scaffolded empty** | `docs/DECISIONS.md` · `docs/GAPS.md` · `.claude/notes/` · `.claude/memory/` · `.claude/CANDIDATES.tsv` | The prose is ours, the answers are yours |
-| **Fetched on demand** | `docs/patterns/` · cross-cutting reference docs | A product should not carry docs it does not read |
-| **On consent** | `--with-architecture` → `new-feature`, `/review`, pattern rows | A surface that cannot fire is worse than a missing one |
-| **Opt-in** | `--with-lint` · `--with-meta` | Lint enforces conventions a product may have declined |
+| **Copied** | skills · commands · `MAP.tsv` · `SCRIPTS.tsv` · `INDEX.md` · the profile mechanism (`profiles/`) · scan/lookup/lifecycle scripts (`ga-step`, `ga-remove`, `ga-reseal`, `ga-roots`) · `openspec-sync.sh` · `uninstall.sh` | They must be local to work |
+| **Scaffolded empty** | `docs/DECISIONS.md` · `.claude/notes/` · `.claude/memory/` · `.claude/CANDIDATES.tsv` · `.claude/tools/` | The prose is ours, the answers are yours |
+| **Fetched on demand** | cross-cutting reference docs | A product should not carry docs it does not read |
+| **Opt-in** | `--with-meta` | The CLAUDE.md-editing pipeline — tooling for authoring this layer |
 | **Never** | `CLAUDE.md` · this repo's decisions, gaps, notes and memory · `install.sh`, `bootstrap.sh` · `README.md` · `.claude/settings.json` | Your rules are yours |
 
-It does **not** add `Packages/` or any Swift. `Scripts/adopt.sh` owns this list
+It adds no stack content and no code. `Scripts/adopt.sh` owns this list
 and `install.sh` drives it — one answer, not two.
 
 ### Notes
 
-- The target repo must already have its Xcode project. An empty directory is refused — get the
-  project and package layout from
-  [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup) first, then come back.
+- The layer installs into any repo, fresh or established — it imposes no project layout of its own.
+  A project declares its stack as a profile (`profiles/`) at `/project-init`.
 - Do not build your app inside a GenericArch checkout. `install.sh` refuses a target that is its own
   source, and a clone you work in inherits this product's decisions and floors.
 - `install.sh` records every file it wrote, with a hash, in `.genericarch/manifest-v<version>.json`.
@@ -148,19 +134,17 @@ and `install.sh` drives it — one answer, not two.
   `uninstall.sh` reads it and nothing else.
 - There is no "start from the template" path. A copy no installer wrote has no manifest, so
   `uninstall.sh` refuses it and `ga-reseal.sh` has nothing to keep honest.
-- When pasting a block with `#` comments, paste one line at a time. zsh — the macOS default — does
+- When pasting a block with `#` comments, paste one line at a time. zsh does
   not treat `#` as a comment when pasted; `setopt interactive_comments` fixes it.
 - `bootstrap.sh` is the only part that touches the network, and all it does is fetch a pinned tag.
   Every decision — gate, plan, manifest, rollback — belongs to `install.sh` and runs offline.
 - `./Scripts/check.sh` is expected to fail on an existing codebase. That is the point.
-- Your rules win by default. For a hard conflict — CocoaPods vs SPM, UIKit vs SwiftUI — the usual
+- Your rules win by default. For a hard conflict between one of your conventions and the active profile's rule — the usual
   answer is *adopt for new code only* ([docs/ADOPTION.md](docs/ADOPTION.md)).
 - Out of order these commands would not fail, they would succeed against the wrong input. A step
   that genuinely does not apply is recorded as skipped, by you, never by Claude:
-  `./Scripts/ga-step.sh record gaps "not applicable: docs-and-tooling adoption"`. Exit `5` means an
+  `./Scripts/ga-step.sh record sync-app-notes "not applicable: docs-only adoption"`. Exit `5` means an
   earlier step has not run ([docs/SEQUENCE.md](docs/SEQUENCE.md)).
-- `ga-project-setup.sh` never creates, opens or edits an `.xcodeproj`. Nothing is defaulted — bundle
-  ID, Team ID and both floors are asked.
 
 ---
 
@@ -173,14 +157,13 @@ You type these. Anything that must **never** trigger by inference is a command, 
 | Command | Use it to |
 |---|---|
 | `/project-init` | Adopt this into an existing repo — reconciles conflicting rules with approval first |
-| `/gaps` | Triage `docs/GAPS.md` — derived from the code on an existing repo, asked on a fresh one |
-| `/sync-app-notes` | Rebuild the nine inventories from a scan — **incremental**, only what changed |
+| `/sync-app-notes` | Rebuild the inventories the active profile declares — **incremental**, only what changed |
 | `/find` | Look up a screen, route, endpoint, asset, colour, font, token or target — one call |
 | `/decide` | Record a settled architecture decision in `docs/DECISIONS.md` |
 | `/learn` | Record a resource or finished work — promote a pattern to a skill, or `--script` a repeated step |
 | `/verify` | Walk the Definition of Done against your working diff — reports, never fixes |
 | `/review` | Review someone else's diff or PR against the rules — reports, never edits |
-| `/build` | Build, test or archive a scheme: `DEV`, `TEST`, `BETA`, `PROD` |
+| `/build` | Build or test through the active profile's declared commands |
 | `/upgrade-stack` | Reconcile project settings with your machine — asks twice before changing anything |
 | `/sync-with-genericarch` | Bring an install up to date with the base, and promote patterns the code now justifies |
 | `/clean-up-genericarch-extra-memory` | Apply removals `/project-init` only reported — asks per candidate |
@@ -204,27 +187,24 @@ You never type these — they activate from their description when what you're d
 
 ### Usage
 
-| Skill | Fires when | What it stops you doing |
+| Skill | Fires when | What it does |
 |---|---|---|
-| `new-feature` | Adding a feature, screen or package | Shipping a happy path — it requires every content state, a mock, and localized keys |
-| `debug` | Something is broken, blank, or silently wrong | Reading the wrong file first; it narrows to a layer before opening anything |
+| `tool-profile` | First contact with an external platform or connector | Captures what it exposes — attributes, units, reachability — so the next session need not re-discover it |
 
 ```bash
 python3 Scripts/check-skill-triggers.py
 ```
 
-Run that after any description edit — 29 prompts, each with the skill that should win.
+Run that after any description edit — a corpus of prompts, each with the skill that should win.
 
 ### Notes
 
-- Only two ship, deliberately. Anything expressible as a script is a script: a skill costs context
+- Only one ships, deliberately. Anything expressible as a script is a script: a skill costs context
   every session through its description, a script costs nothing until called.
-- Both open with a script step, in a fixed order. `new-feature` checks whether the screen already
-  exists before registering anything — if it does, the work is a change, not a scaffold.
-- Six of the seven docs in `docs/patterns/` wait to be promoted — `change`, `style-guide`,
-  `dark-light-mode`, `rtl-support`, `release-bump`, `feature-complete`. `/learn <name>` promotes one
-  once your repo has the code it describes. The seventh, `wrapper`, is what satisfies §7 rather than
-  a procedure to promote.
+- `tool-profile` opens with a find-first step: it checks whether a profile for the platform already
+  exists before capturing a new one.
+- A recurring pattern in your repo's code can be promoted to a skill with `/learn <name>`, once the
+  code it describes exists — there is no pre-shipped pattern catalogue.
 - A description is trigger phrases, never a summary of the body. A summary makes the skill fire on
   work it does not own.
 
@@ -237,9 +217,8 @@ Everything else is one lookup away.
 
 | File | Loaded | Holds |
 |---|---|---|
-| `CLAUDE.md` | every session — ~4,000 tokens | §0–§12: ask-first decisions, the 15 unbreakable rules, the index, concurrency, conventions |
-| `Packages/CLAUDE.md` | when you work in a package | §4 extraction, §7 wrappers, §9 package testing |
-| `docs/BUILD-PROCESS.md` · `DEPLOYMENT-PROCESS.md` · `PROJECT-SETTINGS.md` | when the task is that | building a stage · shipping and rolling back · capabilities, floors, secrets, privacy |
+| `CLAUDE.md` | every session | §0–§4: ask-first decisions, the rules that hold on any stack, the index |
+| the active profile's docs | when the task is stack-specific | build, ship, settings — whatever the profile declares |
 | `docs/` reference · `.claude/notes/` | on lookup | the reasoning, and the code's own inventory |
 
 ### Usage
@@ -251,11 +230,11 @@ grep -i navigation .claude/MAP.tsv
 awk -F'\t' '$2=="module"' .claude/MAP.tsv
 ```
 ```bash
-./Scripts/find.sh SmartLockHomeView
+./Scripts/find.sh HomeScreen
 ```
 
 `.claude/MAP.tsv` is one grep-able row per doc, note, pattern, skill and command — one grep instead
-of a table of contents re-read every session. `.claude/notes/` holds nine inventories generated from
+of a table of contents re-read every session. `.claude/notes/` holds the inventories generated from
 your code, meant to be **searched, never read**.
 
 **Editing `CLAUDE.md` under a record** — `Scripts/claude-workflows/` is a nine-phase pipeline
@@ -263,7 +242,7 @@ your code, meant to be **searched, never read**.
 `--with-meta`:
 
 ```bash
-./Scripts/claude-utils/init-claude-env.sh --add myapp ~/code/myapp
+# register myapp by adding a row to .claude/claude-tasks/projects.tsv
 ```
 ```bash
 ./Scripts/claude-workflows/run-task.sh myapp task-1 all --approve --text "<the request>"
@@ -287,7 +266,7 @@ runs git. Contracts and undo: [docs/CLAUDE-TASKS.md](docs/CLAUDE-TASKS.md).
 - A note is never promoted to a skill, at any size —
   [docs/PATTERN-SEARCH.md](docs/PATTERN-SEARCH.md).
 - Claude never edits `CLAUDE.md` without explicit approval, and never commits or pushes. The full
-  list of what it does unasked is `CLAUDE.md` §2 and §12 — that file is the source of truth, not
+  list of what it does unasked is `CLAUDE.md` §2 and §4 — that file is the source of truth, not
   this one.
 
 ---
@@ -360,13 +339,13 @@ half. Writes nothing.
 **Decline a file so it stays declined.** Never `rm` an installed file.
 
 ```bash
-./Scripts/ga-remove.sh docs/PERFORMANCE.md --reason "no perf budget here yet" --apply
+./Scripts/ga-remove.sh docs/OPENSPEC.md --reason "not using OpenSpec here" --apply
 ```
 ```bash
 ./Scripts/ga-remove.sh --list
 ```
 ```bash
-./Scripts/ga-remove.sh --revive docs/PERFORMANCE.md --apply
+./Scripts/ga-remove.sh --revive docs/OPENSPEC.md --apply
 ```
 
 **Keep the install removable** after any command or hand edit rewrote an installed file:
@@ -429,7 +408,7 @@ Exit `1` from `find-script.sh` is the only thing that justifies improvising one:
 ./Scripts/session-script.sh add --intent "..." --cmd '...'
 ```
 
-**Offline checks — no Xcode, no network.** The `#@exit` header is the contract a gate branches on:
+**Offline checks — no build tools, no network.** The `#@exit` header is the contract a gate branches on:
 
 ```bash
 ./Scripts/claude-utils/register-scripts.sh --check
@@ -466,14 +445,9 @@ python3 Scripts/check-note-links.py
 ./Scripts/sync-notes.sh --check
 ```
 
-**Build and enforce**, in the repo you installed into:
+**Build and enforce**, in the repo you installed into — `check.sh` dispatches to the active
+profile's build/lint command, or runs only the profile-agnostic checks when none is declared:
 
-```bash
-swift build --package-path Packages/Core
-```
-```bash
-swift test --package-path Packages/Core
-```
 ```bash
 ./Scripts/check.sh
 ```
@@ -491,18 +465,18 @@ swift test --package-path Packages/Core
 | `call` | run it |
 | `emit-only` | it prints commands it deliberately does not run |
 | `needs-approval` | it writes; needs an explicit `--approve` or `--yes` |
-| `never:<reason>` | the agent must not run it. Nothing carries it today — `check.sh` became `call` once §2.12 made compiling the way a change gets validated |
+| `never:<reason>` | the agent must not run it. Nothing carries it today — `check.sh` became `call` once §2.8 made compiling the way a change gets validated |
 
 ### Notes
 
-- macOS only. bash 3.2, BSD `sed`/`awk`, `shasum`, Xcode command-line tools. `_common.sh` checks
-  `uname` and exits `78` on anything else.
+- Portable shell — bash with POSIX `sed`/`awk` and a `sha256`/`shasum` tool, run on any host. The
+  layer's own tooling needs no build toolchain and no network; `ga_require_host` checks only that.
 - The `#@when` field carries the phrases someone would actually *ask*, and `find-script.sh` scores
   against those first — which is why "is the memory store consistent" reaches `verify-memory.sh`
   without knowing its name. `grep` only works if you guess the author's word.
 - A staged script is session-local and gitignored. Promotion into `Scripts/` needs a *second,
   distinct session* with the same intent, and runs seven gates — refusing anything that invokes a
-  compiler (§2.12) or touches the network.
+  compiler (§2.8) or touches the network.
 - `register-scripts.sh` refuses a script with an incomplete header, so a script cannot be added
   without stating its contract. A row whose script is not installed is pruned at install time.
 - The registry covers `Scripts/` only. The four installers at the repo root — `bootstrap.sh`,
@@ -511,10 +485,10 @@ swift test --package-path Packages/Core
 - When a generator cannot handle your repo it writes a ~45-line report to `.genericarch/failures/`
   naming what it expected and what it found. That report is what the agent reads — never the
   scanner.
-- Seven of the nine notes come from `sync-notes.sh` in two tiers — `FONTS`, `ASSETS-COLORS`,
-  `PROJECT` outright; `ASSETS-IMAGES`, `API-MAP`, `NAVIGATION`, `SCHEMES` partial, with the caveat
-  stated inside the generated block. `FEATURES` and `STYLE-GUIDE` need a reviewer
-  ([docs/SCAN-TRAPS.md](docs/SCAN-TRAPS.md)).
+- Which inventories `sync-notes.sh` can regenerate offline is the active profile's to declare, each
+  marked derivable outright or partial, with any caveat stated inside the generated block. Those that
+  need a reviewer's judgement are left for one ([docs/SCAN-TRAPS.md](docs/SCAN-TRAPS.md)). With no
+  profile declared there is nothing to regenerate.
 
 ---
 
@@ -530,13 +504,10 @@ swift test --package-path Packages/Core
 | Find *which script already does this* | `./Scripts/find-script.sh "<what you want>"` |
 | Find *where something is* — screen, route, endpoint, asset | `/find <name>` |
 | Know which command runs next, or why one refused | `./Scripts/ga-step.sh show` · [docs/SEQUENCE.md](docs/SEQUENCE.md) |
-| Know the resolved stack — min OS, Xcode, Swift | [.claude/notes/PROJECT.md](.claude/notes/PROJECT.md) |
-| Understand the layer shape, and what each owns | [docs/REPO.md](docs/REPO.md) |
+| Know the resolved stack — whatever the active profile declares | [.claude/notes/PROJECT.md](.claude/notes/PROJECT.md) |
+| Know what may be written, and where new material belongs | [docs/STRUCTURE.md](docs/STRUCTURE.md) |
 | Know why something is the way it is | [docs/DECISIONS.md](docs/DECISIONS.md) |
-| Know what's deliberately missing | [docs/GAPS.md](docs/GAPS.md) |
-| Set up a machine, or ship | [docs/REPO.md](docs/REPO.md) · [docs/DELIVERY.md](docs/DELIVERY.md) |
-| Know when a change is actually finished | [docs/DONE.md](docs/DONE.md), or `/verify` |
-| Know where a new doc belongs | [docs/STRUCTURE.md](docs/STRUCTURE.md) |
+| Know when a change is actually finished | the active profile's definition-of-done, or `/verify` |
 | Know what earlier sessions learned | [.claude/memory/INDEX.md](.claude/memory/INDEX.md) — tracked, survives a clone |
 | Plan with spec-driven workflows, and keep them on these rules | [docs/OPENSPEC.md](docs/OPENSPEC.md), then `/openspec-install` |
 
@@ -548,20 +519,18 @@ install.sh           the installer: gate, plan, manifest, rollback — all offli
 uninstall.sh         reverses an install from its manifest; the version argument is required
 uninstallv0.1.0.sh   removes a v0.1.0 install with the hashes inline — no manifest, no checkout
 CLAUDE.md            session rules ONLY — no version numbers, no reference tables, no checklists
-Packages/CLAUDE.md   scoped rules: extraction, wrappers, package testing
+profiles/            the stack-profile mechanism — a project authors one; none ships by default
 OPERATORS-GUIDE.md   every file in this repo and what a person does with it
 CHANGELOG.md         the release history — a tag is what install.sh records in the manifest
-.swiftlint.yml       the §2 conventions as config, with .swiftformat — OPTIONAL (--with-lint)
 docs/                hand-written reasoning: cross-cutting reference
-docs/REPO.md         the layer shape and what each layer owns
+docs/STRUCTURE.md    what may be written, and where new material belongs
 docs/OPENSPEC.md     the OpenSpec bridge — what is projected where, and the two gaps it cannot close
-docs/patterns/       procedures not yet skills — /learn promotes one when it earns it
 .claude/INDEX.md     what THIS product has — the repo's own router is MAP.tsv, not this
 .claude/MAP.tsv      the router: every doc, note, pattern, skill and command, greppable
 .claude/SCRIPTS.tsv  the script registry — GENERATED from each script's #@ header
 .claude/CANDIDATES.tsv  cross-session recurrence ledger — what observes that a SECOND session
                      needed the same thing. Staged scripts themselves are not tracked
-.claude/notes/       nine inventories generated from the code — grepped, never read
+.claude/notes/       inventories generated from the project — grepped, never read
 .claude/memory/      what earlier sessions learned — tracked, so it survives a clone
 .claude/skills/      procedures Claude applies on its own
 .claude/commands/    things you trigger
@@ -576,13 +545,9 @@ Scripts/claude-utils/      cross-phase utilities: lint, links, rollback, registr
 Scripts/claude-workflows/  the nine numbered phases, plus run-task.sh — OPTIONAL (--with-meta)
 ```
 
-**Note:** `GenericArch-NetworkKit` and `GenericArch-ImageCache` are **not in this repo**. They are
-standalone, zero-dependency packages in their own repositories, added to `Package.swift` and
-resolved by version — never copied into a consuming codebase ([docs/REPO.md](docs/REPO.md)).
-
 ### Status
 
-The architecture is documented; most packages are specified rather than implemented, and
-[docs/GAPS.md](docs/GAPS.md) tracks what is deliberately absent. The worked examples of `Core` and
-`DIKit` live in [GenericXCodeSetup](https://github.com/kalpesh-jetani/GenericXCodeSetup) with the layout that places them, so `check.sh` here has no
-package to typecheck — it does that work in the repo you install into.
+The layer ships the neutral machinery and the profile *mechanism* only — it declares no stack of its
+own, and no profile ships by default. A project authors a stack profile when it adopts the layer
+([profiles/](profiles/CLAUDE.md)); until one is declared, `check.sh` here has nothing stack-specific
+to run.

@@ -41,24 +41,23 @@ Precision is 100% everywhere, so the risk here has never been over-firing. It is
 ## What the negatives are for
 
 The ten `should_trigger: false` queries are deliberately **near**-misses that share vocabulary with
-this skill while needing something else: `/learn`'s "what we take from this vendor", a `debug`
-symptom that happens to name a connector, a §7 Swift wrapper, an OpenSpec delta spec, a notes
+this skill while needing something else: `/learn`'s "what we take from this vendor", a bug report
+that happens to name a connector, a dependency-wrapper task, an OpenSpec delta spec, a notes
 resync. An obviously-unrelated negative tests nothing.
 
-## Three known failures, left in on purpose
+## Two known failures, left in on purpose
 
 They are recorded here so nobody re-discovers them and "fixes" them by stuffing the description:
 
 | Query | Why it is not worth fixing |
 |---|---|
-| "figma mcp connected … before I pull frames for the settings screen" | `new-feature` legitimately owns *start*, *settings* and *screen* in that one sentence. Out-scoring it needs three more incidental words |
 | "the aspect ratio we wrote down turned out wrong, it's per file not per node" | Refers to a recorded fact without naming the concept. Word overlap cannot reach it; a model reading the registry can |
 | "the github connector keeps asking me to reauthorise" | Fires on *connector*, this skill's central noun. `SKILL.md` step 1 catches it, and over-triggering is the cheaper failure |
 
 **Adding a word to the description is only justified by a diagnosis** — which query, which matching
 term. Two rules learned the hard way: the scorer matches by **prefix**, so `mockup` claims *mock*
-and steals `new-feature`'s "add a protocol and a mock"; and an incidental word like *call* leaked
-the api-map resync query. Re-run both checks after any edit.
+and would steal another skill's "add a protocol and a mock"; and an incidental word like *call*
+leaked the api-map resync query. Re-run both checks after any edit.
 
 ## The OpenSpec boundary is not negotiable
 
@@ -69,7 +68,7 @@ and that is deliberate.
 
 GenericArch is the existing repo; OpenSpec is external and arrives only when `/openspec-install`
 runs. **Installed, it is the priority executor for spec-workflow work**
-([DECISIONS.md](../../../../docs/DECISIONS.md)). So the boundary has to hold *before* it is
+([DECISIONS.md](/docs/decisions/DECISIONS.md)(../../../../docs/DECISIONS.md)). So the boundary has to hold *before* it is
 installed — a description written while OpenSpec is absent is exactly the one that mis-fires once it
 is there, and nothing would catch it at that point.
 

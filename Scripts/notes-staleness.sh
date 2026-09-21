@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Report which .claude/notes/ inventories are older than the code they describe.
 #@usage     notes-staleness.sh [source-root] | notes-staleness.sh --stamp [source-root]
@@ -19,7 +19,8 @@
 # mtime to checkout time, which would report the whole tree as stale on a fresh machine.
 # Uncommitted work is picked up separately from `git status`.
 set -u
-# The install root is not always the git root: an Xcode project often sits in a subdirectory of
+HERE="$(cd "$(dirname "$0")" && pwd)"
+# The install root is not always the git root: a project often sits in a subdirectory of
 # its checkout, and `.claude/notes/` then lives there rather than at the top. Resolving to the git
 # root made every lookup read an empty or absent notes directory and answer "No row" for terms the
 # populated notes documented. So walk up from the caller instead, and only fall back to the git
@@ -37,21 +38,22 @@ STAMP=0
 ROOT="${1:-.}"
 cd "$(_resolve_notes_root)"
 
+# The note set, and which files feed which inventory, are the active profile's (profiles/<name>/):
+# entirely stack-specific. With no profile declared there is nothing to attribute staleness to.
+if [ -r "$HERE/ga-lifecycle.sh" ]; then
+  . "$HERE/ga-lifecycle.sh"
+  if [ -z "$(ga_profile_active .)" ]; then
+    echo "no stack profile declared — note staleness is per-profile; nothing to check."
+    exit 0
+  fi
+fi
+
 # path pattern -> the note that indexes it
 note_for() {
-  case "$1" in
-    *.colorset/*)                                 echo ASSETS-COLORS ;;
-    *.imageset/*)                                 echo ASSETS-IMAGES ;;
-    *.ttf|*.otf)                                  echo FONTS ;;
-    *.xcconfig|*.xcscheme)                        echo SCHEMES ;;
-    *project.pbxproj|*.entitlements|*Podfile|*Package.swift) echo PROJECT ;;
-    *Info.plist)                                  echo "PROJECT FONTS SCHEMES" ;;
-    *Route*.swift|*Navigation*.swift|*Deeplink*.swift|*.storyboard) echo NAVIGATION ;;
-    *Routing.swift|*APIRouter.swift|*API*.swift)  echo API-MAP ;;
-    *Fonts.swift|*Tokens*.swift|*DesignSystem/*)  echo STYLE-GUIDE ;;
-    *ViewController.swift|*ViewModel.swift|*View.swift|*Screen.swift) echo FEATURES ;;
-    *) echo "" ;;
-  esac
+  # The file->note mapping is the active profile's notes-taxonomy (profiles/<name>/): which files
+  # feed which inventory is stack-specific. No profile taxonomy is wired yet (docs/DECISIONS.md →
+  # Open); the guard above already exits when no profile is declared, so nothing maps here.
+  :
 }
 
 # ── Content hash per note ──────────────────────────────────────────────────
@@ -105,7 +107,7 @@ if [ "$STAMP" -eq 1 ]; then
     # This used to fall through to inserting a hash after line 1 for exactly these notes, which is
     # the opposite of what the check above is for. That skip catches a note whose SOURCES are
     # missing; this one catches a note whose sources exist but which was never populated. FEATURES
-    # hit it: it maps to *.swift, so one template view qualified it while the note still carried its
+    # hit it: its sources matched, so a template entry qualified it while the note still carried its
     # "Empty until …" scaffold marker and not a single row.
     if ! grep -q -- '- \*\*Last synced:\*\*' "$f"; then
       printf '  %-16s never synced — not stamped (no `Last synced:` line)\n' "$name"

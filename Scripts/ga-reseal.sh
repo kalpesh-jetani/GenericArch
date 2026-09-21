@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Re-hash manifest records for installed files that later commands edited, so uninstall can still prove ownership and remove them.
 #@usage     ga-reseal.sh [--apply] [--target DIR]
@@ -11,7 +11,7 @@
 #@when      uninstall left files behind|why is this file protected|after project-init|after sync-app-notes|manifest drift|reseal|orphan on uninstall
 #
 # uninstall.sh only removes a file whose hash still matches its manifest record — that is the whole
-# ownership contract. But /project-init, /sync-app-notes and /gaps all rewrite installed files in
+# ownership contract. But /project-init and /sync-app-notes both rewrite installed files in
 # place, and every such edit silently turns a removable file into a permanent orphan. That is how
 # one uninstall removed 4 files out of 110 and reported nothing.
 #

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #@kind      util
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Resolve every internal link and anchor in a markdown file. Never touches the network.
 #@usage     validate-claude-links.sh <file> [--quiet]
 #@in        file:path
-#@out       stdout:tsv-ish(line,kind,dest,reason) + xed hints
+#@out       stdout:tsv-ish(line,kind,dest,reason) + editor hints
 #@exit      0=all resolve 1=broken links 2=usage
 #@effects   read-only
 #@when      broken links in a doc|do the links resolve|check anchors
@@ -135,7 +135,7 @@ if [ "$BROKEN" -gt 0 ]; then
     '{printf "  %sline %-5s%s %-34s %s\n", r, $1, o, $3, $4}' "$TMP/broken"
   printf '\n'
   # Open the first one at its line, so a fix starts in the right place.
-  dim "$(xed_hint "$FILE" "$(head -1 "$TMP/broken" | cut -f1)")"
+  dim "$(editor_hint "$FILE" "$(head -1 "$TMP/broken" | cut -f1)")"
   printf '\n'
   die "$BROKEN broken link(s)" "$EX_ERR"
 fi

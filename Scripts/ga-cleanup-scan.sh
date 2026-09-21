@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Gather every cleanup candidate this install carries — per-package docs left at the repo root, skills that cannot fire, memory rules duplicated across levels, a missing or malformed FETCH-BASE stamp — each with the evidence and the reason it is a candidate. Decides nothing and deletes nothing.
 #@usage     ga-cleanup-scan.sh [target-dir] [--memory|--docs|--skills|--index] [--tsv]
@@ -77,25 +77,22 @@ MANIFEST=""; for m in $(ga_manifest_find "$TARGET"); do MANIFEST="$m"; done
   echo
 }
 
-# ── 1. per-package docs at the repo root ───────────────────────────────────
-# This base ships none: a root-level doc for a package a product may not have reads as current,
-# describes code that is not there, and the index routes to it forever. A package's doc belongs
-# beside its code as Packages/<Name>/<Name>.md. Any root-level one here came from an install
-# older than that decision, or was written by hand — either way it is a candidate.
+# ── 1. per-module docs at the repo root ────────────────────────────────────
+# This layer ships none: a root-level doc for a module a product may not have reads as current,
+# describes code that is not there, and the index routes to it forever. A module's doc belongs
+# beside its code. Any root-level one here came from an install older than that decision, or was
+# written by hand — either way it is a candidate.
 if want docs; then
-  hdr "── per-package docs at the root ───────────────────────"
+  hdr "── per-module docs at the root ────────────────────────"
   if [ ! -d docs/modules ]; then
-    say "  none — correct; a package's doc belongs beside its code"
+    say "  none — correct; a module's doc belongs beside its code"
   else
     for d in docs/modules/*.md; do
       [ -f "$d" ] || continue
-      pkg="$(basename "$d" .md)"
       if ga_tombstoned "$TARGET" "$d"; then
         refuse docs "$d" "already tombstoned" "decided — a tombstone is not re-proposed"
-      elif [ -d "Packages/$pkg" ] || [ -d "Packages/Features/$pkg" ]; then
-        row docs "$d" "Packages/$pkg exists" "move it beside the code as Packages/$pkg/$pkg.md"
       else
-        row docs "$d" "no Packages/$pkg" "documents a package that does not exist here"
+        row docs "$d" "root-level module doc" "move it beside the module's code, or decline it"
       fi
     done
   fi
@@ -103,36 +100,14 @@ fi
 
 # ── 2. skills and commands that cannot fire ────────────────────────────────
 # A skill costs its description in EVERY session, so one that cannot fire is a standing bill for
-# nothing. What makes it unable to fire is structural, not a matter of taste: new-feature scaffolds
-# Packages/Features, so with no Packages/ it produces something the app cannot consume.
+# nothing. This layer ships only tool-profile, which is stack-agnostic and always applicable; any
+# other skill in the tree was authored by the product or left by an older install, and whether it
+# can fire is a judgement about that product, not a structural fact this scanner can settle.
 if want skills; then
   hdr "── skills and commands ────────────────────────────────"
   for s in .claude/skills/*/; do
     [ -d "$s" ] || continue
-    name="$(basename "$s")"
-    case "$name" in
-      new-feature)
-        if [ -d Packages/Features ] || [ -d Packages ]; then
-          refuse skills "$s" "Packages/ exists" "it can scaffold into this repo"
-        else
-          row skills "$s" "no Packages/" "scaffolds Packages/Features — nothing here can consume it"
-        fi ;;
-      style-guide)
-        t=$(count grep -c '^| `' .claude/notes/STYLE-GUIDE.md)
-        [ "$t" -gt 0 ] && refuse skills "$s" "$t token row(s)" "it governs registered tokens" \
-                       || row skills "$s" "0 token rows in STYLE-GUIDE.md" "fires on nothing until tokens are registered" ;;
-      rtl-support)
-        r=$(find . -name '*.lproj' 2>/dev/null | grep -cE '/(ar|he|fa|ur)\.lproj' | tr -d ' ' | head -1); r=${r:-0}
-        [ "${r:-0}" -gt 0 ] && refuse skills "$s" "$r RTL locale(s)" "an RTL language ships here" \
-                            || row skills "$s" "no ar/he/fa/ur locale" "no RTL language ships here" ;;
-      dark-light-mode)
-        d=$(grep -rl '"dark"' --include='Contents.json' . 2>/dev/null | wc -l | tr -d ' '); d=${d:-0}
-        [ "${d:-0}" -gt 0 ] && refuse skills "$s" "$d dark asset variant(s)" "dark mode is real here" \
-                            || row skills "$s" "no dark asset variants" "nothing for it to check" ;;
-      release-bump)
-        row skills "$s" "release-workflow tool" "not code generation; belongs to a distributed package, not an app" ;;
-      *) refuse skills "$s" "no structural blocker found" "judge it on use, not on structure" ;;
-    esac
+    refuse skills "$s" "no structural blocker found" "judge it on use, not on structure"
   done
 fi
 
@@ -173,8 +148,8 @@ if want memory; then
   ENT="/Library/Application Support/ClaudeCode/managed-settings.json"
   [ -f "$ENT" ] && refuse memory "$ENT" "enterprise level" "read-only — never a candidate"
   # The machine-local store is keyed on the directory Claude was STARTED in, which is often an
-  # ancestor of the install root rather than the install root itself — an Xcode project one level
-  # down from its checkout is the normal case. Deriving the slug from $TARGET alone finds nothing and
+  # ancestor of the install root rather than the install root itself — a project one level
+  # down from its checkout is a common case. Deriving the slug from $TARGET alone finds nothing and
   # reports "no store" for a repo that has one, so try every ancestor.
   LOCAL_MEM=""
   d="$TARGET"

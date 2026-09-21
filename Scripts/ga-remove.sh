@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    needs-approval
 #@purpose   Retire installed GenericArch files this product has DECLINED — moved to .genericarch/safetodelete/, tombstoned so no later install re-creates them, and de-referenced from the indexes.
 #@usage     ga-remove.sh <path>... --reason "<why>" [--apply] | ga-remove.sh --revive <path> [--apply] | ga-remove.sh --list
@@ -167,7 +167,7 @@ for rel in $EXPANDED; do
     "$GA_GRN" "$GA_OFF" "$rel" "$GA_DIM" "$GA_STATE_DIR" "$rel" "$GA_OFF"
   removed=$((removed + 1))
 done
-# Directories emptied by the removals go too — an empty docs/patterns/ reads as "we have patterns".
+# Directories emptied by the removals go too — an empty directory reads as though its contents remain.
 ga_prune_empty_dirs "$TARGET" $(printf '%s\n' $EXPANDED | sed 's|/[^/]*$||' | LC_ALL=C sort -u)
 
 # ── De-reference: the indexes first ────────────────────────────────────────
@@ -216,7 +216,7 @@ rm -f "$REFLIST"
 
 # ── The decision record ────────────────────────────────────────────────────
 # A tombstone stops the file coming back. The DECISIONS.md row stops a person proposing it again.
-# Both, or it resurfaces — the same rule /gaps applies to a Skip.
+# Both, or it resurfaces — a tombstone without the record is only half a decision.
 DEC="$TARGET/docs/DECISIONS.md"
 if [ -f "$DEC" ] && grep -q '^## Do not re-propose' "$DEC"; then
   row="| $(printf '%s' "$EXPANDED" | tr ' ' '\n' | grep -c .) declined path(s) — \`$(printf '%s' "${EXPANDED# }" | cut -d' ' -f1)\`$([ "$removed" -gt 1 ] && printf ' and %s more' "$((removed - 1))") | $REASON. Recorded in \`.genericarch/$GA_TOMBSTONES\`; install.sh will not re-create them |"

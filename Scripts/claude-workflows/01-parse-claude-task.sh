@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      workflow
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   PHASE 1 intake: classify a request and record it verbatim.
 #@usage     01-parse-claude-task.sh <project> <task-id> (--text STR|--file PATH|-) [--type T] [--target PATH] [--sections CSV]
@@ -83,7 +83,7 @@ has_any "link links anchor anchors href broken 404 crossref"        && add_match
 has_any "format formatting lint whitespace indentation tidy style"  && add_match reformat
 has_any "api apis endpoint endpoints signature signatures protocol" && add_match update-api-refs
 has_any "component components view views designsystem widget"       && add_match update-components
-has_any "async await concurrency actor mainactor sendable task"     && add_match async-patterns
+has_any "async await concurrency actor coroutine thread task"       && add_match async-patterns
 has_any "feature screen scaffold module package"                    && add_match feature
 has_any "remove delete drop strip deprecate obsolete"               && add_match remove-section
 has_any "add new introduce document create append"                  && add_match add-section

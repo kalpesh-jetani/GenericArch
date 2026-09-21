@@ -1,6 +1,6 @@
 ---
-description: Review mismatches between the project's stack settings and the machine, then apply only the fixes the user approves — asks twice before changing anything
-argument-hint: [optional: a mismatch id, e.g. macos-target-above-sdk]
+description: Reconcile the active stack profile's declared toolchain against the machine, applying only fixes the user approves — asks twice before changing anything
+argument-hint: [optional: a specific mismatch id]
 allowed-tools: Bash, Read, Edit, Grep, Glob, AskUserQuestion
 ---
 
@@ -8,148 +8,36 @@ allowed-tools: Bash, Read, Edit, Grep, Glob, AskUserQuestion
 ./Scripts/ga-step.sh after project-init      # sequence gate
 ```
 
-**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
-never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+**Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`. Order
+and why: [SEQUENCE.md](/docs/operations/SEQUENCE.md)(../../docs/SEQUENCE.md).
 
-Reconcile the project's stack settings with the machine. What each setting must satisfy, and why an
-SDK version is not a deployment floor: [PROJECT-SETTINGS.md](../../docs/PROJECT-SETTINGS.md).
+Reconcile what the **active stack profile** declares against the machine that will build it, and
+apply only the fixes the user approves.
 
-```bash
-./Scripts/detect-toolchain.sh              # human report
-./Scripts/detect-toolchain.sh --mismatches # SEVERITY|id|what|current|available|remediation
-```
+The layer fixes no toolchain: a profile (`profiles/<name>/`) declares the stack, and the
+machine-reconciliation probe is the profile's own (`detect-toolchain.sh --mismatches`). **No shipped
+profile wires that probe yet** (docs/DECISIONS.md → Open), so with no profile — or a profile with no
+probe — there is nothing to reconcile; say so.
 
-If that script is missing (an adopted repo may not have it), say so and stop rather than
-substituting your own probe — the whole command is built on its output format:
+## How to run it
 
-```bash
-[ -x ./Scripts/detect-toolchain.sh ] || echo "detect-toolchain.sh absent — cannot classify mismatches"
-```
+1. **Read the mismatches the profile's probe reports:**
 
-Read the project's own floors before judging anything, and never quote them from memory
-(CLAUDE.md §1.1):
+   ```bash
+   ./Scripts/detect-toolchain.sh --mismatches --root .
+   ```
 
-```bash
-grep -rn "platforms:" Packages/*/Package.swift
-grep -rn "IPHONEOS_DEPLOYMENT_TARGET\|MACOSX_DEPLOYMENT_TARGET" --include="*.xcconfig" .
-```
+   Each line is `SEVERITY|id|what|current|available|remediation`. No lines → nothing to do.
 
-Scope: `$ARGUMENTS` if a mismatch id is given, otherwise everything reported.
+2. **Two approvals, always.** Ask once for *which* mismatch to address (`AskUserQuestion`), then show
+   the exact edit and ask again before making it. A stack setting is a product decision — never
+   changed silently, never defaulted (§0).
 
----
+3. **Apply only the approved edit**, then re-run the probe to confirm it cleared.
 
-## Two approvals. Always. No exceptions.
+## Constraints
 
-**Gate 1 — what to address.** Present the mismatches, get a selection.
-**Gate 2 — the exact edits.** Show the concrete before/after per file, get a second yes.
-
-Between the gates you **compute** changes; you do not apply them. A single yes is never enough,
-because gate 1 approves an *intent* ("fix the macOS target") and gate 2 approves the *act* ("change
-this line in these three files"). Those are different decisions and the second is where mistakes
-become visible.
-
-If the user says yes at gate 1 and then goes quiet, **nothing has been changed** — say so plainly
-rather than assuming consent.
-
----
-
-## Step 1 — Classify, don't lump
-
-`--mismatches` marks each one. Treat them very differently:
-
-| Severity | Means | Urgency |
-|---|---|---|
-| **BLOCKING** | The project cannot build as configured | Real. Lead with it |
-| **OPPORTUNITY** | It builds; something newer exists | **A choice, often a product decision** |
-| **DRIFT** | Docs or unanswered settings disagree with reality | Cheap; no build impact |
-
-**Never present an OPPORTUNITY as if it were a problem.** "Your Swift language mode is behind" is
-not a defect — a team on mode 5 with a large codebase has a reason, and migrating means new
-concurrency diagnostics across every package.
-
-## Step 2 — Gate 1: which mismatches to address
-
-Batch with `AskUserQuestion`, one question per mismatch, options: **Fix now · Defer · Skip
-(record it) · Other**.
-
-For each, state three things and nothing more:
-
-1. What is mismatched — current vs available.
-2. **What happens if it's left alone.** For BLOCKING that is "the app target won't build". For
-   OPPORTUNITY it is usually "nothing".
-3. Your recommendation, one clause.
-
-### Say the user-impact out loud for anything that raises a floor
-
-Raising a deployment target is **not a technical upgrade — it drops users**. Any option that raises
-`IPHONEOS_DEPLOYMENT_TARGET`, `MACOSX_DEPLOYMENT_TARGET`, or a `platforms:` entry must name who
-stops being able to install the app. If you don't know the user split, say that you don't, and say
-that the answer belongs to whoever owns the product.
-
-Lowering a target to match the SDK is the safe direction and usually the right fix for BLOCKING.
-
-## Step 3 — Compute the edits, show them, then Gate 2
-
-Produce the exact change set. Per file: path, the current line, the proposed line. Gather the
-current lines by search, so the "before" is what is actually on disk and not what you expect:
-
-```bash
-grep -rn "IPHONEOS_DEPLOYMENT_TARGET\|MACOSX_DEPLOYMENT_TARGET\|swift-tools-version\|swiftLanguageMode" \
-  --include="*.xcconfig" --include="Package.swift" --include="*.pbxproj" . | grep -v /build/
-```
-
-Show the diff you intend before applying it, never after:
-
-```bash
-git diff --stat        # must be empty of your changes until Gate 2 passes
-```
-
-```
-Packages/<Name>/Package.swift
-  -   platforms: [.iOS(.v17), .macOS("26.6")]
-  +   platforms: [.iOS(.v17), .macOS("26.5")]
-Packages/<Other>/Package.swift
-  -   platforms: [.iOS(.v17), .macOS("26.6")]
-  +   platforms: [.iOS(.v17), .macOS("26.5")]
-```
-
-Then ask **gate 2**: apply these exact edits · revise · cancel.
-
-Rules for this step:
-
-- **Every affected file, not a sample.** `grep -rn` the setting first; a partial change leaves the
-  repo inconsistent and the next build confusing.
-- If the change is large, say how many files before showing the list.
-- **`git status` must be reported first.** Applying edits over a dirty tree mixes your changes with
-  the user's. If the tree is dirty, say so and let them decide whether to proceed.
-
-## Step 4 — Apply, then prove it
-
-Only after gate 2:
-
-1. Make the edits.
-2. Re-run `./Scripts/detect-toolchain.sh` — it only reads settings, so this one is yours to run.
-3. **Hand the user the verification commands** — `./Scripts/check.sh`, and `swift build` for each
-   touched package. Do not run them (CLAUDE.md §2.12); a stack change is exactly when someone
-   should watch the build output.
-4. **If they report a failure, say so and stop.** Do not chase it with more unapproved edits; that
-   is how a two-gate process turns into an unsupervised one.
-
-Record the outcome with `/decide` — a stack change is a settled decision, including a deliberate
-Skip, so it isn't re-raised next month.
-
----
-
-## What this command must never do
-
-- **Never edit `CLAUDE.md`.** §1 drift is reported as DRIFT, and refreshing it needs its **own**
-  separate approval with the exact text shown ([STRUCTURE.md](../../docs/STRUCTURE.md)) — a third
-  gate, not folded into gate 2.
-- **Never install or switch Xcode**, and never run `xcode-select`. If the fix is "install a newer
-  Xcode", say so and stop; that is the user's machine.
-- **Never touch an extracted package** — whichever ones this product resolves by version
-  ([REPO.md](../../docs/REPO.md)). They are separate repositories — `/release-bump`.
-- **Never raise a deployment target because the SDK allows it.** SDK availability is not a reason;
-  product reach is.
-- **Never batch an OPPORTUNITY in with a BLOCKING fix.** Approving "make it build" is not approving
-  a language-mode migration.
+- **Never change a stack setting without two explicit yeses.** Raising or lowering a version can drop
+  or exclude users — the product's call, not this command's.
+- **Never install or switch a toolchain** on the user's machine.
+- Report, then act only on approval; never commit (§2.2).

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      workflow
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Entry point: run one phase, a range, or a utility of the CLAUDE.md task pipeline.
 #@usage     run-task.sh <project> <task-id> <action> [args...]
@@ -11,7 +11,7 @@
 # Entry point for the CLAUDE.md task pipeline.
 #
 #   ./Scripts/claude-workflows/run-task.sh <project> <task-id> <action> [args…]
-#   ./Scripts/claude-workflows/run-task.sh talentsure task-6-apis 5 --approve
+#   ./Scripts/claude-workflows/run-task.sh myapp task-6-apis 5 --approve
 #   ./Scripts/claude-workflows/run-task.sh list
 #
 # Actions
@@ -35,7 +35,7 @@
 # override the commit type.
 #
 # Phases 5 and 9 are the gated ones: 5 refuses to write without --approve, and 9
-# never runs git at all. Both are deliberate (CLAUDE.md §2.11, docs/STRUCTURE.md).
+# never runs git at all. Both are deliberate (CLAUDE.md §2.2, docs/STRUCTURE.md).
 . "$(dirname "$0")/../claude-utils/_common.sh"
 
 usage_text() { usage_from "$0"; }
@@ -140,8 +140,10 @@ run_phase() {
 # ── list: no project needed ────────────────────────────────────────────────
 case "${1:-}" in
   list|--list)
-    bash "$UTILS/init-claude-env.sh" --list
-    exit $? ;;
+    printf 'projects are registered in the CLAUDE-tasks registry (projects.tsv):\n' >&2
+    printf '  columns: name<TAB>root<TAB>claude_md<TAB>test_cmd<TAB>source_glob\n' >&2
+    [ -n "${REGISTRY:-}" ] && [ -f "$REGISTRY" ] && awk -F'\t' '!/^#/ {printf "    %s\t%s\n", $1, $2}' "$REGISTRY"
+    exit 0 ;;
   -h|--help|'') usage "$EX_OK" ;;
 esac
 

@@ -15,11 +15,8 @@
 #   GA_REF=<tag|branch>      which version to pin  (default: the newest semver tag on the remote)
 #   --ref <tag>              same, as a flag — usable through `curl ... | bash -s -- --ref <tag>`
 #   --yes                    passed through to install.sh, skipping its confirmation prompt
-#   --root-ok · --force · --with-architecture · --with-claude-md · --in-place ·
-#   --project-setup · --no-project-setup · --no-preflight
+#   --root-ok · --force · --with-claude-md · --in-place · --no-preflight
 #                            install.sh's own flags, forwarded verbatim
-#   --ios <v> · --macos <v>  the deployment floors, forwarded to the project setup step. Omit them
-#                            and it asks, prefilled with whatever the project already states
 #
 # This is the ONLY script in the lifecycle that touches the network, and all it does is fetch.
 # Every decision about what lands in your repo — the compatibility gate, the plan, the manifest,
@@ -41,15 +38,8 @@ while [ $# -gt 0 ]; do
     --help|-h) sed -n '2,26p' "$0" 2>/dev/null || echo "see the header of bootstrap.sh"; exit 0 ;;
     # install.sh's own flags, forwarded verbatim. Rejecting them made its advice unreachable: its
     # multi-root refusal says "re-run with --root-ok", and through here that was an unknown argument.
-    --root-ok|--with-architecture|--with-claude-md|--in-place|--project-setup| \
-    --no-project-setup|--no-preflight|--force|-f)
+    --root-ok|--with-claude-md|--in-place|--no-preflight|--force|-f)
              PASS_THROUGH="$PASS_THROUGH $1"; shift ;;
-    # These two carry a value, so they consume two arguments rather than one. Forwarded because the
-    # deployment floor is the one answer worth stating before the install starts asking: a target
-    # Xcode created moments ago names whatever SDK it shipped with, and that is not a decision.
-    --ios|--macos)
-             [ $# -ge 2 ] || { echo "$1 needs a version (e.g. $1 17)" >&2; exit 2; }
-             PASS_THROUGH="$PASS_THROUGH $1 $2"; shift 2 ;;
     # A trailing `# comment` pasted from the README arrives as arguments in zsh, whose
     # interactive_comments is off by default. Say that, rather than reporting `#` as a typo.
     '#') echo "${YEL}⚠${OFF} a '#' comment reached this script as an argument — your shell did not" >&2
@@ -58,23 +48,20 @@ while [ $# -gt 0 ]; do
          exit 2 ;;
     *) echo "unknown argument: $1" >&2
        echo "  bootstrap flags: --apply --yes --ref <tag> --help" >&2
-       echo "  forwarded to install.sh: --root-ok --with-architecture --with-claude-md" >&2
-       echo "                           --in-place --project-setup --no-project-setup" >&2
-       echo "                           --no-preflight --force --ios <v> --macos <v>" >&2
+       echo "  forwarded to install.sh: --root-ok --with-claude-md --in-place" >&2
+       echo "                           --no-preflight --force" >&2
        exit 2 ;;
   esac
 done
 
 # Refuse before the fetch, not after. bootstrap.sh cannot source Scripts/ga-lifecycle.sh — it is
-# what clones the repo that holds it — so the platform gate is repeated inline here, with the same
-# code (78) and the same reasoning: everything downstream assumes shasum, xcrun and BSD sed/awk.
-# Checking here means a Linux or WSL machine never clones a tree it cannot use. --help is handled
-# above, so reading the header still works anywhere.
-GA_OS="$(uname -s 2>/dev/null || echo unknown)"
-if [ "$GA_OS" != Darwin ]; then
-  printf '%s✗ GenericArch is macOS-only (found: %s).%s\n' "$RED" "$GA_OS" "$OFF" >&2
-  printf '  It installs Apple-platform rules and scripts that assume shasum, xcrun and BSD\n' >&2
-  printf '  sed/awk. Nothing was fetched and nothing was written.\n' >&2
+# what clones the repo that holds it — so the host check is repeated inline here, with the same code
+# (78) and the same reasoning as ga_require_host: the scripts need a SHA-256 tool (shasum or
+# sha256sum) and a POSIX bash/sed/awk. Checking here means a machine without one never clones a tree
+# it cannot use. --help is handled above, so reading the header still works anywhere.
+if ! command -v shasum >/dev/null 2>&1 && ! command -v sha256sum >/dev/null 2>&1; then
+  printf '%s✗ no SHA-256 tool found — install `shasum` or `sha256sum`.%s\n' "$RED" "$OFF" >&2
+  printf '  Nothing was fetched and nothing was written.\n' >&2
   exit 78
 fi
 
@@ -122,7 +109,7 @@ TARGET="$(pwd)"
 command -v git >/dev/null 2>&1 || { echo "${RED}git is required${OFF}"; exit 1; }
 
 # Refuse to install into the base itself — the usual copy/paste accident.
-if [ -f "$TARGET/CLAUDE.md" ] && grep -q "Generic Apple Platform App Architecture" "$TARGET/CLAUDE.md" 2>/dev/null; then
+if [ -f "$TARGET/CLAUDE.md" ] && grep -q "Generic Development Layer" "$TARGET/CLAUDE.md" 2>/dev/null; then
   echo "${RED}this looks like the GenericArch base itself — nothing to install${OFF}"; exit 1
 fi
 

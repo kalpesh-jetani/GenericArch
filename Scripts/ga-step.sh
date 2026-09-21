@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
-#@purpose   Gate and record the lifecycle steps so commands run in order: install → project-init → gaps → sync-app-notes → ready.
+#@purpose   Gate and record the lifecycle steps so commands run in order: install → declare-profile → project-init → sync-app-notes → ready.
 #@usage     ga-step.sh show|next|require <step>|after <step>|record <step> [note]|reset
-#@in        step:enum(install project-init gaps sync-app-notes ready) --target:dir(default: the repo above Scripts/) --force:flag(operator override, never Claude)
+#@in        step:enum(install declare-profile project-init sync-app-notes ready) --target:dir(default: the repo above Scripts/) --force:flag(operator override, never Claude)
 #@out       stdout:for show, the ledger and what is next; for require, ok or the unmet prerequisites
 #@exit      0=clear to proceed 2=usage 5=out of order, nothing written
 #@effects   record appends one row to .genericarch/STEPS.tsv; show/next/require are read-only
 #@when      can I run this command yet|what runs next|which step am I on|command order|out of order|step ledger|template copy|is this the source repo
 #
 # Why this exists: every command in .claude/commands assumes a repo state an earlier command was
-# supposed to leave behind. /gaps before /project-init triages items nobody has decided.
-# /sync-app-notes before either writes nine inventories off a tree nobody surveyed. Documented order
+# supposed to leave behind. /sync-app-notes before /project-init writes inventories off a tree
+# nobody surveyed. Documented order
 # is not enough — a gate is.
 #
 # The gate is advisory to the OPERATOR and binding on CLAUDE: --force exists for a human who knows
@@ -61,6 +61,26 @@ USAGE
 # unguarded call replaces a precise record — "v0.6.2 from <sha>", written by install.sh — with the
 # weaker derived string, on every single invocation of this script.
 derive_steps() {
+  derive_install; _ga_derived=$?
+  derive_declare_profile
+  return "$_ga_derived"
+}
+
+# declare-profile post-dates the repos that adopted before it, and a ledger that already reached
+# project-init HAS answered the stack question — inside project-init's old S1a, where the question
+# used to live. Back-filling is what stops a working install being blocked by a gate younger than
+# it. Create-only, for the same reason as below: an inference must never overwrite a real record.
+derive_declare_profile() {
+  ga_step_done "$TARGET" declare-profile && return 0
+  if [ -n "$(ga_profile_declared "$TARGET")" ]; then
+    ga_step_record "$TARGET" declare-profile "derived from $GA_STATE_DIR/$GA_PROFILE_PROJECTION"
+  elif ga_step_done "$TARGET" project-init; then
+    ga_step_record "$TARGET" declare-profile "back-filled: adopted before this step existed"
+  fi
+  return 0
+}
+
+derive_install() {
   # The authoring checkout is never "installed" into itself. Without this, every command is blocked
   # in the repo that defines them — ga_is_source_checkout is what tells that checkout apart from a
   # template copy of it, which carries the same files.
@@ -76,9 +96,8 @@ derive_steps() {
     # gate check for the life of the repo.
     ga_step_done "$TARGET" install || ga_warn "this repo is a COPY of GenericArch, not an install of it.
   No installer ran, so there is no manifest, and uninstall.sh cannot prove ownership of any file.
-  Usable — but it is a fork: clear the inherited decisions, gaps, notes, memory and floors
-  (docs/SHARING.md). The package layout a copy never carried lives in
-  https://github.com/kalpesh-jetani/GenericXCodeSetup"
+  Usable — but it is a fork: clear the inherited decisions, notes and memory before treating them
+  as this project's (docs/SHARING.md)."
     ga_step_done "$TARGET" install \
       || ga_step_record "$TARGET" install "copy of GenericArch, not an install — the base is already in the tree"
     return 0

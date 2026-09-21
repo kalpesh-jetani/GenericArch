@@ -311,7 +311,7 @@ else
   ga_warn "no manifest in $TARGET/$GA_STATE_DIR — treating this as an incomplete install"
   if [ -z "$BASE" ]; then
     if [ -f "$SELF/Scripts/adopt.sh" ] && [ -f "$SELF/CLAUDE.md" ] \
-       && grep -q "Generic Apple Platform App Architecture" "$SELF/CLAUDE.md" 2>/dev/null; then
+       && grep -q "Generic Development Layer" "$SELF/CLAUDE.md" 2>/dev/null; then
       BASE="$SELF"
     fi
   fi

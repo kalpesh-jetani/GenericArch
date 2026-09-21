@@ -9,7 +9,7 @@ allowed-tools: Read, Edit, Grep
 ```
 
 **Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
-never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+never work around it. Order and why: [SEQUENCE.md](/docs/operations/SEQUENCE.md)(../../docs/SEQUENCE.md).
 
 Target file: @docs/DECISIONS.md
 
@@ -56,6 +56,6 @@ Record the decision described by: `$ARGUMENTS`
 - Don't record decisions still under discussion. Settled means settled.
 - **Never edit CLAUDE.md here** — not even when the decision plainly changes a rule, and not even
   when you are certain. Say which section would change, show the exact text, and wait for an
-  explicit yes ([STRUCTURE.md](../../docs/STRUCTURE.md)). CLAUDE.md loads into every session, so a
+  explicit yes ([STRUCTURE.md](/docs/reference/STRUCTURE.md)(../../docs/STRUCTURE.md)). CLAUDE.md loads into every session, so a
   change there is the user's call, never a side effect of recording a decision.
 - No meta notes in the log either: the `Why` is one clause. History goes in *Do not re-propose*.

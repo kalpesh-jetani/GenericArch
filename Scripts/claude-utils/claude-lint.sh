@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      util
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Markdown formatting standards; --fix applies only the mechanical subset.
 #@usage     claude-lint.sh <file> [--fix] [--max-line N] [--quiet]
@@ -64,11 +64,10 @@ trap 'rm -f "$TMP" "$TMP.f"' EXIT INT TERM
 awk -v maxline="$MAXLINE" '
   function flag(line, rule, detail) { printf "%d\t%s\t%s\n", line, rule, detail }
 
-  # Line length in CHARACTERS. macOS awk counts bytes in the C locale, and setting
-  # LC_ALL does not change it — so every em-dash inflated a line by two and these
-  # docs (full of — · → §) got a page of false positives. Subtracting UTF-8
-  # continuation bytes (0x80–0xBF) gives the character count, and stays correct on
-  # a character-aware awk, where the class matches nothing and n is 0.
+  # Line length in CHARACTERS, accounting for UTF-8 multi-byte sequences.
+  # Some awk implementations count bytes, not characters, causing false positives
+  # with multi-byte characters (em-dashes, bullets, arrows, symbols). Subtract
+  # UTF-8 continuation bytes (0x80–0xBF) to get accurate character count.
   function dlen(s,   t, n) { t = s; n = gsub(/[\200-\277]/, "", t); return length(s) - n }
 
   # YAML front matter. Its lines are structural: a skill `description:` is one
@@ -141,7 +140,7 @@ if [ "$QUIET" -eq 0 ]; then
   cut -f2 "$TMP" | sort | uniq -c | sort -rn | \
     awk '{printf "  %3d  %s\n", $1, $2}'
   printf '\n'
-  dim "$(xed_hint "$FILE" "$(sort -t'	' -k1,1n "$TMP" | head -1 | cut -f1)")"
+  dim "$(editor_hint "$FILE" "$(sort -t'	' -k1,1n "$TMP" | head -1 | cut -f1)")"
   printf '\n'
 fi
 

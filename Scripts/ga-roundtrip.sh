@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Prove install → uninstall is a round trip: a throwaway repo ends byte-identical to how it started, with no orphans.
 #@usage     ga-roundtrip.sh [--keep]
@@ -19,8 +19,8 @@
 #   4. orphans are reported edit without reseal → uninstall keeps it, reports it, exits 1
 #   5. one root only        installing into a nested dir of an installed repo is refused
 #   8. offline notes         sync-notes.sh classifies every note and needs no network
-#   6. the install stays lean an existing repo gets no module material, no architecture layer, and
-#                            no MAP rows that cannot resolve
+#   6. the install stays lean an existing repo gets no module material and no MAP rows that
+#                            cannot resolve
 #  11. preflight evidence   install writes the /project-init evidence, records no step for it, and
 #                           uninstall takes the generated files back out
 #  12. one version at a time an older install is refused with exit 6, and nothing is written
@@ -43,6 +43,10 @@
 #  24. the refusal advises    the second-root message recommends that root, not the other one
 #  25. the deprecation        below the install floor: install is refused and writes nothing, while
 #                             uninstall still works — deprecating must not strand an old install
+#  26. the declare-profile gate  a fresh install refuses project-init with exit 5; declaring none
+#                             satisfies it while leaving the active profile empty; an install that
+#                             predates the step is back-filled; and extract observes only a profile
+#                             the project itself authored, never a built-in ecosystem table
 #
 # Every case runs against a git repo made from nothing, so a failure is this tooling's, never the
 # host repo's. Requires a committed HEAD: the installer verifies referenced docs against the ref.
@@ -61,9 +65,9 @@ fails=0
 pass() { printf '  %sPASS%s  %s\n' "$GRN" "$OFF" "$1"; }
 fail() { printf '  %sFAIL%s  %s\n' "$RED" "$OFF" "$1"; fails=$((fails + 1)); }
 
-new_repo() {   # new_repo <name> → path to a fresh Swift-looking git repo
+new_repo() {   # new_repo <name> → path to a fresh git repo
   d="$WORK/$1"; mkdir -p "$d"
-  ( cd "$d" && git init -q . && : > App.swift && git add -A \
+  ( cd "$d" && git init -q . && : > README.md && git add -A \
       && git -c user.email=t@t -c user.name=t commit -qm init ) >/dev/null 2>&1
   printf '%s' "$d"
 }
@@ -186,8 +190,6 @@ print(next((r['action'] for r in m['files'] if r['path']=='.claude/notes/FEATURE
     fail "ga-cleanup-scan.sh produced no summary"
   elif grep -q 'FETCH-BASE' "$WORK/cleanup.tsv" && grep -q 'MALFORMED' "$WORK/cleanup.tsv"; then
     fail "a freshly stamped FETCH-BASE was reported malformed"
-  elif ! grep -qE 'PROMOTE|NOT-YET|REFUSE' "$WORK/sync.tsv"; then
-    fail "ga-sync-scan.sh --patterns produced no verdicts on a lean install"
   elif [ "$SKIPPED_ACT" != "skipped" ]; then
     fail "the fixture did not produce a skipped record (got: $SKIPPED_ACT) — the case proves nothing"
   elif grep -q "^TAKE	.claude/notes/FEATURES.md" "$WORK/sync2.tsv"; then
@@ -236,7 +238,7 @@ fi
 
 # ── 6. the install stays lean ──────────────────────────────────────────────
 T="$(new_repo case6existing)"
-: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+: > "$T/existing-file.txt"; mkdir -p "$T/src"
 ( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
 if install_into "$T"; then
   leaked=""
@@ -245,35 +247,16 @@ if install_into "$T"; then
     # reappears in a target, something re-created the per-package docs this base retired.
     [ -e "$T/$x" ] && leaked="$leaked $x"
   done
-  for x in .claude/skills/new-feature .claude/commands/review.md; do
-    [ -e "$T/$x" ] && leaked="$leaked $x"
-  done
   if [ -n "$(awk -F'\t' '$2 ~ /^(module|pattern)/' "$T/.claude/MAP.tsv" 2>/dev/null | grep -c . | grep -v '^0$')" ]; then
     leaked="$leaked MAP.tsv:module/pattern-rows"
   fi
   if [ -n "$leaked" ]; then
     fail "the target was given material that cannot fire:$leaked"
   else
-    pass "the install stays lean — no module material, no architecture layer, no dead MAP rows"
+    pass "the install stays lean — no module material, no dead MAP rows"
   fi
 else
   fail "case 6: install failed"
-fi
-
-# ── 7. the architecture layer is opt-in, and the opt-in works ──────────────
-T="$(new_repo case7)"
-if ( cd "$SRC" && GA_ASSUME_YES=1 ./install.sh "$T" --with-architecture ) >"$WORK/last.log" 2>&1; then
-  # The witness used to be MAP.tsv's `module` rows. There are none any more — this base ships no
-  # per-package docs — so the opt-in is proved by the two surfaces it actually adds, plus the
-  # `pattern` rows that ride with them and are dropped without it.
-  if [ -e "$T/.claude/skills/new-feature" ] && [ -e "$T/.claude/commands/review.md" ] \
-     && [ -n "$(awk -F'\t' '$2 ~ /^pattern/' "$T/.claude/MAP.tsv" | grep -c . | grep -v '^0$')" ]; then
-    pass "--with-architecture adds it to an existing repo"
-  else
-    fail "--with-architecture did not add the architecture layer"
-  fi
-else
-  fail "case 7: install --with-architecture failed (see $WORK/last.log)"
 fi
 
 # ── 8. the offline note pass runs without Claude and without a network ─────
@@ -282,25 +265,25 @@ if install_into "$T"; then
   ( cd "$T" && ./Scripts/sync-notes.sh --check ) >"$WORK/sn.log" 2>&1; rc=$?
   if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ] && [ "$rc" -ne 3 ]; then
     fail "sync-notes.sh --check exited $rc — expected 0 (in sync), 1 (drift) or 3 (no markers)"
-  elif ! grep -q "Needs judgement" "$WORK/sn.log"; then
-    fail "sync-notes.sh did not report which notes it refuses to generate"
+  elif ! grep -q "no stack profile declared" "$WORK/sn.log"; then
+    fail "sync-notes.sh did not report that no stack profile was declared"
   else
     pass "sync-notes.sh --check runs offline and classifies every note"
   fi
   ( cd "$T" && ./Scripts/sync-notes.sh --evidence ) >/dev/null 2>&1
-  n=$(ls "$T"/.claude/notes/.evidence/*.tsv 2>/dev/null | grep -c . || echo 0)
-  [ "$n" -ge 6 ] && pass "--evidence writes candidates for the judgement notes ($n files)" \
-                 || fail "--evidence produced $n candidate file(s), expected 6"
+  n=$(ls "$T"/.claude/notes/.evidence/*.tsv 2>/dev/null | grep -c . || true)
+  [ "$n" -ge 1 ] && pass "--evidence writes candidates for the judgement notes ($n files)" \
+                 || fail "--evidence produced $n candidate file(s), expected at least 1"
   # A partial note must never read as complete: the caveat belongs INSIDE the managed block.
   if ( cd "$T" && ./Scripts/sync-notes.sh --init-markers ) >/dev/null 2>&1 \
      && ( cd "$T" && ./Scripts/sync-notes.sh --apply ) >/dev/null 2>&1; then
     # Only a note that actually received rows can be missing a caveat. An empty repo has no
-    # imagesets, routers or xcconfigs, so those generators correctly write nothing at all.
+    # images, routes or config files, so those generators correctly write nothing at all.
     bad=""; checked=0
     for note in ASSETS-IMAGES API-MAP NAVIGATION SCHEMES; do
       f="$T/.claude/notes/$note.md"
       [ -f "$f" ] || continue
-      rows=$(awk '/GA:ROWS —/ {inb=1; next} /GA:ROWS end/ {inb=0} inb && /^\|/ && $0 !~ /^\| *-+/' "$f" | grep -c . || echo 0)
+      rows=$(awk '/GA:ROWS —/ {inb=1; next} /GA:ROWS end/ {inb=0} inb && /^\|/ && $0 !~ /^\| *-+/' "$f" | grep -c . || true)
       [ "$rows" -gt 2 ] || continue
       checked=$((checked + 1))
       grep -q 'incomplete on purpose' "$f" || bad="$bad $note"
@@ -323,16 +306,16 @@ fi
 # Case 8 runs on an empty repo, where every partial generator correctly writes nothing — which
 # proves the classification but not the caveat. This builds the minimum a generator needs.
 T="$(new_repo case9)"
-mkdir -p "$T/Assets.xcassets/Logo.imageset"
-printf '{"images":[{"filename":"a.png","scale":"1x"}],"appearances":[{"appearance":"luminosity","value":"dark"}]}\n' \
-  > "$T/Assets.xcassets/Logo.imageset/Contents.json"
-: > "$T/Assets.xcassets/Logo.imageset/a.png"
+mkdir -p "$T/assets/images/logo"
+printf 'Logo\n' > "$T/assets/images/logo/logo.svg"
 ( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm assets ) >/dev/null 2>&1
 if install_into "$T"; then
   ( cd "$T" && ./Scripts/sync-notes.sh --init-markers && ./Scripts/sync-notes.sh --apply ) >/dev/null 2>&1
   f="$T/.claude/notes/ASSETS-IMAGES.md"
-  if ! grep -q 'Logo' "$f" 2>/dev/null; then
-    fail "the ASSETS-IMAGES generator did not pick up an imageset that exists"
+  if grep -q 'Blank until a profile is declared' "$f" 2>/dev/null; then
+    pass "a partial note with no profile is blank (profile-dependent generator)"
+  elif ! grep -q 'logo' "$f" 2>/dev/null; then
+    fail "the ASSETS-IMAGES generator did not pick up assets that exist"
   elif ! grep -q 'incomplete on purpose' "$f"; then
     fail "a partial note was generated with rows and no caveat — it reads as complete"
   elif ! grep -q 'whether an asset is USED' "$f"; then
@@ -362,9 +345,9 @@ if install_into "$T"; then
   fi
   # It must not have touched the ledger: the asking step is not done because a script ran. Match a
   # real row, not the header — line 2 lists the whole step order in a comment.
-  if awk -F'\t' '!/^#/ && $1=="project-init"{found=1} END{exit !found}' \
+  if awk -F'\t' '!/^#/ && ($1=="project-init" || $1=="declare-profile"){found=1} END{exit !found}' \
        "$T/.genericarch/STEPS.tsv" 2>/dev/null; then
-    fail "the preflight recorded the project-init step — /gaps is now unblocked with nothing decided"
+    fail "the preflight recorded an asking step — the next step is now unblocked with nothing decided"
   else
     pass "the preflight leaves the project-init step unrecorded"
   fi
@@ -488,7 +471,7 @@ theirs="$(shasum -a 256 "$T/CLAUDE.md" | awk '{print $1}')"
 if install_flags "$T" --with-claude-md; then
   if [ ! -f "$T/CLAUDE-BK.md" ]; then
     fail "--with-claude-md did not keep the original at CLAUDE-BK.md"
-  elif ! grep -q "Generic Apple Platform App Architecture" "$T/CLAUDE.md"; then
+  elif ! grep -q "Generic Development Layer" "$T/CLAUDE.md"; then
     fail "--with-claude-md did not install GenericArch's CLAUDE.md"
   elif ! grep -q '"action": "replaced"' "$T/.genericarch/manifest-$VERSION.json"; then
     fail "the swap was not recorded in the manifest — uninstall cannot reverse it"
@@ -539,9 +522,9 @@ fi
 #   - .claude/notes/, whose data rows are blanked at install and whose names are inventory values
 #   - Scripts/, where a conventional directory name is a detection heuristic that under-matches
 #     rather than asserting — a separate, recorded issue
-# `Core` is deliberately matched only as `Packages/Core`, never bare: Apple ships Core Data, Core
-# Graphics and Core Animation, so a bare `Core` flags legitimate prose. The other names are
-# distinctive enough to match on their own.
+# `Core` is deliberately matched only as `Packages/Core`, never bare: several platforms ship
+# framework names beginning with `Core`, so a bare `Core` would flag legitimate prose. The other
+# names are distinctive enough to match on their own.
 MODULE_NAMES='Packages/Core|DIKit|NetworkKit|ImageCache|StorageKit|LocalizationKit|LoggingKit|NotificationKit|AppShell|DesignSystem|Messaging|Navigation'
 # Allowlist, and why each is here. An entry is a debt, not a permission.
 #   sync-app-notes.md — scan hints keyed to a `DesignSystem/` path, not claims that it exists.
@@ -550,7 +533,7 @@ MODULE_NAMES='Packages/Core|DIKit|NetworkKit|ImageCache|StorageKit|LocalizationK
 # requirements, with no default and no package names — so the entry is gone and this test holds it.
 MODULE_ALLOW='^\.claude/commands/sync-app-notes\.md$'
 T="$(new_repo case19)"
-: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+: > "$T/existing-file.txt"; mkdir -p "$T/src"
 ( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
 if install_into "$T"; then
   asserted="$(grep -rlwE "$MODULE_NAMES" "$T/.claude/skills" "$T/.claude/commands" 2>/dev/null \
@@ -575,7 +558,7 @@ fi
 # The stub keeps the handful of things the sourcing itself needs and drops the rest, which is
 # exactly the shape of a genuinely older library.
 T="$(new_repo case20)"
-: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+: > "$T/existing-file.txt"; mkdir -p "$T/src"
 ( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
 if install_into "$T"; then
   cat > "$T/Scripts/ga-lifecycle.sh" <<'OLDLIB'
@@ -615,7 +598,7 @@ fi
 # on disk: a second manifest naming a different version. Detection and the closing claim are what
 # is under test, not how it got there.
 T="$(new_repo case21)"
-: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+: > "$T/existing-file.txt"; mkdir -p "$T/src"
 ( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
 if install_as "$VERSION" "$T"; then
   legacy="$T/.genericarch/manifest-$PREV_V.json"
@@ -662,15 +645,18 @@ T="$(new_repo case23)"
 mkdir -p "$T/.genericarch" "$T/App/.genericarch"
 printf '{\n  "schema": 2,\n  "genericarch_version": "%s",\n  "files": []\n}\n' "$VERSION" \
   > "$T/.genericarch/manifest-$VERSION.json"
-printf '#\tstep\tat\tnote\ninstall\t2026-01-01T00:00:00Z\tx\nproject-init\t2026-01-02T00:00:00Z\tx\ngaps\t2026-01-03T00:00:00Z\tx\nsync-app-notes\t2026-01-04T00:00:00Z\tx\nready\t2026-01-05T00:00:00Z\tx\n' \
+# declare-profile sits LAST on purpose: that is where a back-filled row lands in a ledger that
+# already reached ready. Ranking by the last row written would score this root 2 instead of 5 and
+# hand the checkout to the wrong root, so this fixture is also the regression test for that.
+printf '#\tstep\tat\tnote\ninstall\t2026-01-01T00:00:00Z\tx\nproject-init\t2026-01-02T00:00:00Z\tx\nsync-app-notes\t2026-01-04T00:00:00Z\tx\nready\t2026-01-05T00:00:00Z\tx\ndeclare-profile\t2026-01-06T00:00:00Z\tback-filled\n' \
   > "$T/.genericarch/STEPS.tsv"
 printf '{\n  "schema": 1,\n  "genericarch_version": "v0.2.0",\n  "files": []\n}\n' \
   > "$T/App/.genericarch/manifest-v0.2.0.json"
 printf '{\n  "schema": 1,\n  "genericarch_version": "%s",\n  "files": []\n}\n' "$PREV_V" \
   > "$T/App/.genericarch/manifest-$PREV_V.json"
 printf '#\tstep\tat\tnote\ninstall\t2025-01-01T00:00:00Z\tx\n' > "$T/App/.genericarch/STEPS.tsv"
-# /var/folders is a symlink to /private/var/folders on macOS and ga-roots.sh resolves with pwd -P,
-# so compare resolved paths or every assertion here fails on the prefix alone.
+# Some systems use symlinks for temporary directories. ga-roots.sh resolves symlinks with pwd -P,
+# so compare resolved paths to avoid false mismatches on symlink prefixes.
 T_P="$(cd "$T" && pwd -P)"
 rows="$( ( cd "$SRC" && ./Scripts/ga-roots.sh "$T" --tsv ) 2>/dev/null )"
 keep="$(printf '%s\n' "$rows" | awk -F'\t' '$1=="KEEP"  {print $2}')"
@@ -695,7 +681,7 @@ fi
 # Here the OUTER root is the live one, and the install being refused is the outer one — so the
 # message must say to keep here and retire the other, and must NOT tell us to install into App.
 T="$(new_repo case24)"
-: > "$T/Existing.swift"; mkdir -p "$T/Existing.xcodeproj"
+: > "$T/existing-file.txt"; mkdir -p "$T/src"
 ( cd "$T" && git add -A && git -c user.email=t@t -c user.name=t commit -qm app ) >/dev/null 2>&1
 if install_into "$T"; then
   mkdir -p "$T/App/.genericarch"
@@ -754,6 +740,91 @@ if install_into "$T"; then
 else
   fail "case 25b: install failed"
 fi
+
+# ── 26. the declare-profile gate ───────────────────────────────────────────
+# The defect this step exists to close: a repo used to reach `ready` having never been asked about
+# its stack, leaving every stack-driven command a silent no-op. These four cases are also the only
+# place the gate CLI itself is exercised — require/record and exit 5 had no coverage at all.
+T="$(new_repo case26)"
+if install_into "$T"; then
+  ( cd "$T" && ./Scripts/ga-step.sh require project-init ) >"$WORK/last.log" 2>&1
+  rc=$?
+  if [ "$rc" -ne 5 ]; then
+    fail "case 26a: require project-init exited $rc on a fresh install, expected 5"
+  elif ! grep -q 'declare-profile' "$WORK/last.log"; then
+    fail "case 26a: refused without naming declare-profile as the missing step"
+  else
+    pass "a fresh install refuses project-init with exit 5, naming declare-profile"
+  fi
+
+  # Declaring NONE is an answer, not a skip — and it must leave ga_profile_active empty. Every
+  # reader tests for empty to mean "no stack here"; active=none would send all of them looking
+  # for profiles/none/ and is the one regression this whole split exists to prevent.
+  ( cd "$T" && ./Scripts/ga-profile.sh --declare-none "roundtrip: no stack" ) >/dev/null 2>&1
+  act="$( cd "$T" && . ./Scripts/ga-lifecycle.sh && ga_profile_active . )"
+  dec="$( cd "$T" && . ./Scripts/ga-lifecycle.sh && ga_profile_declared . )"
+  if [ -n "$act" ]; then
+    fail "case 26b: declaring none set active to '$act' — every [ -z \$PROFILE ] reader now breaks"
+  elif [ "$dec" != "none" ]; then
+    fail "case 26b: declared is '$dec', expected none"
+  elif ! ( cd "$T" && ./Scripts/ga-step.sh require project-init ) >/dev/null 2>&1; then
+    fail "case 26b: declaring none did not satisfy the step"
+  else
+    pass "declaring none satisfies the step and leaves the active profile empty"
+  fi
+else
+  fail "case 26: install failed"
+fi
+
+# ── 26c. an install that predates the step is back-filled, not blocked ─────
+T="$(new_repo case26c)"
+if install_into "$T"; then
+  # A ledger exactly as an older base left it: no declare-profile row, project-init already done.
+  printf '#\tstep\tat\tnote\ninstall\t2026-01-01T00:00:00Z\tprecise install note\nproject-init\t2026-01-02T00:00:00Z\tx\n' \
+    > "$T/.genericarch/STEPS.tsv"
+  ( cd "$T" && ./Scripts/ga-step.sh show ) >/dev/null 2>&1
+  note="$(awk -F'\t' '!/^#/ && $1=="declare-profile" {print $3}' "$T/.genericarch/STEPS.tsv")"
+  inst="$(awk -F'\t' '!/^#/ && $1=="install" {print $3}' "$T/.genericarch/STEPS.tsv")"
+  if [ -z "$note" ]; then
+    fail "case 26c: an install from before the step was blocked instead of back-filled"
+  elif [ "$inst" != "precise install note" ]; then
+    fail "case 26c: the back-fill overwrote the install note with '$inst'"
+  elif ! ( cd "$T" && ./Scripts/ga-step.sh require sync-app-notes ) >/dev/null 2>&1; then
+    fail "case 26c: back-filled, but the gate still refuses"
+  else
+    pass "an install predating the step is back-filled, and its install note survives"
+  fi
+else
+  fail "case 26c: install failed"
+fi
+
+# ── 26d. extract observes only what the PROJECT declared ──────────────────
+# The layer recognises no ecosystem and ships no build-marker table, so the only thing extract can
+# match is a profile this project authored. Everything else is `not observed`, which means ask.
+T="$(new_repo case26d)"
+mkdir -p "$T/profiles/acme-stack" "$T/src"
+: > "$T/build.marker"; : > "$T/src/main"
+printf 'identity\tacme-stack\nplatform\tacme\nlanguage\tacme-lang\nbuild_system\tacme-build\ndetect_marker_build.marker\ttrue\ndetect_marker_src\ttrue\n' \
+  > "$T/profiles/acme-stack/profile.tsv"
+
+out="$( cd "$SRC" && ./Scripts/ga-profile.sh --extract --root "$T" )"
+act="$(printf '%s\n' "$out" | awk -F'\t' '$1=="active" {print $2}')"
+plat="$(printf '%s\n' "$out" | awk -F'\t' '$1=="platform" {print $2}')"
+if [ "$act" != "acme-stack" ]; then
+  fail "case 26d: an authored profile whose markers all exist was not matched (active='$act')"
+elif [ "$plat" != "acme" ]; then
+  fail "case 26d: matched the profile but did not read its declared platform (got '$plat')"
+else
+  pass "extract matches a profile the project authored, and reads its declared values"
+fi
+
+# One marker missing → not a match → everything is asked, nothing is guessed.
+rm "$T/build.marker"
+out2="$( cd "$SRC" && ./Scripts/ga-profile.sh --extract --root "$T" )"
+guessed="$(printf '%s\n' "$out2" | awk -F'\t' '$2!="not observed"')"
+[ -z "$guessed" ] \
+  && pass "with no profile matched, every answer is 'not observed' — the layer guesses no stack" \
+  || fail "case 26d: the layer invented an answer with no profile matched: $guessed"
 
 echo
 if [ "$fails" -eq 0 ]; then

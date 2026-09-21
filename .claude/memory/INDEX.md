@@ -18,9 +18,9 @@ checkout, and a second developer.
 | `user` | **No** | Who a developer is, and their preferences, is per-person — it stays in Claude's own machine-local store and is never committed |
 
 **Do not store what the repo already records.** Hard rules are CLAUDE.md §2, doc conventions are
-[STRUCTURE.md](../../docs/STRUCTURE.md), code conventions are
-[CONVENTIONS.md](../../docs/CONVENTIONS.md), settled decisions are
-[DECISIONS.md](../../docs/DECISIONS.md). A rule written in two places drifts, and the copy that goes
+[STRUCTURE.md](/docs/reference/STRUCTURE.md)(../../docs/STRUCTURE.md), code conventions are the
+active profile's, settled decisions are
+[DECISIONS.md](/docs/decisions/DECISIONS.md)(../../docs/DECISIONS.md). A rule written in two places drifts, and the copy that goes
 stale is the one nobody is reading.
 
 ## Format
@@ -45,7 +45,7 @@ Convert relative dates to absolute — "last week" is unreadable in six months.
 
 | Memory | What it holds |
 |---|---|
-| [`claude-md-section-numbers-are-load-bearing.md`](claude-md-section-numbers-are-load-bearing.md) | ~380 repo-wide §N citations — shrink CLAUDE.md bodies, never move a heading |
-| [`per-feature-router-shape.md`](per-feature-router-shape.md) | One router enum per feature, `path` in an extension — the shape that found 0 endpoints until scan-api-map.py got a second pass |
+| [`comprehensive-cleanup-preference.md`](comprehensive-cleanup-preference.md) | For cleanup/removal tasks, map exhaustively first, fix all at once, commit once—not incrementally. Binary completeness required |
+| [`claude-md-section-numbers-are-load-bearing.md`](claude-md-section-numbers-are-load-bearing.md) | ~190 repo-wide §N citations — shrink CLAUDE.md bodies, never move a heading |
 | [`openspec-upstream-moves-fast.md`](openspec-upstream-moves-fast.md) | The five upstream-dependent assumptions the OpenSpec bridge rests on — re-verify this table, don't re-derive it |
 | `skill-description-optimizer-needs-low-concurrency.md` | Cap --num-workers or the optimizer dies on rate limits; needs python3.12 and the claude CLI |

@@ -5,8 +5,8 @@ description: Use when work touches an external platform reached through a connec
 
 # External platform profile
 
-**If the resource is inside this repo, stop and say so** — a local file, a package, `git`, the
-simulator and the repo's own `Scripts/` are not platforms, and none of them earns a profile.
+**If the resource is inside this repo, stop and say so** — a local file, a package, `git`, a local
+runtime and the repo's own `Scripts/` are not platforms, and none of them earns a profile.
 Recording *why* a vendor was adopted is `/learn`'s job, not this one.
 
 This file is the decision procedure. The detail lives outside it so it is not re-read on every
@@ -16,7 +16,7 @@ fire — go to the one you need:
 |---|---|
 | [`references/generated-skills-note.md`](references/generated-skills-note.md) | **First, always** — the registry of platforms already profiled |
 | [`.claude/tools/<tool>.md`](../../tools/) | The registry named one — it holds that platform's attributes and connectivity |
-| [TOOL-PROFILES.md](../../../docs/TOOL-PROFILES.md) | Writing, extending or retiring a profile: the schema, the failure thresholds, the removal rule |
+| [TOOL-PROFILES.md](/docs/reference/TOOL-PROFILES.md)(../../../docs/TOOL-PROFILES.md) | Writing, extending or retiring a profile: the schema, the failure thresholds, the removal rule |
 | [`.claude/tools/CLAUDE.md`](../../tools/CLAUDE.md) | Editing anything in that directory |
 
 One profile per platform, so the per-platform files *are* the variant layer — a new platform adds
@@ -104,7 +104,7 @@ means proposing retirement.
 ```
 
 Never `rm`. This moves the profile **and** its recipe to `.genericarch/safetodelete/` and
-tombstones both, so no later run re-creates either (CLAUDE.md §2.15). `--revive --apply` restores
+tombstones both, so no later run re-creates either (CLAUDE.md §2.5). `--revive --apply` restores
 both — reviving one leaves the other tombstoned while `generate` re-creates it.
 
 ## Before finishing
@@ -114,7 +114,7 @@ both — reviving one leaves the other tombstoned while `generate` re-creates it
 - [ ] `Observed` carries a real date on every filled row
 - [ ] Connectivity records both branches — wired, and what is reachable unwired
 - [ ] All four index rows landed: `SCRIPTS.tsv`, `MAP.tsv`, `INDEX.md`, the registry note
-- [ ] No credentials, tokens or response bodies anywhere in the profile (CLAUDE.md §8)
+- [ ] No credentials, tokens or response bodies anywhere in the profile — recorded nowhere
 - [ ] No meta-commentary in the profile or the script — that went to `.claude/log.md`:
       `./Scripts/ga-log.sh --decided "…" --why "…" --how "…"`
 - [ ] `./Scripts/claude-utils/register-scripts.sh --check` exits 0

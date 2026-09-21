@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Append one decision entry to .claude/log.md under the current session, so no reusable file carries meta-commentary.
 #@usage     ga-log.sh --decided "<what>" --why "<reason>" [--how "<approach>"] [--session NAME] [--list]

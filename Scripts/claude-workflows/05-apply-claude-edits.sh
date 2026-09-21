@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      workflow
-#@platform  macos
+#@platform  any
 #@claude    needs-approval
 #@purpose   PHASE 5 edit: apply the plan as exact-literal replacements, backed up, all-or-nothing.
 #@usage     05-apply-claude-edits.sh <project> <task-id> [--approve] [--force]

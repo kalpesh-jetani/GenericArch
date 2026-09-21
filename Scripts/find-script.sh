@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Intent phrase to the registered script that answers it, scored against the registry.
 #@usage     find-script.sh "<intent in 3-8 words>" [--all] [--min N]

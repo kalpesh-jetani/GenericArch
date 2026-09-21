@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      workflow
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   PHASE 6 verify: front matter, table columns, internal links, formatting lint.
 #@usage     06-verify-claude-syntax.sh <project> <task-id> [--fix] [--max-line N]

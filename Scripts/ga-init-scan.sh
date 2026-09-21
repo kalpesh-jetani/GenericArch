@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Gather everything /project-init can establish without asking — mode, toolchain mismatches, rule-conflict evidence, name collisions, routable-path resolvability — so the command reviews findings instead of running scans.
 #@usage     ga-init-scan.sh [<target-dir>] [--write] [--check] [--quiet]
@@ -22,7 +22,7 @@
 #
 # What it deliberately does NOT do:
 #   - record the project-init step. That would mark the asking done when no asking happened, and
-#     unblock /gaps against rules nobody accepted (docs/SEQUENCE.md).
+#     (docs/SEQUENCE.md).
 #   - classify a conflict. Counts and paths are facts; "hard" versus "soft" is a judgement that
 #     belongs to ADOPTION.md §A2 and the user.
 #   - write CLAUDE.md, DECISIONS.md, settings.json, or remove anything. It proposes; the command
@@ -50,9 +50,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# Same order as install.sh: the platform gate before anything is read, so a Linux run says why
-# instead of failing later on a missing xcode-select.
-ga_require_macos
+# Same order as install.sh: the host gate before anything is read, so a machine without a SHA-256
+# tool says why up front instead of failing partway through.
+ga_require_host
 
 TARGET="${TARGET:-$SRC}"
 [ -d "$TARGET" ] || ga_die "no such directory: $TARGET" "$GA_EX_USAGE"
@@ -73,7 +73,7 @@ if [ "$CHECK" -eq 1 ]; then
     exit "$GA_EX_ERR"
   fi
   NEWER="$(find "$TARGET" \
-    \( -name .git -o -name .build -o -name .evidence -o -name Pods -o -name DerivedData \) -prune -o \
+    \( -name .git -o -name .build -o -name .evidence \) -prune -o \
     -type f -newer "$ART" -print 2>/dev/null | head -3)"
   if [ -n "$NEWER" ]; then
     ga_warn "the evidence artifact is older than the tree it describes:"
@@ -87,11 +87,9 @@ fi
 # ── Shared scanning primitives ────────────────────────────────────────────
 # One exclusion list for every grep and find below. Vendored trees hold other people's code, and
 # counting it as this repo's evidence is how a conflict row reports a migration nobody has to do.
-PRUNE='-name .git -o -name .build -o -name .swiftpm -o -name Pods -o -name Carthage
-       -o -name DerivedData -o -name node_modules -o -name safetodelete -o -name .evidence'
-GX="--exclude-dir=.git --exclude-dir=.build --exclude-dir=.swiftpm --exclude-dir=Pods
-    --exclude-dir=Carthage --exclude-dir=DerivedData --exclude-dir=node_modules
-    --exclude-dir=safetodelete --exclude-dir=.evidence"
+PRUNE='-name .git -o -name .build
+       -o -name node_modules -o -name target -o -name vendor
+       -o -name safetodelete -o -name .evidence'
 
 FAILED=0
 ROUTE_ISSUES=0
@@ -101,23 +99,6 @@ handoff() {  # handoff <cause> — a generator gave up; diagnose it, never emit 
     "$SRC/Scripts/ga-handoff.sh" "Scripts/ga-init-scan.sh" 1 --cause "$1" --file "$TARGET" >/dev/null 2>&1 || true
   fi
   ga_warn "$1"
-}
-
-S_SITES=0; S_FILES=0; S_EX=""
-scan() {  # scan <pattern> [include-glob] → S_SITES (occurrences) S_FILES S_EX (up to 3 paths)
-  _pat="$1"; _inc="${2:-*.swift}"
-  S_SITES=0; S_FILES=0; S_EX=""
-  _t="$(mktemp "${TMPDIR:-/tmp}/ga-scan.XXXXXX")" || { handoff "cannot create a temp file in ${TMPDIR:-/tmp}"; return 1; }
-  # -c prints path:count for every file including the zeros, so the filter is ours. -I skips
-  # binaries, which a .xcodeproj directory is full of.
-  # shellcheck disable=SC2086  # deliberate word splitting of the exclusion list
-  grep -RIc $GX --include="$_inc" -e "$_pat" "$TARGET" 2>/dev/null \
-    | awk -F: '$NF+0>0' > "$_t"
-  S_SITES="$(awk -F: '{n+=$NF} END{print n+0}' "$_t")"
-  S_FILES="$(wc -l < "$_t" | tr -d ' ')"
-  S_EX="$(sed 's/:[0-9]*$//' "$_t" | head -3 | sed "s|^$TARGET/||" | paste -sd';' -)"
-  rm -f "$_t"
-  [ "$S_SITES" -gt 0 ]
 }
 
 F_COUNT=0; F_EX=""
@@ -170,17 +151,17 @@ say "## mode"
 say ""
 say "\`$MODE\` — derived from the same gate \`install.sh\` uses (\`ga_check_compatible\`), so the two cannot disagree."
 say ""
+say "It says whether the tree has anything in it, and nothing about which stack. **The layer detects no"
+say "ecosystem** — language, build system and dependency managers are declared at \`/declare-profile\`."
+say ""
 say "| Fact | Value |"
 say "|---|---|"
-say "| Apple markers found |${GA_COMPAT_FOUND:- none} |"
-say "| Non-Swift build files |${GA_COMPAT_FOREIGN:- none} |"
 say "| Commits | $COMMITS |"
-say "| \`Packages/\` | $([ -d "$TARGET/Packages" ] && echo present || echo absent) |"
 say "| \`.genericarch/\` manifest | $([ -n "$MANIFEST" ] && printf '%s' "${MANIFEST#"$TARGET"/}" || echo absent) |"
 say ""
 
 # Their CLAUDE.md files, with size — A1 reads these in full, and the line count is what says
-# whether the §5 four-way split is worth offering.
+# whether the CLAUDE.md is large enough that a split is worth offering.
 say "**CLAUDE.md files** (A1 reads each in full — this is only where they are and how big):"
 say ""
 # shellcheck disable=SC2086
@@ -231,7 +212,7 @@ for kind in skills commands; do
 done
 if [ -f "$_from/.claude/MAP.tsv" ]; then
   _pat="$(awk -F'\t' '$2=="pattern"{n++} END{print n+0}' "$_from/.claude/MAP.tsv")"
-  say "- **patterns waiting in \`docs/patterns/\`:** $_pat — each becomes a skill via \`/learn <name>\` once the code it describes exists"
+  say "- **patterns indexed:** $_pat — each becomes a skill via \`/learn <name>\` once the code it describes exists"
 fi
 say ""
 
@@ -267,73 +248,16 @@ say ""
 # when it is really a scan of a repo with nothing to find.
 say "## conflicts"
 say ""
-say "Evidence for the \`docs/ADOPTION.md\` §A2 table. **No severity column** — classifying these is"
-say "A2's job, and A3 still asks per row with its four options. Absent signals are omitted."
+say "A conflict is where the target's existing conventions meet the **active profile's** rules. The"
+say "profile declares what it enforces; with no profile declared the layer imposes nothing, so there"
+say "is nothing to reconcile — /project-init records the target's own conventions as it adopts. Once a"
+say "profile is declared its rules drive this section (docs/DECISIONS.md → Open: the profile contract)."
 say ""
-say "| Signal | Evidence | Where (first 3) | Conflicts with | What this count does NOT establish |"
-say "|---|---|---|---|---|"
-
-files_named Podfile Cartfile Podfile.lock \
-  && conflict "CocoaPods / Carthage" "$F_COUNT manifest(s)" "$F_EX" "SPM only (§1)" \
-       "whether the pods are still used or are a leftover lockfile"
-
-files_named Project.swift Workspace.swift project.yml \
-  && conflict "Tuist / XcodeGen" "$F_COUNT manifest(s)" "$F_EX" "SPM-generated (§1, REPO.md)" \
-       "nothing — the manifest's presence is the conflict"
-
-files_named '*.storyboard' '*.xib' \
-  && conflict "Storyboards / xibs" "$F_COUNT file(s)" "$F_EX" "SwiftUI only (§1)" \
-       "how many screens they hold; one storyboard can carry twenty"
-
-scan '^import UIKit' \
-  && conflict "UIKit imports" "$S_FILES file(s)" "$S_EX" "SwiftUI only (§1)" \
-       "which are legitimate Representable wrappers, which §1 allows"
-
-scan '^import Combine' \
-  && conflict "Combine" "$S_FILES file(s)" "$S_EX" "async/await only (§1, §6)" \
-       "whether these are @Published in view models or real pipelines"
-
-scan '@escaping.*->' \
-  && conflict "Completion handlers" "$S_SITES site(s) in $S_FILES file(s)" "$S_EX" "async/await only (§6)" \
-       "which are callbacks a framework demands rather than choices, and which are already async wrappers"
-
-scan 'UIAlertController\|\.alert(\|\.confirmationDialog(' \
-  && conflict "Direct alerts / sheets" "$S_SITES call site(s)" "$S_EX" "one MessagePresenting (§2.4)" \
-       "the migration cost per site; a bound \`.alert\` is not a one-line change"
-
-scan 'Text("[A-Za-z]' \
-  && conflict "Literal strings in Text" "$S_SITES site(s) in $S_FILES file(s)" "$S_EX" "localized keys (§2.3)" \
-       "which literals are user-facing — SwiftUI's LocalizedStringKey overload makes some already keyed"
-
-scan 'import Swinject\|import Factory\|import Resolver\|Resolver\.\|Container()' \
-  && conflict "Third-party DI" "$S_FILES file(s)" "$S_EX" "own typed registry, DIKit (§2.6)" \
-       "how pervasive it is; DI shows up at every construction site, not just the imports"
-
-scan '\.shared\b' \
-  && conflict "Singletons" "$S_SITES reference(s)" "$S_EX" "protocol injection (§2.6)" \
-       "which are Apple's own (FileManager.default-style) and perfectly fine"
-
-scan 'Interactor\|Presenter\|Router\|Coordinator' \
-  && conflict "VIPER / Clean / Coordinator markers" "$S_FILES file(s)" "$S_EX" "MVVM + @Observable, layered (§0, §3)" \
-       "the actual pattern — a name is a hint, and Router also means Navigation here"
-
-scan '^import XCTest' \
-  && conflict "XCTest" "$S_FILES file(s)" "$S_EX" "Swift Testing for new code (§9)" \
-       "nothing — §9 already allows both to coexist, and XCTest stays for UI tests"
-
-scan 'platforms:' 'Package.swift' \
-  && conflict "Declared platform floors" "$S_FILES Package.swift" "$S_EX" "whatever Package.swift declares (§1.1)" \
-       "whether they agree with each other or with the .xcconfig floors — compare against §toolchain"
-
-files_named '*.xcodeproj' && [ "$F_COUNT" -gt 1 ] \
-  && conflict "Multiple Xcode projects" "$F_COUNT" "$F_EX" "single repo + two extracted (§4)" \
-       "whether they are one product or several sharing a checkout"
-
-[ -f "$TARGET/.gitmodules" ] \
-  && conflict "Git submodules" "$(grep -c '^\[submodule' "$TARGET/.gitmodules" 2>/dev/null || echo '?')" ".gitmodules" \
-       "single repo + two extracted (§4)" "whether the submodules are vendor code or the product's own"
-
-[ "$N_CONFLICTS" -eq 0 ] && say "| — | no signals found | — | — | an empty table on a repo with code means the greps missed, not that nothing conflicts |"
+if [ -z "$(ga_profile_active "$TARGET")" ]; then
+  say "_No stack profile declared — no layer-imposed conventions to reconcile._"
+else
+  say "_Profile declared; its conflict rules are not wired yet._"
+fi
 say ""
 
 # ── §collisions ───────────────────────────────────────────────────────────
@@ -396,9 +320,8 @@ else
   # These cannot be fetched: Claude Code discovers skills and commands from the filesystem, and a
   # map you must fetch first cannot route you to itself.
   for f in .claude/MAP.tsv .claude/INDEX.md .claude/memory/INDEX.md \
-           Scripts/check.sh Scripts/find.sh Scripts/scan-api-map.py \
-           Scripts/notes-staleness.sh Scripts/scan-colors.py \
-           Scripts/scan-unused-assets.py Scripts/scan-fonts.py; do
+           Scripts/check.sh Scripts/find.sh \
+           Scripts/notes-staleness.sh Scripts/scan-fonts.py; do
     [ -e "$TARGET/$f" ] || printf 'MISSING-LOCAL  %s\n' "$f" >> "$RT"
   done
   for d in .claude/skills .claude/commands .claude/notes; do
@@ -445,32 +368,28 @@ else
 fi
 say ""
 
-# ── §root-package-docs ────────────────────────────────────────────────────
-# S2c: this base ships no per-package docs. One at the repo root reads as current and describes
-# code that may not be there, which is the loop it was retired to close — a package's doc belongs
+# ── §root-module-docs ───────────────────────────────────────────────────────
+# S2c: this layer ships no per-module docs. One at the repo root reads as current and describes
+# code that may not be there, which is the loop it was retired to close — a module's doc belongs
 # beside its code. Anything found here came from an install older than that decision. The removal
-# is gated (§2.15) — this prints the exact command and runs none of it.
-say "## root-package-docs"
+# is gated (§2.5) — this prints the exact command and runs none of it.
+say "## root-module-docs"
 say ""
 ORPH=0
 if [ -d "$TARGET/docs/modules" ]; then
   for f in "$TARGET/docs/modules"/*.md; do
     [ -e "$f" ] || continue
     _pkg="$(basename "$f" .md)"
-    case "$_pkg" in Features|Wrappers|README) continue ;; esac
+    case "$_pkg" in README) continue ;; esac
     ORPH=$((ORPH + 1))
-    if [ -d "$TARGET/Packages/$_pkg" ]; then
-      say "- \`docs/modules/$_pkg.md\` — move it beside the code as \`Packages/$_pkg/$_pkg.md\`"
-    else
-      say "- \`docs/modules/$_pkg.md\` — no \`Packages/$_pkg\` in this product"
-    fi
+    say "- \`docs/modules/$_pkg.md\` — move it beside the module's code, or decline it"
     say "  \`\`\`bash"
-    say "  ./Scripts/ga-remove.sh docs/modules/$_pkg.md --reason \"per-package docs live beside the code\" --apply"
+    say "  ./Scripts/ga-remove.sh docs/modules/$_pkg.md --reason \"module docs live beside the code\" --apply"
     say "  \`\`\`"
   done
 fi
 if [ ! -d "$TARGET/docs/modules" ]; then
-  say "None — correct. This base ships no per-package docs; the layer shape is \`docs/REPO.md\`."
+  say "None — correct. This layer ships no per-module docs; a module's doc belongs beside its code (\`docs/STRUCTURE.md\`)."
 elif [ "$ORPH" -eq 0 ]; then
   say "None — nothing left at the root."
 else

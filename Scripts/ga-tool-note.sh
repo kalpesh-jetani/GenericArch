@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Find an external platform's attribute profile, or scaffold, extend, unregister and retire one.
 #@usage     ga-tool-note.sh --find <tool> | <tool> [--extend] [--observe "a|unit|acc|method|scope"]... [--apply] | <tool> --fail --cause T | <tool> --unregister|--retire --reason T | <tool> --revive [--apply] | --list | --sync
@@ -396,7 +396,7 @@ fi
 cat > "$RECIPE" <<'RECIPE'
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Print the recorded access recipe for @@PLATFORM@@, wired and unwired.
 #@usage     @@TOOL@@.sh [--unwired] [--attributes]

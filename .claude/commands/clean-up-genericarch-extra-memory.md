@@ -36,7 +36,7 @@ reconciliation and the run becomes impossible to review, and impossible to undo 
 conflict answer changes. Separating it also means the token cost is paid once, deliberately, instead
 of on every adoption run.
 
-**`./Scripts/ga-remove.sh` is the only way to delete an installed file** (CLAUDE.md §2.15). Never
+**`./Scripts/ga-remove.sh` is the only way to delete an installed file** (CLAUDE.md §2.5). Never
 `rm`. A file deleted by hand carries no record saying it was declined, so the next install cannot
 tell it from a file that was never there — that flip happened four times in one adoption.
 
@@ -111,7 +111,7 @@ Dry run first, always. Without `--apply` it prints the plan and writes nothing:
 ```
 
 **Removing a rule from `CLAUDE.md` needs its own explicit approval** — show the exact text and wait
-(§12, [STRUCTURE.md](../../docs/STRUCTURE.md)). A rule is not a file, and this command's authority
+(§4, [STRUCTURE.md](/docs/reference/STRUCTURE.md)(../../docs/STRUCTURE.md)). A rule is not a file, and this command's authority
 over files does not extend to it.
 
 `ga-remove.sh` reports prose references it cannot safely rewrite, with file and line. **Those are

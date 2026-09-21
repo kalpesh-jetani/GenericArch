@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #@kind      lib
-#@platform  macos
+#@platform  any
 #@claude    call
-#@purpose   Shared library: exit codes, artifact layout, markdown parsing, Xcode helpers. Sourced, never executed.
+#@purpose   Shared library for the CLAUDE.md task pipeline: exit codes, artifact layout, markdown parsing. Sourced, never executed.
 #@usage     . Scripts/claude-utils/_common.sh
 #@in        n/a (sourced)
-#@out       functions: die warn ok info dim hdr usage_from kv_set kv_get count_rows count_match md_sections md_symbols xed_hint xcode_container xcode_schemes state_set need_artifact require_project
-#@exit      78=not macOS
-#@effects   none; enforces the macOS guard for every caller
+#@out       functions: die warn ok info dim hdr usage_from kv_set kv_get count_rows count_match md_sections md_symbols xed_hint state_set need_artifact require_project
+#@exit      n/a (sourced)
+#@effects   none
 # Shared helpers for the CLAUDE.md task pipeline. SOURCED, never executed.
 #
 #   . "$(dirname "$0")/../claude-utils/_common.sh"
@@ -17,10 +17,8 @@
 # and a pipeline whose phases disagree about what "failed" means cannot be run
 # unattended.
 #
-# macOS ONLY, and written to that assumption: bash 3.2 (no associative arrays, no
-# mapfile, no ${var^^}), BSD sed (`sed -i ''`), BSD awk (byte-counting length()),
-# `shasum`, `xed`, `xcrun`. None of this is hedged for GNU userland — the guard
-# below stops the scripts rather than letting them half-work.
+# Runs on any POSIX host. The pipeline sticks to portable constructs — no associative arrays, no
+# mapfile, no ${var^^} — and reaches for a hash tool through ga-lifecycle (shasum or sha256sum).
 
 # Guard against double-sourcing: run-task.sh sources this, then invokes phases
 # that source it again as children. Harmless, but re-running the tty probe per
@@ -30,16 +28,8 @@ GA_COMMON_LOADED=1
 
 set -u
 
-# ── macOS only ─────────────────────────────────────────────────────────────
-# This pipeline targets Apple-platform development from Xcode, and its text
-# handling assumes BSD tools. On GNU userland `sed -i ''` corrupts arguments and
-# BSD/GNU awk disagree on length() — failures that look like bad data rather than
-# a wrong platform. Refuse up front instead.
-if [ "$(uname -s)" != Darwin ]; then
-  printf 'These scripts are macOS-only (found: %s).\n' "$(uname -s)" >&2
-  printf 'They assume bash 3.2, BSD sed/awk, shasum, and the Xcode command-line tools.\n' >&2
-  exit 78                                   # EX_CONFIG — wrong platform, not a bug
-fi
+# ── Host ─────────────────────────────────────────────────────────────────────
+# No OS gate: the pipeline runs on any POSIX host (portable constructs only, per the note above).
 
 # ── Exit codes ─────────────────────────────────────────────────────────────
 # A caller must be able to tell "this phase found problems" from "this phase
@@ -96,39 +86,17 @@ usage_from() {
   ' "$1"
 }
 
-# ── Xcode ──────────────────────────────────────────────────────────────────
-# xed_hint <file> [line] — the command that opens a finding where it lives.
-# Printed, never run: a script that took over the user's editor would be a
-# surprise, and §2.12 keeps this tooling out of the IDE's way.
-xed_hint() {
+# ── Editor hint ──────────────────────────────────────────────────────────────
+# editor_hint <file> [line] — a clickable reference to where a finding lives, as file:line.
+# Printed, never opened: a script that took over the user's editor would be a
+# surprise, and §2.8 keeps this tooling out of the IDE's way. file:line is what most
+# terminals and editors resolve, on any platform.
+editor_hint() {
   if [ -n "${2:-}" ]; then
-    printf 'xed -l %s %s\n' "$2" "$1"
+    printf '%s:%s\n' "$1" "$2"
   else
-    printf 'xed %s\n' "$1"
+    printf '%s\n' "$1"
   fi
-}
-
-# xcode_container <root> — the .xcworkspace, else the .xcodeproj, else empty.
-# Read off the filesystem; never shells out to xcodebuild, which would be a build
-# invocation (§2.12).
-xcode_container() {
-  for _x in "$1"/*.xcworkspace; do
-    [ -d "$_x" ] && { printf '%s\n' "$_x"; return 0; }
-  done
-  for _x in "$1"/*.xcodeproj; do
-    [ -d "$_x" ] && { printf '%s\n' "$_x"; return 0; }
-  done
-  return 0
-}
-
-# xcode_schemes <container> — shared scheme names, from the filenames on disk.
-# `xcodebuild -list` would be authoritative and would also be a build invocation.
-xcode_schemes() {
-  [ -n "${1:-}" ] || return 0
-  for _s in "$1"/xcshareddata/xcschemes/*.xcscheme; do
-    [ -f "$_s" ] || continue
-    printf '%s\n' "$(basename "$_s" .xcscheme)"
-  done
 }
 
 now()   { date +%Y-%m-%dT%H:%M:%S; }
@@ -278,8 +246,8 @@ need_cmd() {
 # ── Project registry ───────────────────────────────────────────────────────
 # projects.tsv columns: name  root  claude_md  test_cmd  source_glob
 registry_row() {
-  [ -f "$REGISTRY" ] || die "no project registry — run:
-    ./Scripts/claude-utils/init-claude-env.sh --add <name> <path>" "$EX_PRECOND"
+  [ -f "$REGISTRY" ] || die "no project registry — register a project by adding a row to
+    ${REGISTRY} (columns: name<TAB>root<TAB>claude_md<TAB>test_cmd<TAB>source_glob)" "$EX_PRECOND"
   awk -F'\t' -v n="$1" '$1==n {print; found=1} END {exit !found}' "$REGISTRY" \
     || die "unknown project '$1'. Registered:
 $(awk -F'\t' '!/^#/ {printf "    %s\t%s\n", $1, $2}' "$REGISTRY")" "$EX_USAGE"
@@ -360,9 +328,9 @@ md_symbols() {
         if (tok ~ /^[A-Za-z_][A-Za-z0-9_]*\(/) kind = "api"
         # type-like: UpperCamelCase carrying at least one lowercase letter
         else if (tok ~ /^[A-Z][A-Za-z0-9_]*$/ && tok ~ /[a-z]/)
-          kind = (tok ~ /(View|Screen|Cell|Button|Card|Row|Modifier|Style|Bar|Sheet|Kit)$/) \
+          kind = (tok ~ /(View|Screen|Cell|Button|Card|Row|Style|Bar|Sheet|Panel|Dialog)$/) \
                  ? "component" : "api"
-        # dotted member path, e.g. `URLSession.shared`
+        # dotted member path, e.g. `Client.shared`
         else if (tok ~ /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_]/) kind = "api"
         if (kind != "") printf "%s\t%d\t%s\t%s\n", kind, FNR, section_of(FNR), tok
       }

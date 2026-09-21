@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Verify the .claude/memory/ store: index bijection, frontmatter validity, no user-type leak.
 #@usage     verify-memory.sh [--dir DIR] [--quiet]

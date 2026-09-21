@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      lib
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Write a small, bounded failure report when a script fails, so the agent fixes it from the diagnosis instead of reading the script.
 #@usage     ga-handoff.sh <script> <exit-code> [--cause TEXT] [--file PATH] [--line N] [--got TEXT] [--want TEXT]
@@ -81,10 +81,9 @@ OUT="$DIR/$BASE-$n.md"
   # One process per fact, and no `head` inside the pipe: closing the pipe early makes the whole
   # pipeline fail under `pipefail`, so the `||` fallback fires and BOTH values get printed.
   printf '## This machine\n\n'
-  printf '```\nmacOS   %s\n' "$(sw_vers -productVersion 2>/dev/null || echo '?')"
-  printf 'python3 %s\n' "$(python3 -V 2>&1 | awk 'NR==1 {print $2; exit}')"
-  printf 'swift   %s\n' "$(swift --version 2>/dev/null | awk 'NR==1 {sub(/.*version /, ""); sub(/ .*/, ""); print; exit}')"
-  printf 'xcode   %s\n```\n\n' "$(xcodebuild -version 2>/dev/null | awk 'NR==1 {print $2; exit}')"
+  printf '```\nos      %s\n' "$(uname -sr 2>/dev/null || echo '?')"
+  printf 'shell   %s\n' "${BASH_VERSION:-sh}"
+  printf 'python3 %s\n```\n\n' "$(python3 -V 2>&1 | awk 'NR==1 {print $2; exit}')"
 
   printf '## What to do\n\n'
   printf '1. Change the **script** so this repo shape works — a per-repo special case in the script is\n'

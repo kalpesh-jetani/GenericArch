@@ -9,7 +9,7 @@ allowed-tools: Bash, Read, Grep, Glob
 ```
 
 **Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
-never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+never work around it. Order and why: [SEQUENCE.md](/docs/operations/SEQUENCE.md)(../../docs/SEQUENCE.md).
 
 Review a change you did not write.
 
@@ -40,41 +40,28 @@ Say in one line what the change does. If you cannot, that is the first finding.
 
 ## 2. Check what a linter cannot
 
-`./Scripts/check.sh` and SwiftLint already cover raw strings, force-unwraps, `.alert`, `#if DEBUG`
-in a feature, and the iOS floor. **Do not spend the review on those** — say "check.sh covers this"
-and move on. (Do not run it yourself — it compiles, CLAUDE.md §2.12.)
+The active profile's check command (`./Scripts/check.sh` runs it) already covers the mechanical
+rules a linter can express. **Do not spend the review on those** — say "check covers this"
+and move on. (Do not run it yourself — it may compile, CLAUDE.md §2.8.)
 
-Two structural checks a linter genuinely cannot make, worth running before you read:
+The active profile's rules drive the structural checks a linter cannot make — run whichever the
+profile declares. One holds on any stack: an inventory row that should have moved with the code and
+did not.
 
 ```bash
-CHANGED=$(git diff --name-only "$BASE"...HEAD -- '*.swift')
-
-# a feature importing a sibling feature (§2.1) — the manifest may not catch it yet
-printf '%s\n' "$CHANGED" | grep 'Packages/Features/' | while IFS= read -r f; do
-  [ -f "$f" ] && grep -nH '^import Feature' "$f"
-done
-
-# a note row that should have moved and did not (§5).
-# Written as an explicit if: `A && B || echo` also fires when A is false,
-# which reports a missing note row for a diff that touches no tracked code.
 FILES=$(git diff --name-only "$BASE"...HEAD)
-if printf '%s\n' "$FILES" | grep -qE '\.xcassets/|Route.*\.swift|/Views/'; then
-  printf '%s\n' "$FILES" | grep -q '^\.claude/notes/' \
-    || echo "FINDING: code changed that an inventory tracks, but no .claude/notes/ row moved"
-fi
+printf '%s\n' "$FILES" | grep -q '^\.claude/notes/' \
+  || echo "NOTE: check whether an inventory row should have changed with this diff, and did not"
 ```
 
 What needs a human-shaped read:
 
 | Look for | Because |
 |---|---|
-| A missing `ContentState` case | The screen renders nothing, and no rule catches which case is absent |
-| A new boolean beside `ContentState` | The state drift §2.5 exists to prevent |
-| An error mapped with the wrong `isRetryable` | A Retry button on a non-retryable failure |
-| A feature reaching for another feature's type | §2.1, and the manifest may not catch it yet |
-| A token added that duplicates an existing one | `style-guide` — nobody reconciles these later |
+| A violation of one of the active profile's rules that a linter cannot express | The profile states these; with no profile, only the neutral §2 rules apply |
+| An error mapped with the wrong retry semantics | A Retry affordance on a non-retryable failure |
 | A note row that should have changed and did not | The inventory silently goes stale |
-| A doc comment that restates the signature | Meta comment, not documentation |
+| A doc comment that restates the signature | Meta comment, not documentation (§2.7) |
 
 ## 3. Say what you are unsure about
 
@@ -90,6 +77,6 @@ Separate:
 ## 4. Never
 
 - **Never edit their branch.** Report; they decide.
-- **Never commit, push, or build** (§2.11, §2.12). Hand over the command if you want it run.
+- **Never commit, push, or build** (§2.2, §2.8). Hand over the command if you want it run.
 - **Never rewrite a decision that DECISIONS.md already settled** — if the change follows a recorded
   decision you disagree with, that is a `/decide` conversation, not a review comment.

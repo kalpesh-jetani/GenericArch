@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      util
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Find skills, commands and docs that quote what a task changed.
 #@usage     sync-claude-skill.sh <project> <task-id> [--write]

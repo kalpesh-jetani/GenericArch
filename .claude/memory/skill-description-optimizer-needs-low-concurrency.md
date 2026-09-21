@@ -8,7 +8,7 @@ metadata:
 Running `scripts/run_loop.py` (the skill description optimizer) needs three things that are not true by default here:
 
 - **`--num-workers 2`.** The default spawned 24 concurrent `claude -p` processes and the run died in iteration 2 with `RuntimeError: claude -p exited 1`. A single `claude -p` smoke test passed both before and after, so the cause is rate limiting under concurrency, not auth.
-- **`python3.12`.** The default `python3` is 3.9 from Xcode, and `improve_description.py` uses `str | None` (PEP 604), so it fails at import under 3.9.
+- **`python3.12`.** The default `python3` is often an older 3.9, and `improve_description.py` uses `str | None` (PEP 604), so it fails at import under 3.9.
 - **The `claude` CLI**, which was absent — `npm i -g @anthropic-ai/claude-code` puts it at `/opt/homebrew/bin/claude`.
 
 Write the run log somewhere outside the session scratchpad: that directory is session-scoped, and a session restart deleted a finished run's log. The eval set survives because it is tracked at `.claude/skills/tool-profile/evals/trigger-eval.json`.

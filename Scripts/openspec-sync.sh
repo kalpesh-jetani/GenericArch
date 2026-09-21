@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Project this repo's own architecture rules into an OpenSpec config fragment, and report what OpenSpec knows that the notes do not. Computes and verifies; writes nothing.
 #@usage     openspec-sync.sh [target-dir] [--check] [--tsv]
@@ -74,11 +74,11 @@ row() { [ "$TSV" -eq 1 ] && printf '%s\t%s\t%s\n' "$1" "$2" "$3"; }
 # after it is elaboration that costs a re-send on every artifact command. The §N number is kept
 # deliberately — it is how an agent gets from the headline back to the full text, and ~380 places
 # in this repo cite rules that way.
-# CLAUDE.md is not always at the install root. An Xcode project often sits in a subdirectory of its
+# CLAUDE.md is not always at the install root. A project often sits in a subdirectory of its
 # checkout and the rules file goes beside it — Scripts/find.sh makes the same allowance for
 # .claude/notes/, and a real install found this way round: root `.claude/`, rules one level down.
 # Assuming the root silently projected ZERO rules, which is worse than failing, so: prefer the root,
-# otherwise take the shallowest and name it. §2.16 component files sit deeper and lose the sort.
+# otherwise take the shallowest and name it. §2.6 component files sit deeper and lose the sort.
 claude_md() {
   if [ -f CLAUDE.md ]; then printf 'CLAUDE.md\n'; return 0; fi
   find . -maxdepth 3 -name CLAUDE.md -not -path './.build/*' -not -path './.git/*' 2>/dev/null \
@@ -191,7 +191,7 @@ projection() {
   esac
   printf '  %s\n' "$MARK_OPEN"
   echo "  This repo's architecture rules. Full text and rationale: $_cite,"
-  echo "  docs/DECISIONS.md, docs/DONE.md. Route a lookup with .claude/MAP.tsv or ./Scripts/find.sh."
+  echo "  docs/DECISIONS.md. Route a lookup with .claude/MAP.tsv or ./Scripts/find.sh."
   # Only claim a section that has content. An earlier version printed the heading unconditionally,
   # so a repo whose rules file was not where it looked emitted "Rules that must never be broken:"
   # followed by nothing — which reads as "there are none", the opposite of the truth.
@@ -240,7 +240,7 @@ os_json() {  # os_json <subcommand...> ; prints JSON on success, nothing on any 
 # past.
 #
 # An ISSUE, and nothing else. No branch, no commit, no PR — filing an issue touches no history, so
-# §2.11 is not in play here and needs no exception. The fix itself is ordinary work afterwards.
+# §2.2 is not in play here and needs no exception. The fix itself is ordinary work afterwards.
 #
 # Printed, never run: this script is read-only by contract (#@effects), and opening an issue posts
 # to a public tracker. /openspec-install may run it after showing you the text.
@@ -338,7 +338,7 @@ reverse_pass() {
   fi
 
   for c in $names; do
-    say "  ${GA_YEL}IN-FLIGHT${GA_OFF}   $c ${GA_DIM}— /new-feature must not scaffold over this${GA_OFF}"
+    say "  ${GA_YEL}IN-FLIGHT${GA_OFF}   $c ${GA_DIM}— an active change; work continues it, never scaffolds over it${GA_OFF}"
     row IN-FLIGHT "$c" "active change"
     if [ -f .claude/notes/FEATURES.md ] && ! grep -qi -- "$c" .claude/notes/FEATURES.md 2>/dev/null; then
       say "  ${GA_DIM}FEATURE-ROW  $c — no row in .claude/notes/FEATURES.md${GA_OFF}"

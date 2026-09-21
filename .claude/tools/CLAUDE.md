@@ -1,7 +1,7 @@
 # Tool profiles — rules that only bind here
 
 Scoped rules for `.claude/tools/`. Every file here records what one **external platform**
-exposes, and how to reach it. Reference and lifecycle: [TOOL-PROFILES.md](../../docs/TOOL-PROFILES.md).
+exposes, and how to reach it. Reference and lifecycle: [TOOL-PROFILES.md](/docs/reference/TOOL-PROFILES.md)(../../docs/TOOL-PROFILES.md).
 
 ---
 
@@ -10,8 +10,8 @@ exposes, and how to reach it. Reference and lifecycle: [TOOL-PROFILES.md](../../
 - **Owns:** what each external platform exposes — attribute names, units, reachability,
   extraction method, scope — and how it is reached wired or unwired.
 - **May depend on:** nothing. These are observations, not code.
-- **Never imports, and never contains:** credentials, tokens or response bodies (CLAUDE.md §8);
-  *why* the platform was adopted (that is `docs/resources/`, via `/learn`); any Swift type.
+- **Never imports, and never contains:** credentials, tokens or response bodies;
+  *why* the platform was adopted (that is `docs/resources/`, via `/learn`); any of the project's own types.
 
 ---
 
@@ -31,10 +31,10 @@ worse than a missing one, because a wrong one is trusted.
 
 **3. Never read a generated script's body.** The `#@` header is the whole contract, and
 `.claude/SCRIPTS.tsv` carries it. When a call fails, read `.genericarch/failures/`, fix the
-script, and re-run `./Scripts/claude-utils/register-scripts.sh` (CLAUDE.md §5).
+script, and re-run `./Scripts/claude-utils/register-scripts.sh` (CLAUDE.md §3).
 
 **4. Never `rm` a profile.** Retirement moves it to `.genericarch/safetodelete/` and tombstones
-it, so no later run re-creates it (CLAUDE.md §2.15):
+it, so no later run re-creates it (CLAUDE.md §2.5):
 
 ```bash
 ./Scripts/ga-tool-note.sh <tool> --retire --reason "<why>"   # tombstones the profile AND the recipe

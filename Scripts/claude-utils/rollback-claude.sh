@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      util
-#@platform  macos
+#@platform  any
 #@claude    needs-approval
 #@purpose   Undo phase 5 by restoring the pre-edit backup (not git).
 #@usage     rollback-claude.sh <project> <task-id> [--yes] [--from-git] [--force]

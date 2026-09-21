@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    needs-approval
 #@purpose   Compare an installed target against the base and list per-file decisions, CLAUDE.md included.
 #@usage     adopt-review.sh <target-dir> [--base DIR] [--diff N] [--take LIST|--take all]
@@ -36,7 +36,7 @@ MAX_LINES="${MAX_LINES:-100}"
 
 usage() {
   printf 'usage: adopt-review.sh <target-dir> [--base DIR] [--diff N] [--take LIST|all]\n' >&2
-  printf 'example: ./Scripts/adopt-review.sh ~/code/ts-ios --diff 3\n' >&2
+  printf 'example: ./Scripts/adopt-review.sh ~/code/myapp --diff 3\n' >&2
   exit 2
 }
 

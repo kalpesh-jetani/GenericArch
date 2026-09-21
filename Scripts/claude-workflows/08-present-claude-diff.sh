@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      workflow
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   PHASE 8 present: produce the diff and summarise it per section.
 #@usage     08-present-claude-diff.sh <project> <task-id> [--full] [--stage]
@@ -18,7 +18,7 @@
 # Writes 08-diff.patch · 08-summary.md · 08-present.env.
 #
 # The per-section summary is the point of this phase. A 200-line diff of a
-# CLAUDE.md tells a reviewer nothing about which RULES moved; "§6 Concurrency:
+# CLAUDE.md tells a reviewer nothing about which RULES moved; "§2 The rules:
 # +12/-4" tells them exactly where to look. Sections are re-derived from the file
 # as it stands now, not from phase 3's pre-edit inventory, so a heading the edit
 # added maps correctly.
@@ -155,7 +155,7 @@ TASK_ENV="$DIR/01-task.env"
     printf -- '- Code blocks: %s (%s checkable)\n' \
       "$(kv_get "$DIR/07-test.env" CODE_BLOCKS)" "$(kv_get "$DIR/07-test.env" CHECKABLE)"
     printf -- '- Symbols not found by grep: %s\n' "$(kv_get "$DIR/07-test.env" NOT_FOUND)"
-    printf -- '- **Not run** (CLAUDE.md §2.12): `bash %s`\n' "$(kv_get "$DIR/07-test.env" COMMANDS)"
+    printf -- '- **Not run** (CLAUDE.md §2.8): `bash %s`\n' "$(kv_get "$DIR/07-test.env" COMMANDS)"
   fi
 } > "$SUMMARY"
 

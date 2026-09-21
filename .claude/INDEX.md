@@ -10,11 +10,11 @@ not — never a bare path.
 
 ## Features
 
-| Feature | Package — *what's there* | Screens | Governed by | Derived skill |
+| Feature | Module — *what's there* | Screens | Governed by | Derived skill |
 |---|---|---|---|---|
 | — | — | — | — | — |
 
-*Example:* `| Auth | Packages/Features/FeatureAuth — sign-in, OTP, reset | 3 | new-feature | auth-screen-flow |`
+*Example:* `| Auth | src/features/auth — sign-in, OTP, reset | 3 | — | auth-flow |`
 
 **Governed by** is the skill that built it; **Derived skill** is the one it produced, if closing it out
 found a reusable sequence. Most features leave none — that is the normal outcome. Screens, routes and
@@ -22,13 +22,14 @@ states: [notes/FEATURES.md](notes/FEATURES.md) · [notes/NAVIGATION.md](notes/NA
 
 ## Frameworks and tools
 
-A vendor with no wrapper is a §7 violation.
+A vendor with no wrapper may violate a rule the active profile enforces — a profile often requires
+one import site per dependency.
 
 | Name | Wrapper | Usage note |
 |---|---|---|
 | — | — | — |
 
-*Example:* `| Firebase Crashlytics | Packages/Wrappers/CrashReportingWrapper — the only import site | docs/resources/crashlytics.md |`
+*Example:* `| Error reporting SDK | the wrapper that is its only import site | docs/resources/error-reporting.md |`
 
 ## External systems
 

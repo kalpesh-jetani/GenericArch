@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   One-call lookup across the .claude/notes/ inventories.
 #@usage     find.sh <term> [more terms...]
@@ -16,7 +16,7 @@
 # document — this script exists so a lookup costs one tool call instead of
 # three, and so nothing has to open a note to answer "where is X?".
 set -u
-# The install root is not always the git root: an Xcode project often sits in a subdirectory of
+# The install root is not always the git root: a project often sits in a subdirectory of
 # its checkout, and `.claude/notes/` then lives there rather than at the top. Resolving to the git
 # root made every lookup read an empty or absent notes directory and answer "No row" for terms the
 # populated notes documented. So walk up from the caller instead, and only fall back to the git
@@ -36,7 +36,6 @@ term="$*"
 hits=0
 for f in .claude/notes/*.md; do
   [ -f "$f" ] || continue
-  # rows only — never header prose, never the Gaps table
   out=$(grep -h "^| .*$term" "$f" 2>/dev/null | grep -v '^| *---')
   [ -n "$out" ] || continue
   root=$(grep -m1 '^- \*\*Root:\*\*' "$f" | sed 's/.*`\(.*\)`.*/\1/')
@@ -50,7 +49,6 @@ if [ "$hits" -gt 0 ]; then
   exit 0
 fi
 
-# Miss. Point at the doc that owns the topic before falling back to a code grep.
 printf 'No row in .claude/notes/ for "%s".\n\n' "$term"
 map=$(grep -i "$term" .claude/MAP.tsv 2>/dev/null | awk -F'\t' '{printf "  %-42s %s\n", $1, $4}')
 if [ -n "$map" ]; then
@@ -58,8 +56,8 @@ if [ -n "$map" ]; then
 fi
 cat <<'EOF'
 Fall back to a code search, then RECORD THE ROW in the same change — that is what
-keeps the next lookup cheap (CLAUDE.md §5, docs/PATTERN-SEARCH.md):
+keeps the next lookup cheap (CLAUDE.md §3, docs/PATTERN-SEARCH.md):
 
-  grep -rn "<term>" --include="*.swift" . | grep -v Pods
+  grep -rn "<term>" .
 EOF
 exit 1

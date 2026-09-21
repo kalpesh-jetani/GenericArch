@@ -5,13 +5,9 @@
 #   ./install.sh /path/to/TargetRepo  # plan for somewhere else
 #   ./install.sh --dry-run            # print the plan and stop
 #   ./install.sh --yes                # skip the confirmation prompt
-#   ./install.sh --force              # install even if the repo identifies as non-Apple
-#   ./install.sh --project-setup      # always run the Xcode project setup step first
-#   ./install.sh --no-project-setup   # never offer it
 #   ./install.sh --no-preflight       # skip the /project-init evidence scan at the end
 #   ./install.sh --in-place           # upgrade over an existing install instead of uninstalling first
 #   ./install.sh --with-claude-md     # take GenericArch's CLAUDE.md; yours is kept at CLAUDE-BK.md
-#   ./install.sh --ios 17 --macos 15  # state the deployment floors instead of being asked for them
 #
 # This script runs from a GenericArch CHECKOUT and touches the network never. To install straight
 # from GitHub, use bootstrap.sh, which clones a pinned tag and then calls this.
@@ -28,7 +24,7 @@
 # uninstall.sh reads it and nothing else.
 #
 # Exit codes: 0 ok · 1 error · 2 usage · 3 incompatible target · 4 declined · 6 uninstall first ·
-#             78 not macOS
+#             78 unsupported host (no SHA-256 tool)
 set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")" && pwd)"
@@ -46,44 +42,29 @@ usage() {
   sed -n '2,19p' "$0"
   echo
   echo "Exit codes: 0 ok · 1 error · 2 usage · 3 incompatible target · 4 declined · 6 uninstall first"
-  echo "            78 not macOS"
+  echo "            78 unsupported host (no SHA-256 tool)"
 }
 
 TARGET=""
 DRY_RUN=0
 FORCE_COMPAT=0
 ROOT_OK=0
-WITH_ARCH=0
 WITH_CLAUDE=0
 IN_PLACE=0     # upgrade over an older install instead of refusing until it is uninstalled
-PROJECT_SETUP=""   # "" ask when it applies · yes always · no never
 PREFLIGHT=1        # run the /project-init evidence scan once the install has landed
-# Deployment floors, forwarded to ga-project-setup.sh. Reachable here because the floor is the one
-# project answer a person may want to state up front: a freshly created Xcode target carries
-# whatever SDK it was made with, and without these flags the only way to say otherwise was to skip
-# this step and run ga-project-setup.sh by hand afterwards. Unset means "ask", as before.
-PS_IOS=""
-PS_MACOS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -y|--yes)      GA_ASSUME_YES=1; shift ;;
     -n|--dry-run)  DRY_RUN=1; shift ;;
     -f|--force)    FORCE_COMPAT=1; shift ;;
     --root-ok)     ROOT_OK=1; shift ;;
-    --with-architecture) WITH_ARCH=1; shift ;;
     --with-claude-md)    WITH_CLAUDE=1; shift ;;
     --in-place)          IN_PLACE=1; shift ;;
-    --project-setup)    PROJECT_SETUP="yes"; shift ;;
-    --no-project-setup) PROJECT_SETUP="no"; shift ;;
     --no-preflight)     PREFLIGHT=0; shift ;;
-    --ios)         [ $# -ge 2 ] || ga_die "--ios needs a version (e.g. --ios 17)" "$GA_EX_USAGE"
-                   PS_IOS="$2"; shift 2 ;;
-    --macos)       [ $# -ge 2 ] || ga_die "--macos needs a version (e.g. --macos 15)" "$GA_EX_USAGE"
-                   PS_MACOS="$2"; shift 2 ;;
     --mode)        [ $# -ge 2 ] || ga_die "--mode needs existing or new" "$GA_EX_USAGE"
-                   ga_die "--mode is gone: this base installs into a repo that already has its own
-  structure, and there is nothing else to be. A repo with no shape yet gets its package layout from
-  GenericXCodeSetup instead: https://github.com/kalpesh-jetani/GenericXCodeSetup" "$GA_EX_USAGE"
+                   ga_die "--mode is gone: this layer installs into a repo that already has its own
+  structure, and there is nothing else to be. It never creates the project — only the layer that
+  manages it." "$GA_EX_USAGE"
                    shift 2 ;;
     --target)      [ $# -ge 2 ] || ga_die "--target needs a directory" "$GA_EX_USAGE"
                    TARGET="$2"; shift 2 ;;
@@ -98,17 +79,16 @@ while [ $# -gt 0 ]; do
 done
 GA_ASSUME_YES="${GA_ASSUME_YES:-0}"
 
-# Before the target is even resolved: this layer cannot run anywhere but macOS, and an install that
-# lands on Linux is a set of files whose every script refuses itself. -h is handled above, so help
-# still works on any machine.
-ga_require_macos
+# Before the target is even resolved: verify the host has what the manifest needs (a SHA-256 tool).
+# -h is handled above, so help still works on any machine.
+ga_require_host
 
 # ── Source must be a real GenericArch checkout ─────────────────────────────
 # install.sh itself travels into the target (it is in adopt.sh's BASE list), so a copy of this
 # file will exist in repos that have no base to install FROM. Say so plainly instead of failing
 # further in with a confusing error about a missing list.
 if [ ! -f "$SRC/Scripts/adopt.sh" ] || [ ! -f "$SRC/CLAUDE.md" ] \
-   || ! grep -q "Generic Apple Platform App Architecture" "$SRC/CLAUDE.md" 2>/dev/null; then
+   || ! grep -q "Generic Development Layer" "$SRC/CLAUDE.md" 2>/dev/null; then
   ga_die "this is not a GenericArch checkout — there is no base here to install from.
   To install from GitHub instead:  ./bootstrap.sh --apply" "$GA_EX_ERR"
 fi
@@ -122,7 +102,7 @@ TARGET="$(cd "$TARGET" && pwd)"
 [ -w "$TARGET" ] || ga_die "target is not writable: $TARGET" "$GA_EX_ERR"
 
 # ── One install per repo, at one root ──────────────────────────────────────
-# The failure this prevents: the layer installed at a repo root AND at the nested Xcode-project
+# The failure this prevents: the layer installed at a repo root AND at a nested project
 # directory beside it. Both copies are live, the commands and skills are duplicated under names
 # Claude resolves ambiguously, and only one of them has a manifest — so the other can never be
 # uninstalled. That cost three commits to create and one hand cleanup to undo, and the second
@@ -135,8 +115,8 @@ TARGET="$(cd "$TARGET" && pwd)"
 # reports "back to its pre-install state" while a second copy is still live in the checkout.
 OTHER_ROOT=""
 # Compare PHYSICAL paths on both sides. `git rev-parse` resolves symlinks and `cd`+`pwd` does not,
-# so on a symlinked tree (/var → /private/var on macOS, or any repo reached through a link) the
-# same directory compares unequal and the target is reported as a second root against itself.
+# so on a symlinked tree (or any repo reached through a symlink) the same directory compares
+# unequal and the target is reported as a second root against itself.
 TARGET_P="$(cd "$TARGET" && pwd -P)"
 GIT_ROOT="$(git -C "$TARGET" rev-parse --show-toplevel 2>/dev/null || echo "")"
 if [ -n "$GIT_ROOT" ]; then
@@ -343,205 +323,34 @@ if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$GA_VERSION" ] && [ "$IN_PLAC
   Nothing was written." "$GA_EX_UPGRADE"
 fi
 
-# ── 1. Compatibility gate — before the first write, not alongside it ───────
-ga_hdr "── Compatibility ──────────────────────────────────────"
-if ! ga_check_compatible "$TARGET"; then
-  printf '  %sexpected%s  an Apple-platform Swift repo: %s\n' "$GA_BLD" "$GA_OFF" \
-    "*.xcodeproj, *.xcworkspace, Package.swift, or any *.swift"
-  printf '  %sfound%s     ' "$GA_BLD" "$GA_OFF"
-  # shellcheck disable=SC2086  # space-separated marker list, split on purpose
-  for m in $GA_COMPAT_FOREIGN; do printf '%s ' "$m"; done
-  printf '\n'
-  echo
-  if [ "$FORCE_COMPAT" -eq 1 ]; then
-    ga_warn "--force given — installing into a repo that identifies as something else.
-  Every rule, skill and script below targets Apple platforms; in this repo most will be wrong."
-  else
-    ga_die "$TARGET is not a macOS/Swift project — nothing was written.
-  GenericArch installs Swift-specific rules, skills and toolchain scripts; in this repo every
-  one of them would be wrong. No files were copied.
-  If this really is an Apple project the markers cannot see yet, re-run with --force." "$GA_EX_COMPAT"
-  fi
-fi
-if [ "$GA_COMPAT_KIND" = "foreign" ]; then
-  : # already reported above; only reachable with --force, and claiming a Swift project here would lie
-elif [ "$GA_COMPAT_KIND" = "fresh" ]; then
-  # Reported, not welcomed: the refusal follows a few lines down. Saying "supported starting point"
-  # here and then refusing would read as a bug in the gate.
-  ga_warn "nothing identifies this repo yet — no project, no structure"
-else
-  printf '  %s✓%s Apple-platform Swift project —' "$GA_GRN" "$GA_OFF"
-  # shellcheck disable=SC2086  # space-separated marker list, split on purpose
-  for m in $GA_COMPAT_FOUND; do printf ' %s' "$m"; done
-  printf '\n'
-  [ -n "$GA_COMPAT_FOREIGN" ] && ga_warn "also found non-Swift build files:$GA_COMPAT_FOREIGN
-  Proceeding because the Apple markers above decide it, but check this is the repo you meant."
-fi
+# ── 1. Is the tree empty — before the first write, not alongside it ───────
+ga_hdr "── Repository ─────────────────────────────────────────"
+ga_check_compatible "$TARGET"    # always succeeds; never refuses, and never guesses a stack
+case "$GA_COMPAT_KIND" in
+  fresh) ga_info "  an empty repo. The layer installs; the stack is declared at /declare-profile." ;;
+  *)     ga_info "  an existing repo. The layer installs; the stack is declared at /declare-profile." ;;
+esac
 [ -d "$TARGET/.git" ] || ga_warn "target is not a git repository — you will not be able to diff or revert this"
 
-# --root-ok means "two independent products genuinely share this checkout". The markers the gate
-# just found can DISPROVE that: if every project marker resolves inside the other root, there is
-# one product here and this target is a wrapper directory. The gate above cannot see this — it runs
-# before compatibility, because it must refuse before anything is staged — so the finding is
-# carried to the confirmation prompt instead, which is where consent is actually given.
-# Not a refusal: --root-ok is the operator's override and stays one. It just stops being silent.
+# --root-ok means "two independent products genuinely share this checkout". The first file found can
+# DISPROVE that: if it resolves inside the other root, there is one product here
+# and this target is a wrapper directory. Carried to the confirmation prompt, where consent is given;
+# not a refusal — --root-ok stays the operator's override, it just stops being silent.
 ONE_PRODUCT=""
 case "$OTHER_ROOT" in
   "$TARGET"/*)
     _rel_other="${OTHER_ROOT#"$TARGET"/}"
-    _markers=0; _outside=0
-    # Only PATH-shaped markers can be located. The *.swift hit is recorded as the literal glob, not
-    # as where it was found, so it says nothing about which directory the product lives in.
-    # shellcheck disable=SC2086  # space-separated marker list, split on purpose
-    for m in $GA_COMPAT_FOUND; do
-      case "$m" in
-        *.xcodeproj|*.xcworkspace|Package.swift|*.playground|*/*)
-          _markers=$((_markers + 1))
-          case "$m" in "$_rel_other"/*) ;; *) _outside=1 ;; esac ;;
-      esac
-    done
-    [ "$_markers" -gt 0 ] && [ "$_outside" -eq 0 ] && ONE_PRODUCT="$_rel_other"
+    case "$GA_COMPAT_FOUND" in
+      "$_rel_other"/*) ONE_PRODUCT="$_rel_other" ;;
+    esac
     ;;
 esac
 
-# ── Which of the two installs this is ──────────────────────────────────────
-# They differ in exactly one thing: whether the target gets the predefined MODULE material.
-#
-#   existing — a repo that already has a shape. It gets rules, indexes and tooling and NOTHING
-#              module-shaped: no Packages/, no per-package docs, no scaffold. Imposing a layout on a
-#              codebase that already has one is the adoption failure /project-init exists to avoid,
-#              and a module doc for a package the repo does not have is a dead lookup forever.
-#
-# There is no second kind. A repo with no shape yet has nothing for these rules to reconcile
-# against, and the package layout it needs is a different tool's job.
-if [ "$GA_COMPAT_KIND" = "fresh" ]; then
-  ga_die "$TARGET has no project and no structure yet — nothing here to install into.
-
-  This base installs into a repo that ALREADY has its Xcode project: it reconciles rules against
-  what is true there and records a manifest of every file it wrote, so the install is reversible.
-  Neither means anything in an empty directory.
-
-  Create the project and its package layout first:
-      https://github.com/kalpesh-jetani/GenericXCodeSetup
-
-  Then run this again. Nothing was written." "$GA_EX_COMPAT"
-fi
-if [ "$WITH_ARCH" -eq 1 ]; then
-  ga_dim "  --with-architecture given: new-feature and /review come too. Take this only once the"
-  ga_dim "  product has actually adopted §2/§3 — /project-init is where that is decided."
-else
-  ga_dim "  Tooling and lookup only. No Packages/, no scaffold — and no new-feature"
-  ga_dim "  or /review, because both enforce an architecture this repo has not adopted: new-feature"
-  ga_dim "  would scaffold a package the app cannot consume, /review would report rules you declined."
-  ga_dim "  /project-init offers them once the rule-conflict table is settled."
-fi
-
-# ── 1a. The build the target already has ───────────────────────────────────
-# A deployment floor above the installed SDK, or a language mode the compiler cannot provide, means
-# that repo does not build as configured — and /project-init refuses to adopt docs onto it
-# (Scripts/ga-init-scan.sh exits 3 on the same row). This install is not refused for it: rules,
-# indexes and tooling are still correct in a repo whose floors need lowering, and blocking a
-# docs-and-tooling adoption on an unrelated build problem would leave --force as the only way past.
-# So it is said out loud, here, before the operator spends a session on the next step.
-#
-# Only for an existing repo: a fresh one has no project settings to mismatch yet, and
-# ga-project-setup.sh below asks for its floors against the installed SDK anyway.
-if [ "$DRY_RUN" -eq 0 ] && [ -x "$SRC/Scripts/detect-toolchain.sh" ]; then
-  TC_BLOCKING="$(NO_COLOR=1 "$SRC/Scripts/detect-toolchain.sh" --mismatches --root "$TARGET" 2>/dev/null \
-                 | grep '^BLOCKING' || true)"
-  if [ -n "$TC_BLOCKING" ]; then
-    echo
-    ga_warn "this repo does not build as configured — the install continues, /project-init will not:"
-    printf '%s\n' "$TC_BLOCKING" | while IFS='|' read -r _sev _id _what _cur _avail _fix; do
-      printf '    %s%s%s — %s, available %s\n' "$GA_BLD" "$_what" "$GA_OFF" "$_cur" "$_avail"
-      printf '      fix: %s\n' "$_fix"
-    done
-    ga_dim "  /upgrade-stack applies a fix like these, and asks twice before changing any setting."
-  fi
-fi
-
-# ── 1b. Project setup — the one thing this installer cannot generate ───────
-# GenericArch installs rules, skills, tooling and packages. It has never produced the .xcodeproj,
-# and CLAUDE.md §1 is the reason: SPM stays the source of truth, and docs/REPO.md rejects both
-# generators that would do it properly. What IS mechanical — the Xcode toolchain gate, the four
-# committed .xcconfig files, the checklist — is ga-project-setup.sh, and this is where it belongs:
-# after the mode is known, before a single file is written, so a missing toolchain costs nothing.
-#
-# One situation reaches it: a project whose build settings have never been written down. An
-# .xcodeproj is an Apple marker, so nothing else here would notice. Offered, never assumed.
-PROJECT_SETUP_DONE=0
-if [ "$PROJECT_SETUP" != "no" ] && [ -x "$SRC/Scripts/ga-project-setup.sh" ]; then
-  # A project with no Packages/ yet: the .xcconfig files are worth offering, because nothing else
-  # in the repo has written its build settings down.
-  BARE_XCODE=0
-  ga_is_xcode_first "$TARGET" && BARE_XCODE=1
-
-  if [ "$BARE_XCODE" -eq 1 ] || [ "$PROJECT_SETUP" = "yes" ]; then
-    ga_hdr "── Xcode project ──────────────────────────────────────"
-    if [ "$BARE_XCODE" -eq 1 ]; then
-      ga_warn "an .xcodeproj is here but no Packages/ yet. This writes the .xcconfig files your
-  project should reference and never opens the project itself. The package layout is a separate
-  tool: https://github.com/kalpesh-jetani/GenericXCodeSetup"
-    else
-      ga_dim "  Nothing here generates an .xcodeproj — SPM stays the source of truth (CLAUDE.md §1)."
-      ga_dim "  This checks the Xcode toolchain, asks what the project needs, and writes the four"
-      ga_dim "  .xcconfig files plus a checklist. The project itself you create in Xcode."
-    fi
-    echo
-
-    # A bundle ID, a Team ID and a deployment floor are answers only a person has, so with no
-    # terminal this step cannot run — and letting it fail would abort an install that was otherwise
-    # fine. Skip it instead, unless the operator asked for it explicitly and can see the error.
-    PS_HAS_TTY=1
-    { exec 3<>/dev/tty; } 2>/dev/null && exec 3>&- || PS_HAS_TTY=0
-
-    # One argument string, built once and used by both the dry-run line and the real call, so what
-    # the preview advertises cannot drift from what runs. Bare version numbers, so there is no word
-    # splitting to guard against; a string rather than an array because POSIX sh has neither and
-    # this runs before anything GenericArch installs.
-    PS_FLOORS="${PS_IOS:+--ios $PS_IOS}${PS_MACOS:+${PS_IOS:+ }--macos $PS_MACOS}"
-    PS_ARGS="--apply"
-    # --yes has to be handed over explicitly. GA_ASSUME_YES is a plain shell variable here, never
-    # exported, and ga-project-setup.sh runs as its own process — so an unattended
-    # `install.sh --yes --project-setup` printed the whole plan and then declined its own write,
-    # leaving the install to continue with no .xcconfig files and a warning nobody was there to
-    # read. Only the child's final write confirmation is answered: its questions come from ask(),
-    # which GA_ASSUME_YES does not touch, so a person at a terminal is still asked for the bundle
-    # ID and anything else not supplied by flag.
-    [ "$GA_ASSUME_YES" = "1" ] && PS_ARGS="$PS_ARGS --yes"
-    [ -n "$PS_FLOORS" ] && PS_ARGS="$PS_ARGS $PS_FLOORS"
-
-    if [ "$DRY_RUN" -eq 1 ]; then
-      ga_dim "  dry run — skipped. It would run:"
-      ga_dim "    ./Scripts/ga-project-setup.sh \"$TARGET\" $PS_ARGS"
-    elif [ "$PS_HAS_TTY" -eq 0 ] && [ "$PROJECT_SETUP" != "yes" ]; then
-      ga_warn "no terminal to ask on — project setup skipped, the install continues.
-  It needs a bundle ID, a Team ID and a deployment floor, none of which may be defaulted
-  (CLAUDE.md §0). Run it yourself, or pass every answer as a flag:
-    ./Scripts/ga-project-setup.sh . --product NAME --bundle-id com.you.app \\
-        --targets ios,macos --ios 17 --macos 26.5 --apply --yes"
-    elif [ "$PROJECT_SETUP" = "yes" ] || ga_confirm "Set up the Xcode project inputs first?"; then
-      # Run it directly rather than reimplementing the gate: one source of truth for what a usable
-      # Apple toolchain is, and it prompts for its own answers. A floor passed here skips its
-      # prompt; omitted, it asks with the project's own value prefilled.
-      # shellcheck disable=SC2086
-      "$SRC/Scripts/ga-project-setup.sh" "$TARGET" $PS_ARGS
-      _ps=$?
-      case "$_ps" in
-        0) PROJECT_SETUP_DONE=1 ;;
-        # 3 is the toolchain gate. Installing on top of a machine that cannot open the project it
-        # just described is how a session gets spent on a repo nobody can build — so this stops,
-        # and nothing has been written yet.
-        3) ga_die "Xcode toolchain check failed above — nothing was installed.
-  Fix the toolchain and re-run, or skip this step with --no-project-setup." "$GA_EX_COMPAT" ;;
-        4) ga_warn "project setup declined — continuing with the install only" ;;
-        *) ga_die "project setup failed (exit $_ps) — nothing was installed." "$GA_EX_ERR" ;;
-      esac
-    else
-      ga_dim "  skipped — run it later with ./Scripts/ga-project-setup.sh . --apply"
-    fi
-  fi
-fi
+# The layer installs rules, indexes, memory and the profile mechanism into ANY repo — fresh or
+# established. It ships no stack content and imposes no layout; a project declares its stack as a
+# profile (profiles/) at /project-init, which is also where an existing repo's own conventions are
+# reconciled. Nothing here is refused for the language the repo is written in.
+ga_dim "  Tooling, rules and lookup only — no stack content, no layout imposed."
 
 # ── 2. Stage into a temp tree ──────────────────────────────────────────────
 # Scripts/adopt.sh owns the authoritative list of what travels, the "nothing falls through the
@@ -591,7 +400,6 @@ trap 'rollback; cleanup_temp' EXIT
 
 ga_hdr "── Staging ────────────────────────────────────────────"
 ADOPT_ARGS="--apply --quiet-next"
-[ "$WITH_ARCH" -eq 1 ] && ADOPT_ARGS="$ADOPT_ARGS --with-architecture"
 [ "$WITH_CLAUDE" -eq 1 ] && ADOPT_ARGS="$ADOPT_ARGS --with-claude-md"
 # shellcheck disable=SC2086  # deliberate word splitting of a flag list
 if ! "$SRC/Scripts/adopt.sh" "$STAGE" $ADOPT_ARGS > "$ADOPT_LOG" 2>&1; then
@@ -1044,7 +852,7 @@ if [ "$PREFLIGHT" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ -x "$SRC/Scripts/ga-init-
   fi
 fi
 
-ga_hdr "Installed $GA_VERSION$([ "$WITH_ARCH" -eq 1 ] && printf ' (with architecture)')"
+ga_hdr "Installed $GA_VERSION"
 cat <<NEXT
 
   The commands run ${GA_BLD}in this order${GA_OFF} — each one leaves the repo in the state the next assumes.
@@ -1054,10 +862,8 @@ cat <<NEXT
        Reads your CLAUDE.md in full, builds the rule-conflict table, and asks per conflict.
        Your rules win by default; nothing is overwritten without an explicit yes.
        ${GA_DIM}${PREFLIGHT_NOTE}${GA_OFF}
-  2. ${GA_BLD}/gaps${GA_OFF}
-       Derives each gap's status from your code instead of asking.
-  3. ${GA_BLD}/sync-app-notes${GA_OFF}
-       Builds the nine inventories every later lookup reads instead of searching.
+  2. ${GA_BLD}/sync-app-notes${GA_OFF}
+       Builds the inventories every later lookup reads instead of searching.
 
   Then the repo is ${GA_BLD}ready${GA_OFF}: skills, /find, /decide, /learn, /review, /verify, /build.
 

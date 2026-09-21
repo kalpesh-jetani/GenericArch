@@ -11,7 +11,7 @@ reaching a platform; the row names the profile to read and the recipe script to 
 
 - **Source of truth:** [`.claude/tools/LEDGER.tsv`](../../../tools/LEDGER.tsv) — status, failure count,
   verified date. Edit the ledger, never this note.
-- **Rules, lifecycle and schema:** [TOOL-PROFILES.md](../../../../docs/TOOL-PROFILES.md).
+- **Rules, lifecycle and schema:** [TOOL-PROFILES.md](/docs/reference/TOOL-PROFILES.md)(../../../../docs/TOOL-PROFILES.md).
 - **Fires from:** [`SKILL.md`](../SKILL.md) — one always-on description
   for the whole capability; each profile below loads only when it is needed.
 

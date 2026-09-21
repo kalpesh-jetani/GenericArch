@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #@kind      tool
-#@platform  macos
+#@platform  any
 #@claude    call
 #@purpose   Route a corpus of prompts against skill descriptions to catch trigger-vocabulary collisions.
 #@usage     python3 Scripts/check-skill-triggers.py
@@ -23,54 +23,39 @@ for p in sorted((ROOT / ".claude/skills").glob("*/SKILL.md")):
     if m:
         descs[p.parent.name] = m.group(1).lower()
 
-# prompt -> the skill that should win. "AMBIGUOUS" means a tie is acceptable.
+# prompt -> the skill that should win. None means "no skill should fire".
 CASES = [
-    ("create a new settings screen", "new-feature"),
-    ("scaffold FeatureProfile", "new-feature"),
-    # These belong to patterns in docs/patterns/ that are not promoted. Until they are,
-    # no skill should claim them — a survivor absorbing them is the mis-fire to prevent.
+    # tool-profile: capturing what an external platform or connector exposes. No vendor is named — a
+    # fixture naming one would assert the project uses it, and pin phrasing nobody types once it does not.
+    ("i just connected this ticket tracker", "tool-profile"),
+    ("first time using this connector", "tool-profile"),
+    ("do we have a profile for this tool yet", "tool-profile"),
+    ("this connector is not configured, here is the reference", "tool-profile"),
+    # Everything below must match NO skill. tool-profile is the only skill this layer ships, and none
+    # of these is a first-contact-with-a-platform prompt — so a fire here is the over-claim to catch.
+    ("note what we take from this vendor and what we reject", None),   # /learn's territory
+    ("refresh the inventory notes", None),                             # /sync-app-notes is a command
+    ("review my diff before I push", None),                            # /review is a command
+    # Everyday development — no shipped skill should grab these:
+    ("fix this crash on the settings screen", None),
+    ("why is the screen blank", None),
+    ("this value shows as the raw key", None),
+    ("the request works in dev but fails in staging", None),
     ("this button looks wrong in dark mode", None),
     ("I added a new color token", None),
-    ("check the contrast on this card", None),
-    ("add Arabic support", None),
-    ("does this mirror correctly", None),
-    # "screen" legitimately belongs to new-feature; with rtl-support unpromoted, the designed
-    # outcome is that it fires and redirects to docs/patterns/rtl-support.md.
-    ("audit this screen for right to left", "new-feature"),
-    ("ship NetworkKit 2.1", None),
-    ("bump ImageCache after the cache fix", None),
-    # sync-app-notes is a COMMAND, not a skill — nothing should fire on this phrasing.
-    ("refresh the inventory notes", None),
-    ("review my diff before I push", None),   # /review is a command
-    # The everyday cases — these are what a developer actually types.
-    ("fix this crash on the profile screen", "debug"),
-    ("why is the screen blank", "debug"),
-    ("this string shows as the raw key", "debug"),
-    ("the custom font renders as system font", "debug"),
-    ("push works in dev but is silent in testflight", "debug"),
+    ("add localization for another language", None),
+    ("create a new settings screen", None),
+    ("start the settings module", None),
+    ("it crashed on launch", None),
     ("add an email field to the signup request", None),
     ("add an error case for rate limiting", None),
     ("support one more parameter on that endpoint", None),
     ("round the corners on this button", None),
     ("tighten the spacing between rows", None),
-        ("mark this complete", None),
+    ("mark this complete", None),
     ("wrap up the auth work", None),
-    # Pin what the description trim changed. The first two prove a kept trigger phrase still
-    # fires; the rest prove a REMOVED word no longer over-claims — "layout", "protocol", "mock"
-    # and "ContentState case" were all in new-feature's description and pulled unrelated work in.
-    ("start the settings module", "new-feature"),
-    ("it crashed on launch", "debug"),
     ("fix the layout on this card", None),
-    ("add a protocol and a mock for this service", None),
-    ("handle one more content state here", None),
-    # tool-profile: capturing what an external platform exposes. No vendor is named — a fixture
-    # naming one asserts the project uses it, and pins phrasing nobody types once it does not.
-    ("i just connected this ticket tracker", "tool-profile"),
-    ("first time using this connector", "tool-profile"),
-    ("do we have a profile for this tool yet", "tool-profile"),
-    ("this connector is not configured, here is the reference", "tool-profile"),
-    # /learn's territory: what we take from a vendor, not how to drive a platform.
-    ("note what we take from this vendor and what we reject", None),
+    ("add an interface and a mock for this service", None),
 ]
 
 # Stopwords carry no trigger signal. Counting them produced false collisions — the metric was
@@ -141,10 +126,10 @@ for prompt, expected in CASES:
 # it would go stale on their next release. So assert only the two things that are actually ours to
 # keep true, in both directions. Both hold whether or not OpenSpec is installed here: with none
 # present the winner lists are empty and every assertion passes trivially.
-HOUSE = {"debug", "new-feature", "tool-profile"}
+HOUSE = {"tool-profile"}
 
-# Spec-workflow language. None of ours may claim it — a scaffolding skill that fires on "propose a
-# change" produces a package nobody asked for and skips the spec that was the point.
+# Spec-workflow language. None of ours may claim it — a skill that fires on "propose a change" steps
+# on the spec workflow that was the point.
 SPEC_WORKFLOW = [
     "propose a change for magic-link login",
     "archive the completed change",
@@ -154,13 +139,12 @@ SPEC_WORKFLOW = [
     "explore options before we commit to a plan",
 ]
 
-# Our language. None of theirs may claim it — these are Swift package and debugging jobs, and no
-# amount of spec workflow does them.
+# Our language. None of theirs may claim it — first contact with an external platform or connector
+# is tool-profile's job, and no amount of spec workflow does it.
 HOUSE_WORK = [
-    "create a new settings screen",
-    "scaffold FeatureProfile",
-    "fix this crash on the profile screen",
-    "why is the screen blank",
+    "first time using this connector",
+    "do we have a profile for this tool yet",
+    "this connector is not configured, here is the reference",
 ]
 
 

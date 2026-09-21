@@ -9,7 +9,7 @@ allowed-tools: Bash, Grep
 ```
 
 **Exit 5 means an earlier step has not run.** Say which one, and stop — never pass `--force`, and
-never work around it. Order and why: [SEQUENCE.md](../../docs/SEQUENCE.md).
+never work around it. Order and why: [SEQUENCE.md](/docs/operations/SEQUENCE.md)(../../docs/SEQUENCE.md).
 
 Answer "where is `$ARGUMENTS`?" from the index, not from the codebase.
 
@@ -18,13 +18,13 @@ Answer "where is `$ARGUMENTS`?" from the index, not from the codebase.
 ```
 
 That is the whole command on the hit path. It prints the matching rows and nothing else — **no note
-is opened**, which is the point ([PATTERN-SEARCH.md](../../docs/PATTERN-SEARCH.md)).
+is opened**, which is the point ([PATTERN-SEARCH.md](/docs/patterns/PATTERN-SEARCH.md)(../../docs/PATTERN-SEARCH.md)).
 
 ## Reading the result
 
 Each row is self-contained by construction (`/sync-app-notes` §S3): the key, what kind of thing it
 is, and the directory it lives in, relative to the `Root:` the script prints beside the note name.
-Reconstruct a full path as `<root><row path><Key>.swift` unless the row spells a filename out.
+Reconstruct a full path as `<root><row path><Key>` unless the row spells a filename out.
 
 **Render paths as links when you report them.** Rows store bare paths deliberately — link syntax is
 overhead in a file that is only ever grepped — so whoever surfaces a row is the one who makes it
@@ -36,7 +36,7 @@ The script exits non-zero and prints the code-search fallback. Two things must h
 
 1. **Search the code** for the term.
 2. **Record the row** in the note that owns it, in the same change — one insertion, no rewrite
-   (CLAUDE.md §5). This is what makes the *next* lookup cost one call instead of a tree walk.
+   (CLAUDE.md §3). This is what makes the *next* lookup cost one call instead of a tree walk.
 
 A miss you don't record is a miss you pay for again. That is the only maintenance this index needs.
 
@@ -48,4 +48,4 @@ A miss you don't record is a miss you pay for again. That is the only maintenanc
 - **You need to know *why*, not *where*** — notes carry facts, `docs/` carries reasoning.
 
 Never widen this into a rescan. If many rows are missing, say so and let the user type
-`/sync-app-notes` (CLAUDE.md §5).
+`/sync-app-notes` (CLAUDE.md §3).
